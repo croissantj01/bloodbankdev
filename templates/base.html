@@ -4,13 +4,21 @@
     <title>{% block title %}Blood Bank{% endblock %}</title>
 
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
     <nav class="navbar">
-        <a href="{{ url_for('index') }}">Home</a>
-        <a href="{{ url_for('about') }}">About Us</a>
-        <a href="{{ url_for('login') }}">Login</a>
+        <ul class="nav-links">
+            <li><a href="{{ url_for('index') }}">Home</a></li>
+            <li><a href="{{ url_for('about') }}">About Us</a></li>
+        </ul>
+
+        <div class="nav-actions">
+            <a href="{{ url_for('login') }}" class="button-login">Log in</a>
+        </div>
     </nav>
 
     <main class="page-container">
