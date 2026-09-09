@@ -2,17 +2,22 @@
 <html>
 <head>
     <title>{% block title %}Blood Bank{% endblock %}</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
-    <nav class="sidebar-nav-menu">
+    <nav class="navbar">
         <a href="{{ url_for('index') }}">Home</a>
         <a href="{{ url_for('about') }}">About Us</a>
         <a href="{{ url_for('login') }}">Login</a>
     </nav>
 
-    {% block content %}
-    {% endblock %}
+    <main class="page-container">
+        {% block content %}
+        {% endblock %}
+    </main>
+
 
 </body>
 </html>
