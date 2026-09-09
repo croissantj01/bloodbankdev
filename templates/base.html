@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{% block title %}Blood Bank{% endblock %}</title>
+</head>
+<body>
+
+    <nav class="sidebar-nav-menu">
+        <a href="{{ url_for('index') }}">Home</a>
+        <a href="{{ url_for('about') }}">About Us</a>
+        <a href="{{ url_for('login') }}">Login</a>
+    </nav>
+
+    {% block content %}
+    {% endblock %}
+
+</body>
+</html>
