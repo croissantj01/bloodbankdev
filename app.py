@@ -123,14 +123,10 @@ def login():
         email = request.form.get('email')
         password = request.form.get('password')
 
-        print(f"=== FORM SUBMITTED ===")
-        print(f"Email entered: '{email}'")
-
         user = get_user_by_email(email)
 
         if not user:
-            print("RESULT: User email NOT FOUND in database.")
-            return render_template("login.html", error="Invalid credentials.")
+            return render_template("login.html", error_popup="Invalid credentials.")
 
         stored_hash = user['password'] if 'password' in user.keys() else None
 
@@ -159,13 +155,65 @@ def login():
 
     return render_template("login.html")
 
-@app.route("/resetpassword")
-def resetpassword():
-    return render_template("resetpassword.html")
+@app.route("/check_email", methods=["GET", "POST"])
+def check_email():
+    if request.method == "POST":
+        entered_email = request.form.get('email')
+        user = get_user_by_email(entered_email)
+
+        if not user:
+            return render_template("check_email.html", error_popup="No email found! Please try again.")
+        else:
+            otp = str(random.randint(100000, 999999))
+
+            session['pending_email'] = entered_email
+            session['pending_otp'] = otp
+            session['is_reset_flow'] = True
+
+            send_otp_email(entered_email, otp)
+
+            return render_template("verification.html")
+    return render_template("check_email.html")
+
+def update_password(email, new_password):
+    password_bytes = new_password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    hashed_new_password = bcrypt.hashpw(password_bytes, salt).decode('utf-8')
+
+    conn = sqlite3.connect('bloodbank.db')
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE users SET password =? WHERE email = ?", (hashed_new_password, email)
+    )
+    conn.commit()
+    conn.close()
+
+@app.route("/reset_password", methods=["GET", "POST"])
+def reset_password():
+    if not session.get('otp_verified') or not session.get('pending_email'):
+        return redirect(url_for('check_email'))
+
+    if request.method == "POST":
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_new_password')
+
+        if new_password != confirm_password:
+            return render_template("reset_password.html", error_popup="The password does not match!")
+
+        email = session.get('pending_email')
+        update_password(email, new_password)
+
+        session.pop('pending_email', None)
+        session.pop('is_reset_flow', None)
+        session.pop('otp_verified', None)
+
+        return redirect(url_for('login'))
+
+    return render_template("reset_password.html")
 
 def send_otp_email(to_email, otp):
     message = EmailMessage()
-    message.set_content(f"Your verification code is: {otp} \n This code will expire shortly. Do not share it with anyone. ")
+    message.set_content(f"Your verification code is: {otp} \nThis code will expire shortly. Do not share it with anyone. ")
     message['Subject'] = "Blood Bank Management System Verification Code"
     message['From'] = os.getenv('MAIL_USERNAME')
     message['To'] = to_email
@@ -186,8 +234,12 @@ def signup():
     if request.method == "POST":
         email = request.form.get('email')
         password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
 
-        otp = str(random.randint(000000, 999999))
+        if confirm_password != password:
+            return render_template("signup.html", error_popup="Password do not match!")
+
+        otp = str(random.randint(100000, 999999))
 
         session['pending_email'] = email
         session['pending_password'] = password
@@ -206,26 +258,30 @@ def verification():
     entered_otp = request.form.get('otp')
     generated_otp = session.get('pending_otp')
 
-    print(f"DEBUG CHECK -> Entered: '{entered_otp}' | Session OTP: '{generated_otp}'")
-
     if entered_otp == generated_otp:
-        email = session.get('pending_email')
-        password = session.get('pending_password')
-
-        if password:
-            register_user(email,password)
-
         session.pop('pending_otp', None)
-        session.pop('pending_email', None)
-        session.pop('pending_password', None)
 
-        session['user_email'] = email
+        if session.get('is_reset_flow'):
+            session['otp_verified'] = True
+            return redirect(url_for('reset_password'))
+        else:
+            email = session.get('pending_email')
+            password = session.get('pending_password')
 
-        return """
-            <script>
-                alert('Email verified successfully! Welcome!');
-            </script>
-        """
+            if password:
+                register_user(email,password)
+
+            session.pop('pending_email', None)
+            session.pop('pending_password', None)
+
+            session['user_email'] = email
+
+            return """
+                <script>
+                    alert('Email verified successfully! Welcome!');
+                    window.location.href='/'
+                </script>
+            """
 
     else:
         return "Invalid OTP code. Please go back and try again.", 400

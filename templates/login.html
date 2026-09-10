@@ -21,7 +21,7 @@
             <div class="input-group">
                 <label for="password">Password</label>
                 <input type="password" id="password" name="password" required>
-                <a href="{{ url_for('resetpassword') }}" class="reset-link">Forgot password?</a>
+                <a href="{{ url_for('check_email') }}" class="reset-link">Forgot password?</a>
             </div>
 
             <button type="submit" class="submit-button">Log In</button>
@@ -66,5 +66,10 @@
     </div>
 </div>
 
+{% if error_popup %}
+<script>
+    alert("{{ error_popup }}");
+</script>
+{% endif %}
 
 {% endblock %}

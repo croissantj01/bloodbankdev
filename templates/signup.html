@@ -25,7 +25,7 @@
 
             <div class="input-group">
                 <label for="password">Confirm Password</label>
-                <input type="password" id="confirmpassword" name="confirmpassword" required>
+                <input type="password" id="confirm_password" name="confirm_password" required>
             </div>
 
             <button type="submit" class="submit-button">Sign Up</button>
@@ -69,6 +69,12 @@
         </div>
     </div>
 </div>
+
+{% if error_popup %}
+<script>
+    alert("{{ error_popup }}");
+</script>
+{% endif %}
 
 
 {% endblock %}
