@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Verify Account{% endblock %}
+{% block content %}
+
+<div class="card">
+    <div class="card-left">
+        <img src="{{ url_for('static', filename='images/bloodbanklogin.jpg') }}" alt="Blood Bank Verification">
+    </div>
+
+    <div class="card-right">
+        <div class="form-container">
+            <h2>Verification Code</h2>
+        </div>
+
+        <p style="color: #64748b; font-size: 13px; text-align: center; margin-bottom: 24px;">
+            We've sent a 6-digit verification code to your email.
+        </p>
+
+        <form action="{{ url_for('verification') }}" method="POST" id="otp_form">
+            <div class="otp-container">
+                <input type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" class="otp-box" required autocomplete="one_time_code" />
+                <input type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" class="otp-box" required />
+                <input type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" class="otp-box" required />
+                <input type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" class="otp-box" required />
+                <input type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" class="otp-box" required />
+                <input type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" class="otp-box" required />
+            </div>
+
+            <input type="hidden" name="otp" id="complete_otp">
+            <button type="submit" class="submit-button">Verify</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    const inputs = document.querySelectorAll('.otp-box');
+    const form = document.getElementById('otp_form');
+    const complete_otp = document.getElementById('complete_otp');
+
+    inputs.forEach((input, index) => {
+        input.addEventListener('input', (e) => {
+            if (e.target.value && index < inputs.length - 1) {
+                inputs[index + 1].focus();
+            }
+        });
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace' && !input.value && index > 0) {
+                inputs[index - 1].focus();
+            }
+        });
+    });
+
+    form.addEventListener('submit', () => {
+        let otp_value = '';
+        inputs.forEach(input => otp_value += input.value);
+        complete_otp.value = otp_value;
+    });
+</script>
+
+{% endblock %}

@@ -130,7 +130,7 @@ body {
 .card-right form,
 .card-right .input-group,
 .card-right input {
-    width: 100%;
+    width: 100% !important;
     box-sizing: border-box;
 }
 
@@ -319,4 +319,30 @@ h2 {
     background: #0072ff;
     border-radius: 4px;
     display: inline-block;
+}
+
+/*verification*/
+.otp-container {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 24px;
+}
+
+.card-right .otp-box {
+    width: 45px !important;
+    height: 52px !important;
+    font-size: 20px;
+    font-weight: 600;
+    text-align: center !important;
+    border: 1px solid #ccc !important;
+    border-radius: 6px !important;
+    background: #ffffff;
+    outline: none;
+    padding: 0 !important;
+}
+
+.otp-box:focus {
+    border-color: #C2281D !important;
+    box-shadow: 0 0 0 3px rgba(194, 40, 29, 0.15);
 }

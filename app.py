@@ -1,14 +1,44 @@
 import os
-from flask import Flask, render_template, url_for, redirect, session
+import smtplib
+import sqlite3
+import bcrypt
+from email.message import EmailMessage
+from flask import Flask, render_template, url_for, redirect, session, request
 from authlib.integrations.flask_client import OAuth
 from dotenv import load_dotenv
+from database import get_user_by_email
+import random
 
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.getenv('FLASK_SECRET_KEY')
+app.secret_key = os.getenv('FLASK_SECRET_KEY', 'a-very-secure-permanent-fallback-key')
 
 oauth = OAuth(app)
+
+def register_user(username, plain_password):
+    password_bytes = plain_password.encode('utf-8')
+    salt=bcrypt.gensalt()
+    hashed_password = bcrypt.hashpw(password_bytes, salt)
+
+    conn = sqlite3.connect('bloodbank.db')
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO users (email, password) VALUES (?,?)",
+            (username, hashed_password.decode('utf-8'))
+        )
+        conn.commit()
+        print("User registered successful!")
+    except sqlite3.IntegrityError:
+        print("Username already exists.")
+    finally:
+        conn.close()
+
+def get_db_connection():
+    conn = sqlite3.connect('bloodbank.db')
+    conn.row_factory = sqlite3.Row
+    return conn
 
 oauth.register(
     name='google',
@@ -87,17 +117,119 @@ def about():
     return render_template("about.html")
 
 
-@app.route("/login")
+@app.route("/login", methods=["GET", "POST"])
 def login():
+    if request.method == "POST":
+        email = request.form.get('email')
+        password = request.form.get('password')
+
+        print(f"=== FORM SUBMITTED ===")
+        print(f"Email entered: '{email}'")
+
+        user = get_user_by_email(email)
+
+        if not user:
+            print("RESULT: User email NOT FOUND in database.")
+            return render_template("login.html", error="Invalid credentials.")
+
+        stored_hash = user['password'] if 'password' in user.keys() else None
+
+        if stored_hash:
+            password_bytes = password.encode('utf-8')
+            hashed_bytes = stored_hash.encode('utf-8')
+
+            if bcrypt.checkpw(password_bytes, hashed_bytes):
+                otp = str(random.randint(100000, 999999))
+                print(f"RESULT: Password matched! Generated OTP: {otp}")
+
+                session['pending_email'] = email
+                session['pending_otp'] = otp
+
+                email_sent = send_otp_email(email, otp)
+                if not email_sent:
+                    print("WARNING: Email sending failed inside send_otp_email function.")
+
+                return render_template("verification.html")
+            else:
+                print("RESULT: Password check FAILED (Password mismatch).")
+        else:
+            print("RESULT: Password column missing or empty for this user.")
+
+        return render_template("login.html", error="Invalid credentials.")
+
     return render_template("login.html")
 
 @app.route("/resetpassword")
 def resetpassword():
     return render_template("resetpassword.html")
 
-@app.route("/signup")
+def send_otp_email(to_email, otp):
+    message = EmailMessage()
+    message.set_content(f"Your verification code is: {otp} \n This code will expire shortly. Do not share it with anyone. ")
+    message['Subject'] = "Blood Bank Management System Verification Code"
+    message['From'] = os.getenv('MAIL_USERNAME')
+    message['To'] = to_email
+
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(os.getenv('MAIL_USERNAME'), os.getenv('MAIL_PASSWORD'))
+            server.send_message(message)
+        print(f"Successfully sent OTP email to {to_email}")
+        return True
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+        return False
+
+
+@app.route("/signup", methods=['GET', 'POST'])
 def signup():
+    if request.method == "POST":
+        email = request.form.get('email')
+        password = request.form.get('password')
+
+        otp = str(random.randint(000000, 999999))
+
+        session['pending_email'] = email
+        session['pending_password'] = password
+        session['pending_otp'] = otp
+
+        send_otp_email(email, otp)
+
+        return render_template("verification.html")
+
     return render_template("signup.html")
 
+
+
+@app.route('/verification', methods=['POST'])
+def verification():
+    entered_otp = request.form.get('otp')
+    generated_otp = session.get('pending_otp')
+
+    print(f"DEBUG CHECK -> Entered: '{entered_otp}' | Session OTP: '{generated_otp}'")
+
+    if entered_otp == generated_otp:
+        email = session.get('pending_email')
+        password = session.get('pending_password')
+
+        if password:
+            register_user(email,password)
+
+        session.pop('pending_otp', None)
+        session.pop('pending_email', None)
+        session.pop('pending_password', None)
+
+        session['user_email'] = email
+
+        return """
+            <script>
+                alert('Email verified successfully! Welcome!');
+            </script>
+        """
+
+    else:
+        return "Invalid OTP code. Please go back and try again.", 400
+
 if __name__ == "__main__":
-    app.run(debug=True, ssl_context='adhoc', port=5000)
+    app.run(debug=True, port=5000)
+    # app.run(debug=True, ssl_context='adhoc', port=5000)
