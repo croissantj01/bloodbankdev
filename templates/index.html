@@ -52,16 +52,15 @@
     </section>
 
     <div class="bottom-display">
-        <section class="event-container">
+        <section class="event-container span-three">
             <div class="event-header">
-                <h2>Events</h2>
+                <h2>Events (More below)</h2>
             </div>
 
             <div class="all-events">
                     <div class="event-card">
                         <div class="event-image">
-                            <img src="{{ url_for('static', filename='images/event1.jpg') }}"
-                                 onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1615461066841-6116e61058f4?auto=format&fit=crop&w=400&q=80';"
+                            <img src="{{ url_for('static', filename='images/event1picture.jpg') }}"
                                  alt="Event 1">
                             <div class="event-date">Oct 18</div>
                         </div>
@@ -72,9 +71,8 @@
                     </div>
                     <div class="event-card">
                         <div class="event-image">
-                            <img src="{{ url_for('static', filename='images/event1.jpg') }}"
-                                 onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1615461066841-6116e61058f4?auto=format&fit=crop&w=400&q=80';"
-                                 alt="Event 1">
+                            <img src="{{ url_for('static', filename='images/event2picture.jpg') }}"
+                                 alt="Event 2">
                             <div class="event-date">Oct 18</div>
                         </div>
                         <div class="event-info">
@@ -83,113 +81,114 @@
                         </div>
                     </div>
                 </div>
-            <a href="{{ url_for('signup', next='make_appointment') }}" class="view-more-button">Make appointment</a>
         </section>
 
-        <section class="quiz-container">
-            <div class="quiz-header">
-                <h2>Quick Eligibility Quiz</h2>
-            </div>
-            <div class="questions">
-                <div class="question">
-                    <i class="fa-solid fa-circle-question"></i>
-                    <span>Are you over the age of 18?</span>
+        <div class="side-widget-list">
+            <section class="quiz-container">
+                <div class="quiz-header">
+                    <h2>Quick Eligibility Quiz</h2>
                 </div>
-
-                <div class="question">
-                    <i class="fa-solid fa-circle-question"></i>
-                    <span>Question2</span>
-                </div>
-
-                <div class="question">
-                    <i class="fa-solid fa-circle-question"></i>
-                    <span>Question3</span>
-                </div>
-
-                <div class="question">
-                    <i class="fa-solid fa-circle-question"></i>
-                    <span>Question4</span>
-                </div>
-
-                <div class="question">
-                    <i class="fa-solid fa-circle-question"></i>
-                    <span>Question5</span>
-                </div>
-            </div>
-
-            <a href="{{ url_for('signup', next='quiz') }}" class="take-quiz">Take the full quiz</a>
-
-        </section>
-
-        <section class="milestone-container">
-            <div class="milestone-header">
-                <h2>Donor Rewards & Perks </h2>
-            </div>
-
-            <div class="milestones">
-                <div class="milestone">
-                    <div class="milestone-icon">
-                        <i class="fa-solid fa-heart-pulse"></i>
+                <div class="questions">
+                    <div class="question">
+                        <i class="fa-solid fa-circle-question"></i>
+                        <span>Are you in the age group of 18-60 years old?</span>
                     </div>
-                    <div class="milestone-info">
-                        <span class="milestone-title">Free Health Screening</span>
-                        <span class="milestone-desc">BP, iron, & cholesterol check</span>
+
+                    <div class="question">
+                        <i class="fa-solid fa-circle-question"></i>
+                        <span>Do you weigh at least 45kg?</span>
+                    </div>
+
+                    <div class="question">
+                        <i class="fa-solid fa-circle-question"></i>
+                        <span>Have you donated blood before?</span>
+                    </div>
+
+                    <div class="question">
+                        <i class="fa-solid fa-circle-question"></i>
+                        <span>Do you on medication?</span>
+                    </div>
+
+                    <div class="question">
+                        <i class="fa-solid fa-circle-question"></i>
+                        <span>Do you have a high-risk lifestyle?</span>
                     </div>
                 </div>
 
-                <div class="milestone">
-                    <div class="milestone-icon">
-                        <i class="fa-solid fa-award"></i>
-                    </div>
-                    <div class="milestone-info">
-                        <span class="milestone-title">Digital Life Badge</span>
-                        <span class="milestone-desc">Unlock profile milestone ranks</span>
-                    </div>
+                <a href="{{ url_for('signup', next='quiz') }}" class="take-quiz">Take the full quiz</a>
+
+            </section>
+
+            <section class="milestone-container">
+                <div class="milestone-header">
+                    <h2>Donor Rewards & Perks </h2>
                 </div>
 
-                <div class="milestone">
-                    <div class="milestone-icon">
-                        <i class="fa-solid fa-mug-hot"></i>
+                <div class="milestones">
+                    <div class="milestone">
+                        <div class="milestone-icon">
+                            <i class="fa-solid fa-heart-pulse"></i>
+                        </div>
+                        <div class="milestone-info">
+                            <span class="milestone-title">Free Health Check Up</span>
+                            <span class="milestone-desc">Up to 3 free medication check per year!</span>
+                        </div>
                     </div>
-                    <div class="milestone-info">
-                        <span class="milestone-title">Post-Donation Snacks</span>
-                        <span class="milestone-desc">Complimentary food & drinks</span>
+
+                    <div class="milestone">
+                        <div class="milestone-icon">
+                            <i class="fa-solid fa-award"></i>
+                        </div>
+                        <div class="milestone-info">
+                            <span class="milestone-title">eWallet Rewards</span>
+                            <span class="milestone-desc">Redeem up to RM50 eWallet rewards!</span>
+                        </div>
+                    </div>
+
+                    <div class="milestone">
+                        <div class="milestone-icon">
+                            <i class="fa-solid fa-mug-hot"></i>
+                        </div>
+                        <div class="milestone-info">
+                            <span class="milestone-title">Exclusive Blood Donor Merchandise</span>
+                            <span class="milestone-desc">Get free exclusive tote bags, stickers and much more!</span>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <a href="{{ url_for('signup', next='rewards') }}" class="milestone-button">Claim now</a>
-        </section>
+                <a href="{{ url_for('signup', next='rewards') }}" class="milestone-button">Claim now</a>
+            </section>
 
-        <section class ="blood-shortage">
-            <div class="blood-shortage-header">
-                <h2>Blood Inventory Availability</h2>
-            </div>
-            <div class="blood-group-container">
-                <div class="blood-group-type critical">
-                    <div class="blood-group">
-                        <span class="blood-type">A- Negative</span>
-                        <span class="status">Stable</span>
-                    </div>
-                    <p>Sufficient inventory</p>
+            <section class ="blood-shortage">
+                <div class="blood-shortage-header">
+                    <h2>Blood Inventory Availability</h2>
                 </div>
-
-                <div class="blood-group-type low">
-                    <div class="blood-group">
-                        <span class="blood-type">B+ Positive</span>
-                        <span class="status">Stable</span>
-                    </div>
-                    <p>Sufficient inventory</p>
-                </div>
-
-                    <div class="blood-group-type stable">
+                <div class="blood-group-container">
+                    <div class="blood-group-type critical">
                         <div class="blood-group">
-                            <span class="blood-type">B- Negative</span>
-                            <span class="status">Stable</span>
+                            <span class="blood-type">A- Negative</span>
+                            <span class="status">Critical</span>
                         </div>
                         <p>Sufficient inventory</p>
                     </div>
-            </div>
-        </section>
+
+                    <div class="blood-group-type low">
+                        <div class="blood-group">
+                            <span class="blood-type">B+ Positive</span>
+                            <span class="status">Low</span>
+                        </div>
+                        <p>Sufficient inventory</p>
+                    </div>
+
+                        <div class="blood-group-type stable">
+                            <div class="blood-group">
+                                <span class="blood-type">B- Negative</span>
+                                <span class="status">Stable</span>
+                            </div>
+                            <p>Sufficient inventory</p>
+                        </div>
+                </div>
+            </section>
+        </div>
 
     </div>
 </div>

@@ -15,18 +15,32 @@
 
     <nav class="navbar">
         <ul class="nav-head">
-            <li><a href="{{ url_for('index') }}">✦✧ Blood Bank Management System ✦✧</a></li>
+            <a href="{{ url_for('index') }}" class="nav-head-top">✦✧ Blood Bank Management System ✦✧</a>
         </ul>
 
-        <div class="nav-right">
-            <ul class="nav-links">
-                <li><a href="{{ url_for('index') }}">Home</a></li>
-                <li><a href="{{ url_for('about') }}">About Us</a></li>
-            </ul>
+        <div class="floating-navbar">
+            <ul class="navbar">
+                <li>
+                    <a href="{{ url_for('index') }}" class="nav-item">
+                    <i class="fa-solid fa-house"></i>
+                    <span class="nav-text">Home</span>
+                    </a>
+                </li>
 
-            <div class="nav-actions">
-                <a href="{{ url_for('login') }}" class="button-login">Log in</a>
-            </div>
+                <li>
+                    <a href="{{ url_for('about') }}" class="nav-item">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span class="nav-text">About Us</span>
+                    </a>
+                </li>
+
+                <div class="nav-footer-item">
+                    <a href="{{ url_for('login') }}" class="nav-item login-link">
+                        <i class="fa-solid fa-right-to-bracket"></i>
+                        <span class="nav-text">Log In</span>
+                    </a>
+                </div>
+            </ul>
         </div>
     </nav>
 
