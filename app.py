@@ -119,6 +119,9 @@ def about():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    session.pop('is_reset_flow', None)
+    next_page = request.args.get('next') or request.form.get('next')
+
     if request.method == "POST":
         email = request.form.get('email')
         password = request.form.get('password')
@@ -136,24 +139,18 @@ def login():
 
             if bcrypt.checkpw(password_bytes, hashed_bytes):
                 otp = str(random.randint(100000, 999999))
-                print(f"RESULT: Password matched! Generated OTP: {otp}")
 
                 session['pending_email'] = email
                 session['pending_otp'] = otp
+                session['next_page'] = next_page
 
-                email_sent = send_otp_email(email, otp)
-                if not email_sent:
-                    print("WARNING: Email sending failed inside send_otp_email function.")
+                send_otp_email(email, otp)
 
                 return render_template("verification.html")
-            else:
-                print("RESULT: Password check FAILED (Password mismatch).")
-        else:
-            print("RESULT: Password column missing or empty for this user.")
 
         return render_template("login.html", error="Invalid credentials.")
 
-    return render_template("login.html")
+    return render_template("login.html", next=next_page)
 
 @app.route("/check_email", methods=["GET", "POST"])
 def check_email():
@@ -231,6 +228,9 @@ def send_otp_email(to_email, otp):
 
 @app.route("/signup", methods=['GET', 'POST'])
 def signup():
+    session.pop('is_reset_flow', None)
+    next_page = request.args.get('next') or request.form.get('next')
+
     if request.method == "POST":
         email = request.form.get('email')
         password = request.form.get('password')
@@ -245,11 +245,13 @@ def signup():
         session['pending_password'] = password
         session['pending_otp'] = otp
 
+        session['next_page'] = next_page
+
         send_otp_email(email, otp)
 
         return render_template("verification.html")
 
-    return render_template("signup.html")
+    return render_template("signup.html", next=next_page)
 
 
 
@@ -276,15 +278,34 @@ def verification():
 
             session['user_email'] = email
 
-            return """
+            target_page = session.pop('next_page', 'index')
+
+            try:
+                redirect_url = url_for(target_page)
+            except:
+                redirect_url = target_page
+
+            return f"""
                 <script>
                     alert('Email verified successfully! Welcome!');
-                    window.location.href='/'
+                    window.location.href='{redirect_url}'
                 </script>
             """
 
     else:
         return "Invalid OTP code. Please go back and try again.", 400
+
+@app.route('/quiz', methods=['GET','POST'])
+def quiz():
+    return render_template("quiz.html")
+
+@app.route('/make_appointment', methods=['GET','POST'])
+def make_appointment():
+    return render_template("make_appointment.html")
+
+@app.route('/rewards', methods=['GET','POST'])
+def rewards():
+    return render_template("rewards.html")
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

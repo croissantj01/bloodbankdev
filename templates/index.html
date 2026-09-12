@@ -3,6 +3,230 @@
 {% block title %}Home - Blood Bank{% endblock %}
 
 {% block content %}
-    <h1>Blood Bank</h1>
-    <p>Welcome to our blood bank page!</p>
+<div class="index-wrapper">
+    <section class="banner-container">
+        <button class="banner-arrow back-arrow" onclick="change_banner(-1)">
+            <i class="fa-solid fa-chevron-left"></i>
+        </button>
+
+        <div class="banner-card">
+            <div class="home-banner active">
+                <div class="banner-content">
+                    <span class="banner">Blood Donation Events</span>
+                    <h1 class="banner-title">Donation - Street 1</h1>
+                    <p class="banner-subtitle">The event is going to be held on 18/10/2026! Come join us for blood donation!</p>
+                    <a href="{{ url_for('signup') }}" class="banner-button">Become a donor</a>
+                </div>
+            </div>
+
+            <div class="banner-image-container">
+                <div class="image-overlay">
+                    <img src="{{ url_for('static', filename='images/placeholder.png') }}" alt="blood bank">
+                </div>
+            </div>
+
+            <div class="home-banner">
+                <div class="banner-content">
+                    <span class="banner">Eligible for blood donation</span>
+                    <h1 class="banner-title">Take a short quiz to find out!</h1>
+                    <p class="banner-subtitle">Take a short quiz to find out!</p>
+                    <a href="{{ url_for('quiz') }}" class="banner-button">Take Quiz</a>
+                </div>
+            </div>
+
+            <div class="banner-image-container">
+                <div class="image-overlay">
+                    <img src="{{ url_for('static', filename='images/bloodbanklogin.jpg') }}" alt="blood bank">
+                </div>
+            </div>
+
+            <div class="banner-lines">
+                <span class="line-active" onclick="set-slide(0)"></span>
+                <span class="line" onclick="set-slide(1)"></span>
+            </div>
+        </div>
+
+        <button class="banner-arrow next-arrow" onclick="change_banner(1)">
+            <i class="fa-solid fa-chevron-right"></i>
+        </button>
+    </section>
+
+    <div class="bottom-display">
+        <section class="event-container">
+            <div class="event-header">
+                <h2>Events</h2>
+            </div>
+
+            <div class="all-events">
+                    <div class="event-card">
+                        <div class="event-image">
+                            <img src="{{ url_for('static', filename='images/event1.jpg') }}"
+                                 onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1615461066841-6116e61058f4?auto=format&fit=crop&w=400&q=80';"
+                                 alt="Event 1">
+                            <div class="event-date">Oct 18</div>
+                        </div>
+                        <div class="event-info">
+                            <h3>Event 1</h3>
+                            <p><i class="fa-solid fa-location-dot"></i> Area 1</p>
+                        </div>
+                    </div>
+                    <div class="event-card">
+                        <div class="event-image">
+                            <img src="{{ url_for('static', filename='images/event1.jpg') }}"
+                                 onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1615461066841-6116e61058f4?auto=format&fit=crop&w=400&q=80';"
+                                 alt="Event 1">
+                            <div class="event-date">Oct 18</div>
+                        </div>
+                        <div class="event-info">
+                            <h3>Event 2</h3>
+                            <p><i class="fa-solid fa-location-dot"></i> Area 2</p>
+                        </div>
+                    </div>
+                </div>
+            <a href="{{ url_for('signup', next='make_appointment') }}" class="view-more-button">Make appointment</a>
+        </section>
+
+        <section class="quiz-container">
+            <div class="quiz-header">
+                <h2>Quick Eligibility Quiz</h2>
+            </div>
+            <div class="questions">
+                <div class="question">
+                    <i class="fa-solid fa-circle-question"></i>
+                    <span>Are you over the age of 18?</span>
+                </div>
+
+                <div class="question">
+                    <i class="fa-solid fa-circle-question"></i>
+                    <span>Question2</span>
+                </div>
+
+                <div class="question">
+                    <i class="fa-solid fa-circle-question"></i>
+                    <span>Question3</span>
+                </div>
+
+                <div class="question">
+                    <i class="fa-solid fa-circle-question"></i>
+                    <span>Question4</span>
+                </div>
+
+                <div class="question">
+                    <i class="fa-solid fa-circle-question"></i>
+                    <span>Question5</span>
+                </div>
+            </div>
+
+            <a href="{{ url_for('signup', next='quiz') }}" class="take-quiz">Take the full quiz</a>
+
+        </section>
+
+        <section class="milestone-container">
+            <div class="milestone-header">
+                <h2>Donor Rewards & Perks </h2>
+            </div>
+
+            <div class="milestones">
+                <div class="milestone">
+                    <div class="milestone-icon">
+                        <i class="fa-solid fa-heart-pulse"></i>
+                    </div>
+                    <div class="milestone-info">
+                        <span class="milestone-title">Free Health Screening</span>
+                        <span class="milestone-desc">BP, iron, & cholesterol check</span>
+                    </div>
+                </div>
+
+                <div class="milestone">
+                    <div class="milestone-icon">
+                        <i class="fa-solid fa-award"></i>
+                    </div>
+                    <div class="milestone-info">
+                        <span class="milestone-title">Digital Life Badge</span>
+                        <span class="milestone-desc">Unlock profile milestone ranks</span>
+                    </div>
+                </div>
+
+                <div class="milestone">
+                    <div class="milestone-icon">
+                        <i class="fa-solid fa-mug-hot"></i>
+                    </div>
+                    <div class="milestone-info">
+                        <span class="milestone-title">Post-Donation Snacks</span>
+                        <span class="milestone-desc">Complimentary food & drinks</span>
+                    </div>
+                </div>
+            </div>
+            <a href="{{ url_for('signup', next='rewards') }}" class="milestone-button">Claim now</a>
+        </section>
+
+        <section class ="blood-shortage">
+            <div class="blood-shortage-header">
+                <h2>Blood Inventory Availability</h2>
+            </div>
+            <div class="blood-group-container">
+                <div class="blood-group-type critical">
+                    <div class="blood-group">
+                        <span class="blood-type">A- Negative</span>
+                        <span class="status">Stable</span>
+                    </div>
+                    <p>Sufficient inventory</p>
+                </div>
+
+                <div class="blood-group-type low">
+                    <div class="blood-group">
+                        <span class="blood-type">B+ Positive</span>
+                        <span class="status">Stable</span>
+                    </div>
+                    <p>Sufficient inventory</p>
+                </div>
+
+                    <div class="blood-group-type stable">
+                        <div class="blood-group">
+                            <span class="blood-type">B- Negative</span>
+                            <span class="status">Stable</span>
+                        </div>
+                        <p>Sufficient inventory</p>
+                    </div>
+            </div>
+        </section>
+
+    </div>
+</div>
+
+
+<script>
+    let current_banner = 0;
+    const banners = document.querySelectorAll('.home-banner');
+    const lines = document.querySelectorAll('.line');
+
+    function show_banner(index) {
+        if (index >= banners.length) current_banner = 0;
+        else if (index < 0) current_banner = banners.length - 1;
+        else current_banner = index;
+
+        banners.forEach(banner => banner.classList.remove('active'));
+        lines.forEach(line => line.classList.remove('active'));
+
+        if (banners[current_banner]) {
+            banners[current_banner].classList.add('active');
+        }
+        if (lines[current_banner]) {
+            lines[current_banner].classList.add('active');
+        }
+    }
+
+    function change_banner(step) {
+        show_banner(current_banner + step);
+    }
+
+    function set_banner(index) {
+        show_banner(index);
+    }
+
+    setInterval(() => {
+        change_banner(1);
+    }, 20000);
+</script>
+
 {% endblock %}

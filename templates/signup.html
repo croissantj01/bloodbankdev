@@ -13,6 +13,8 @@
         </div>
 
         <form method="POST" action="{{ url_for('signup') }}">
+            <input type="hidden" name="next" value="{{ next }}">
+
             <div class="input-group">
                 <label for="email">Email</label>
                 <input type="email" id="email" name="email" required>
@@ -65,7 +67,7 @@
         </div>
 
         <div class="input-group">
-                <a href="{{ url_for('login') }}" class="signup-link">Already have an account? Log In.</a>
+                <a href="{{ url_for('login', next=next) }}" class="signup-link">Already have an account? Log In.</a>
         </div>
     </div>
 </div>
