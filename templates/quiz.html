@@ -1,18 +1,52 @@
-<!--placeholder-->
 {% extends "base.html" %}
 
 {% block title %}Home - Blood Bank{% endblock %}
 
 {% block content %}
-    <h1>About our services</h1>
-    <p>Welcome to our blood bank page!</p>
+<div class="quiz-page-container">
+    <div class="quiz-card">
+        <div class="quiz-header">
+            <h2>Blood Donor Eligibility</h2>
 
-    <h2> Who we are </h2>
-    <p> We are a blood bank that utilizes modern technology to send blood packs to whoever is in need immediately. </p>
+            <div class="quiz-progress">
+                <div class="progress">
+                    <span class="progress-bar"></span>
+                </div>
+            </div>
+        </div>
 
-    <h2> Our mission </h2>
-    <p> We aim to reduce the current burdens that the current blood banks are facing and to solve the issues faced by them.</p>
+        <hr class="quiz-divider">
 
-    <h2> Our vision </h2>
-    <p> We aim to keep all blood types in sufficient amount and to urgently deliver them to hospital with as little delay as possible.</p>
+        <div class="quiz-body">
+            <div class="question-title" id="question-title">Question 1</div>
+            <h3 class="question-text" id="question-text">Are you in the age group of 18-60 years old?</h3>
+
+            <div class="options" id="options-container">
+                <label class="option selected" id="option-yes">
+                    <input type="radio" name="question1" value="yes" checked>
+                    <span class="option-text">Yes</span>
+                    <span class="custom-radio"></span>
+                </label>
+
+                <label class="option">
+                    <input type="radio" name="question1" value="no" id="option-no">
+                    <span class="option-text">No</span>
+                    <span class="custom-radio"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="quiz-buttons">
+            <button class="nav-button previous-button" disabled>
+                <i class="fa-solid fa-arrow-left"></i> Previous
+            </button>
+
+            <button class="nav-button next-button">
+                Next <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
 {% endblock %}

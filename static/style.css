@@ -1,3 +1,4 @@
+/*navigation*/
 body {
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     box-sizing: border-box;
@@ -132,7 +133,7 @@ body {
     padding: 40px;
 }
 
-/* login page */
+/*loginpage*/
 * {
     box-sizing: border-box;
     margin: 0;
@@ -1013,4 +1014,215 @@ h2 {
 .milestone-button:hover {
     background: #0f172a;
     color: #ffffff !important;
+}
+
+/*quizpage*/
+.quiz-page-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100% !important;
+    max-width: 70% !important;
+    padding: 30px 20px;
+    min-height: 80vh;
+    box-sizing: border-box;
+}
+
+.quiz-page-container {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+}
+
+.quiz-card {
+    background: #ffffff;
+    width: 100% !important;
+    max-width: 950px !important;
+    border-radius: 24px;
+    padding: 40px;
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.06);
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    box-sizing: border-box;
+}
+
+.quiz-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 30px;
+    width: 100%;
+}
+
+.quiz-header h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #C2281D;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.quiz-progress {
+    flex: 1;
+    max-width: 450px;
+}
+
+.progress {
+    text-align: right;
+    font-size: 20px;
+    font-weight: 700;
+    color: #C2281D;
+    margin-bottom: 6px;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background-color: #f1f3f5;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background-color: #C2281D;
+    border-radius: 4px;
+    --progress-width: 20%;
+    width: var(--progress-width);
+    transition: width 0.3s ease;
+}
+
+.quiz-divider {
+    border: none;
+    height: 1px;
+    background-color: #eaeaea;
+    margin: 28px 0;
+}
+
+.quiz-body {
+    padding: 10px 0 30px 0;
+}
+
+.question-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #888;
+    margin-bottom: 8px;
+}
+
+.question-text {
+    font-size: 20px;
+    font-weight: 700;
+    color: #222;
+    margin-bottom: 30px;
+    line-height: 1.4;
+}
+
+.options {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.option {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 18px 24px;
+    background-color: #ffffff;
+    border: 1.5px solid #eaeaea;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.option-text {
+    font-size: 15px;
+    font-weight: 600;
+    color: #444;
+    flex: 1;
+}
+
+.custom-radio {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #ccc;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.custom-radio::after {
+    content: '';
+    width: 10px;
+    height: 10px;
+    background-color: #C2281D;
+    border-radius: 50%;
+    display: none;
+}
+
+.option:hover {
+    border-color: #C2281D;
+    background-color: #fffaf9;
+}
+
+.option.selected {
+    border-color: #C2281D;
+    background-color: #fff1f0;
+}
+
+.option.selected .custom-radio {
+    border-color: #C2281D;
+}
+
+.option.selected .custom-radio::after {
+    display: block;
+}
+
+.option.selected .option-text {
+    color: #C2281D;
+}
+
+.quiz-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 20px;
+    border-top: 1px solid #eaeaea;
+    margin-top: 20px;
+}
+
+.nav-button {
+    padding: 12px 24px;
+    border-radius: 14px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1.5px solid #eaeaea;
+    background: #ffffff;
+    color: #555;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.2s ease;
+}
+
+.nav-button:hover:not(:disabled) {
+    background-color: #f8f9fa;
+    border-color: #ccc;
+}
+
+.nav-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
