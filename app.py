@@ -219,10 +219,9 @@ def send_otp_email(to_email, otp):
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
             server.login(os.getenv('MAIL_USERNAME'), os.getenv('MAIL_PASSWORD'))
             server.send_message(message)
-        print(f"Successfully sent OTP email to {to_email}")
+        print(f"This is the test otp: {otp}")
         return True
     except Exception as e:
-        print(f"Failed to send email: {e}")
         return False
 
 
