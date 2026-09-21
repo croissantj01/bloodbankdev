@@ -310,6 +310,42 @@ def rewards():
 def faq():
     return render_template("faq.html")
 
+
+
+@app.route("/donor_dashboard")
+def donor_dashboard():
+    # Fake user information for testing
+    session["name"] = "John"
+
+    return render_template("donor_dashboard.html")
+
+
+@app.route("/donor/edit-profile")
+def donor_edit_profile():
+    return "<h1>Manage Profile</h1><p>Coming soon...</p>"
+
+
+@app.route("/booking")
+def booking():
+    return "<h1>Book Appointment</h1><p>Coming soon...</p>"
+
+
+@app.route("/donation-history")
+def donation_history():
+    return "<h1>Donation History</h1><p>Coming soon...</p>"
+
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+
+    return """
+    <h1>You have been logged out.</h1>
+    <a href="/">Back to Donor Dashboard</a>
+    """
+
+
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
     # app.run(debug=True, ssl_context='adhoc', port=5000)
