@@ -310,6 +310,9 @@ def rewards():
 def faq():
     return render_template("faq.html")
 
+@app.route('/donorpage_faq', methods=['GET','POST'])
+def donorpage_faq():
+    return render_template("donorpage_faq.html")
 
 
 @app.route("/donor_dashboard")
@@ -329,6 +332,10 @@ def donor_edit_profile():
 def booking():
     return "<h1>Book Appointment</h1><p>Coming soon...</p>"
 
+@app.route("/donor_announcements")
+def donor_announcements():
+    return "<h1>announcements</h1><p>Coming soon...</p>"
+
 
 @app.route("/donation-history")
 def donation_history():
@@ -336,13 +343,13 @@ def donation_history():
 
 
 
-@app.route("/logout")
+@app.route("/index")
 def logout():
     session.clear()
 
     return """
     <h1>You have been logged out.</h1>
-    <a href="/">Back to Donor Dashboard</a>
+    <a href="/">Back to homepage</a>
     """
 
 
