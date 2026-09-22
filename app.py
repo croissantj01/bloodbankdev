@@ -306,6 +306,74 @@ def make_appointment():
 def rewards():
     return render_template("rewards.html")
 
+def send_credentials_email(to_email, full_name, temp_password):
+    message = EmailMessage()
+    message['Subject'] = "Blood Bank Management System - Account Creation"
+    message['From'] = os.getenv('MAIL_USERNAME')
+    message['To'] = to_email
+
+    body = f"""    Hello {full_name},
+    Your blood bank management system staff account has been created.
+    
+    Here are your login credentials:
+    Email: {to_email}
+    Temporary Password: {temp_password}
+    
+    Please log in to the system and change your password after your first log in. Thank you!
+    """
+
+    message.set_content(body)
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(os.getenv('MAIL_USERNAME'), os.getenv('MAIL_PASSWORD'))
+            server.send_message(message)
+        return True
+    except Exception as e:
+        return False
+
+def register_staff_user(full_name, email, phone_number, role, password):
+    password_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    hashed_password = bcrypt.hashpw(password_bytes, salt).decode('utf-8')
+
+    conn = sqlite3.connect('bloodbank.db')
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO users (full_name, email, phone_number, hashed_password, role) VALUES (?,?,?,?,?)", (full_name, email, phone_number, hashed_password, role)
+        )
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError as e:
+        return False
+    finally:
+        conn.close()
+
+@app.route('/create_account', methods=['GET','POST'])
+def create_account():
+    if request.method == 'POST':
+        full_name = request.form.get('name')
+        email = request.form.get('email')
+        phone_number = request.form.get('phone_number')
+        role = request.form.get('role')
+        password = request.form.get('temp-password')
+
+        if not full_name or not email or not role or not password:
+            return render_template('create_account.html', error_popup="Please enter all the details!")
+
+        db_success = register_staff_user(full_name, email, phone_number, role, password)
+
+        if not db_success:
+            return render_template('create_account.html', error_popup="Email already registered!")
+
+        email_sent = send_credentials_email(email, full_name, password)
+
+        if email_sent:
+            return render_template('create_account.html', success_popup="Account creation successful!")
+        else:
+            return render_template('create_account.html', error_popup="Account creation unsuccessful!")
+    return render_template("create_account.html")
+
 @app.route('/faq', methods=['GET','POST'])
 def faq():
     return render_template("faq.html")

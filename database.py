@@ -10,8 +10,11 @@ def init_db():
     conn.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            full_name TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL
+            phone_number TEXT UNIQUE NOT NULL,
+            hashed_password TEXT NOT NULL,
+            role TEXT NOT NULL
         )
     ''')
 
@@ -25,3 +28,4 @@ def get_user_by_email(email):
     return user
 
 init_db()
+print('Database created!')
