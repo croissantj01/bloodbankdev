@@ -3,7 +3,7 @@ import smtplib
 import sqlite3
 import bcrypt
 from email.message import EmailMessage
-from flask import Flask, render_template, url_for, redirect, session, request
+from flask import Flask, render_template, url_for, redirect, session, request, flash
 from authlib.integrations.flask_client import OAuth
 from dotenv import load_dotenv
 from database import get_user_by_email
@@ -323,9 +323,17 @@ def donor_dashboard():
     return render_template("donor_dashboard.html")
 
 
-@app.route("/donor/edit-profile")
-def donor_edit_profile():
-    return "<h1>Manage Profile</h1><p>Coming soon...</p>"
+@app.route("/donor_manage_profile", methods=["GET", "POST"])
+def donor_manage_profile():
+    if request.method == "POST":
+        flash("Profile updated", "success")
+        return redirect(url_for("donor_manage_profile"))
+
+    return render_template("donor_manage_profile.html", donor={})
+
+@app.route("/merit_points")
+def merit_points():
+    return "<h1>Merit points</h1><p>Coming soon...</p>"
 
 
 @app.route("/booking")
@@ -340,6 +348,12 @@ def donor_announcements():
 @app.route("/donation-history")
 def donation_history():
     return "<h1>Donation History</h1><p>Coming soon...</p>"
+
+@app.route("/admin_dashboard")
+def admin_dashboard():
+    session["name"] = "Admin"
+
+    return render_template("admin_dashboard.html")
 
 
 

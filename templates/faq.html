@@ -128,20 +128,11 @@
             question.addEventListener('click', function () {
                 const item = question.closest('.faq-item');
                 const icon = question.querySelector('.faq-icon');
-                const isOpen = item.classList.contains('active');
+                const isOpen = item.classList.toggle('active');
 
-                document.querySelectorAll('.faq-item').forEach(function (el) {
-                    el.classList.remove('active');
-                    const elIcon = el.querySelector('.faq-icon');
-                    elIcon.classList.remove('fa-minus');
-                    elIcon.classList.add('fa-plus');
-                });
-
-                if (!isOpen) {
-                    item.classList.add('active');
-                    icon.classList.remove('fa-plus');
-                    icon.classList.add('fa-minus');
-                }
+                icon.classList.toggle('fa-plus', !isOpen);
+                icon.classList.toggle('fa-minus', isOpen);
+                question.setAttribute('aria-expanded', isOpen);
             });
         });
     });
