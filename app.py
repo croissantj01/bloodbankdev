@@ -246,6 +246,8 @@ def reset_password():
     return render_template("general/reset_password.html")
 
 def send_otp_email(to_email, otp):
+    #verification otp bypass for testing
+    print(f"This is the test otp: {otp}")
     message = EmailMessage()
     message.set_content(f"Your verification code is: {otp} \nThis code will expire shortly. Do not share it with anyone. ")
     message['Subject'] = "Blood Bank Management System Verification Code"
@@ -256,7 +258,6 @@ def send_otp_email(to_email, otp):
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
             server.login(os.getenv('MAIL_USERNAME'), os.getenv('MAIL_PASSWORD'))
             server.send_message(message)
-        print(f"This is the test otp: {otp}")
         return True
     except Exception as e:
         return False
@@ -305,7 +306,6 @@ def verification():
         email = session.pop('pending_email', None)
         name = session.pop('pending_name', 'User')
 
-        # Normalize incoming role string
         raw_role = session.pop('pending_role', 'donor')
         role = str(raw_role).strip().lower().replace(' ', '_')
 
