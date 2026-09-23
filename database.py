@@ -18,6 +18,8 @@ def init_db():
         )
     ''')
 
+    print('Database created!')
+
     conn.commit()
     conn.close()
 
@@ -28,4 +30,3 @@ def get_user_by_email(email):
     return user
 
 init_db()
-print('Database created!')

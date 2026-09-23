@@ -21,44 +21,44 @@
         <div class="floating-navbar">
             <ul class="navbar">
                 <li>
-                    <a href="{{ url_for('index') }}" class="nav-item">
+                    <a href="{{ url_for('admin_dashboard') }}" class="nav-item">
                     <i class="fa-solid fa-house"></i>
                     <span class="nav-text">Home</span>
                     </a>
                 </li>
 
                 <li>
-                    <a href="{{ url_for('about') }}" class="nav-item">
-                    <i class="fa-solid fa-circle-info"></i>
-                    <span class="nav-text">About Us</span>
+                    <a href="{{ url_for('create_account') }}" class="nav-item">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <span class="nav-text">Create account</span>
                     </a>
                 </li>
 
                 <li>
-                    <a href="{{ url_for('faq') }}" class="nav-item">
-                    <i class="fa-solid fa-circle-question"></i>
-                    <span class="nav-text">FAQ</span>
+                    <a href="{{ url_for('manage_user') }}" class="nav-item">
+                    <i class="fa-solid fa-user"></i>
+                    <span class="nav-text">Manage User</span>
                     </a>
                 </li>
 
                 <li>
-                    <a href="{{ url_for('blood_request') }}" class="nav-item">
+                    <a href="{{ url_for('view_blood_info') }}" class="nav-item">
                     <i class="fa-solid fa-droplet"></i>
-                    <span class="nav-text">Blood Request</span>
+                    <span class="nav-text">View Blood Details</span>
                     </a>
                 </li>
 
                 <li>
-                    <a href="{{ url_for('view_blood_request') }}" class="nav-item">
-                    <i class="fa-solid fa-eye"></i>
-                    <span class="nav-text">View Blood Request</span>
+                    <a href="{{ url_for('admin_report') }}" class="nav-item">
+                    <i class="fa-solid fa-file-lines"></i>
+                    <span class="nav-text">View reports</span>
                     </a>
                 </li>
 
                 <div class="nav-footer-item">
-                    <a href="{{ url_for('login') }}" class="nav-item login-link">
+                    <a href="{{ url_for('index') }}" class="nav-item login-link">
                         <i class="fa-solid fa-right-to-bracket"></i>
-                        <span class="nav-text">Log In</span>
+                        <span class="nav-text">Log Out</span>
                     </a>
                 </div>
 

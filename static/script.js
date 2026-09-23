@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', function () {
         questionText.innerText = currentData.question;
 
         optionsContainer.innerHTML = '';
-        currentData.options.forEach((opt, index) => {
+        currentData.options.forEach((opt) => {
             const optValue = opt.toLowerCase();
             const isChecked = userAnswers[currentQuestionIndex] === optValue ? 'checked' : '';
             const isSelected = userAnswers[currentQuestionIndex] === optValue ? 'selected' : '';
@@ -65,7 +65,15 @@ document.addEventListener('DOMContentLoaded', function () {
         progressText.innerText = percentage + '%';
         progressFill.style.setProperty('--progress-width', percentage + '%');
 
-        prevBtn.disabled = currentQuestionIndex === 0;
+        if (prevBtn) {
+            prevBtn.disabled = currentQuestionIndex === 0;
+            if (currentQuestionIndex === 0) {
+                prevBtn.classList.add('disabled');
+            } else {
+                prevBtn.classList.remove('disabled');
+            }
+        }
+
         if (currentQuestionIndex === totalQuestions - 1) {
             nextBtn.innerHTML = 'Finish <i class="fa-solid fa-check"></i>';
         } else {
@@ -95,7 +103,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-nextBtn.addEventListener('click', function() {
+    nextBtn.addEventListener('click', function() {
         saveCurrentAnswer();
 
         if (currentQuestionIndex < totalQuestions - 1) {
@@ -114,15 +122,15 @@ nextBtn.addEventListener('click', function() {
         }
     });
 
-    prevBtn.addEventListener('click', function() {
-        saveCurrentAnswer();
+    if (prevBtn) {
+        prevBtn.addEventListener('click', function() {
+            if (currentQuestionIndex === 0) return;
 
-        if (currentQuestionIndex > 0) {
+            saveCurrentAnswer();
             currentQuestionIndex--;
             loadQuestion();
-        }
-    });
+        });
+    }
 
     loadQuestion();
-    attachRadioListeners();
 });

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Blood Bank{% endblock %}</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+    <nav class="navbar">
+        <ul class="nav-head">
+            <a href="{{ url_for('index') }}" class="nav-head-top">✦✧ Blood Bank Management System ✦✧</a>
+        </ul>
+
+        <div class="floating-navbar">
+            <ul class="navbar">
+                <li>
+                    <a href="{{ url_for('donor_dashboard') }}" class="nav-item">
+                    <i class="fa-solid fa-house"></i>
+                    <span class="nav-text">Home</span>
+                    </a>
+                </li>
+
+                <li>
+                    <a href="{{ url_for('record_donation') }}" class="nav-item">
+                    <i class="fa-solid fa-clipboard-user"></i>
+                    <span class="nav-text">Record Donation</span>
+                    </a>
+                </li>
+
+                <li>
+                    <a href="{{ url_for('view_appointment') }}" class="nav-item">
+                    <i class="fa-solid fa-calendar-check"></i>
+                    <span class="nav-text">Appointment</span>
+                    </a>
+                </li>
+
+                <li>
+                    <a href="{{ url_for('manage_blood_stock') }}" class="nav-item">
+                    <i class="fa-solid fa-droplet"></i>
+                    <span class="nav-text">Blood Stock</span>
+                    </a>
+                </li>
+
+                <li>
+                    <a href="{{ url_for('blood_request') }}" class="nav-item">
+                    <i class="fa-solid fa-hand-holding-medical"></i>
+                    <span class="nav-text">Blood Request</span>
+                    </a>
+                </li>
+
+                <li>
+                    <a href="{{ url_for('staff_report') }}" class="nav-item">
+                    <i class="fa-solid fa-clipboard-question"></i>
+                    <span class="nav-text">Report</span>
+                    </a>
+                </li>
+
+                <div class="nav-footer-item">
+                    <a href="{{ url_for('index') }}" class="nav-item login-link">
+                        <i class="fa-solid fa-right-to-bracket"></i>
+                        <span class="nav-text">Log Out</span>
+                    </a>
+                </div>
+
+            </ul>
+        </div>
+    </nav>
+
+    <main class="page-container">
+        {% block content %}
+        {% endblock %}
+    </main>
+
+
+</body>
+</html>

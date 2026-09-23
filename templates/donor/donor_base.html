@@ -21,30 +21,51 @@
         <div class="floating-navbar">
             <ul class="navbar">
                 <li>
-                    <a href="{{ url_for('index') }}" class="nav-item">
+                    <a href="{{ url_for('donor_dashboard') }}" class="nav-item">
                     <i class="fa-solid fa-house"></i>
                     <span class="nav-text">Home</span>
                     </a>
                 </li>
 
                 <li>
-                    <a href="{{ url_for('about') }}" class="nav-item">
-                    <i class="fa-solid fa-circle-info"></i>
-                    <span class="nav-text">About Us</span>
+                    <a href="{{ url_for('manage_profile') }}" class="nav-item">
+                    <i class="fa-solid fa-user"></i>
+                    <span class="nav-text">Manage Profile</span>
                     </a>
                 </li>
 
                 <li>
-                    <a href="{{ url_for('faq') }}" class="nav-item">
+                    <a href="{{ url_for('make_appointment') }}" class="nav-item">
+                    <i class="fa-solid fa-calendar-check"></i>
+                    <span class="nav-text">Appointment</span>
+                    </a>
+                </li>
+
+                <li>
+                    <a href="{{ url_for('rewards') }}" class="nav-item">
+                    <i class="fa-solid fa-gift"></i>
+                    <span class="nav-text">Rewards</span>
+                    </a>
+                </li>
+
+                <li>
+                    <a href="{{ url_for('quiz') }}" class="nav-item">
                     <i class="fa-solid fa-circle-question"></i>
+                    <span class="nav-text">Quiz</span>
+                    </a>
+                </li>
+
+                <li>
+                    <a href="{{ url_for('donor_faq') }}" class="nav-item">
+                    <i class="fa-solid fa-clipboard-question"></i>
                     <span class="nav-text">FAQ</span>
                     </a>
                 </li>
 
                 <div class="nav-footer-item">
-                    <a href="{{ url_for('login') }}" class="nav-item login-link">
+                    <a href="{{ url_for('index') }}" class="nav-item login-link">
                         <i class="fa-solid fa-right-to-bracket"></i>
-                        <span class="nav-text">Log In</span>
+                        <span class="nav-text">Log Out</span>
                     </a>
                 </div>
 

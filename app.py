@@ -25,13 +25,16 @@ def register_user(username, plain_password):
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "INSERT INTO users (email, password) VALUES (?,?)",
-            (username, hashed_password.decode('utf-8'))
+            "INSERT INTO users (email, hashed_password, role) VALUES (?,?,?)",
+            (username, hashed_password.decode('utf-8'), 'donor')
         )
         conn.commit()
         print("User registered successful!")
     except sqlite3.IntegrityError:
         print("Username already exists.")
+        return False
+    except Exception as e:
+        return False
     finally:
         conn.close()
 
@@ -109,13 +112,12 @@ def oauth_authorize(provider):
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("general/index.html")
 
 
 @app.route("/about")
 def about():
-    return render_template("about.html")
-
+    return render_template("general/about.html")
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -126,31 +128,61 @@ def login():
         email = request.form.get('email')
         password = request.form.get('password')
 
+        admin_email = os.getenv('ADMIN_EMAIL')
+        admin_password = os.getenv('ADMIN_PASSWORD')
+
+        if email == admin_email and password == admin_password:
+            otp = str(random.randint(100000, 999999))
+
+            session['user_email'] = email
+            session['pending_otp'] = str(otp)
+            session['user_name'] = "Admin"
+            session['pending_role'] = 'admin'
+            session['next_page'] = next_page
+
+            send_otp_email(email, otp)
+
+            return render_template("general/verification.html")
+
         user = get_user_by_email(email)
 
         if not user:
-            return render_template("login.html", error_popup="Invalid credentials.")
+            return render_template("general/login.html", error_popup="Invalid credentials.")
 
-        stored_hash = user['password'] if 'password' in user.keys() else None
+        stored_hash = None
+        if isinstance(user, dict):
+            stored_hash = user.get('hashed_password')
+        else:
+            try:
+                stored_hash = user['hashed_password']
+            except (KeyError, IndexError):
+                stored_hash = None
 
         if stored_hash:
             password_bytes = password.encode('utf-8')
-            hashed_bytes = stored_hash.encode('utf-8')
+            hashed_bytes = stored_hash.encode('utf-8') if isinstance(stored_hash, str) else stored_hash
 
             if bcrypt.checkpw(password_bytes, hashed_bytes):
                 otp = str(random.randint(100000, 999999))
 
+                user_name = user['full_name'] if ('full_name' in user.keys() and user['full_name']) else email
+                role = user['role'] if ('role' in user.keys() and user['role']) else 'donor'
+
+                user_role = str(role).strip().lower().replace(' ', '_')
+
                 session['pending_email'] = email
                 session['pending_otp'] = otp
                 session['next_page'] = next_page
+                session['pending_name'] = user_name
+                session['pending_role'] = user_role
 
                 send_otp_email(email, otp)
 
-                return render_template("verification.html")
+                return render_template("general/verification.html")
 
-        return render_template("login.html", error="Invalid credentials.")
+        return render_template("general/login.html", error="Invalid credentials.")
 
-    return render_template("login.html", next=next_page)
+    return render_template("general/login.html", next=next_page)
 
 @app.route("/check_email", methods=["GET", "POST"])
 def check_email():
@@ -158,8 +190,13 @@ def check_email():
         entered_email = request.form.get('email')
         user = get_user_by_email(entered_email)
 
+        admin_email = os.getenv('ADMIN_EMAIL')
+
+        if entered_email == admin_email:
+            return render_template("general/check_email.html", error_popup="Admin password can't be reset here! Contact IT department!")
+
         if not user:
-            return render_template("check_email.html", error_popup="No email found! Please try again.")
+            return render_template("general/check_email.html", error_popup="No email found! Please try again.")
         else:
             otp = str(random.randint(100000, 999999))
 
@@ -169,8 +206,8 @@ def check_email():
 
             send_otp_email(entered_email, otp)
 
-            return render_template("verification.html")
-    return render_template("check_email.html")
+            return render_template("general/verification.html")
+    return render_template("general/check_email.html")
 
 def update_password(email, new_password):
     password_bytes = new_password.encode('utf-8')
@@ -180,7 +217,7 @@ def update_password(email, new_password):
     conn = sqlite3.connect('bloodbank.db')
     cursor = conn.cursor()
     cursor.execute(
-        "UPDATE users SET password =? WHERE email = ?", (hashed_new_password, email)
+        "UPDATE users SET hashed_password =? WHERE email = ?", (hashed_new_password, email)
     )
     conn.commit()
     conn.close()
@@ -195,7 +232,7 @@ def reset_password():
         confirm_password = request.form.get('confirm_new_password')
 
         if new_password != confirm_password:
-            return render_template("reset_password.html", error_popup="The password does not match!")
+            return render_template("general/reset_password.html", error_popup="The password does not match!")
 
         email = session.get('pending_email')
         update_password(email, new_password)
@@ -206,7 +243,7 @@ def reset_password():
 
         return redirect(url_for('login'))
 
-    return render_template("reset_password.html")
+    return render_template("general/reset_password.html")
 
 def send_otp_email(to_email, otp):
     message = EmailMessage()
@@ -236,22 +273,20 @@ def signup():
         confirm_password = request.form.get('confirm_password')
 
         if confirm_password != password:
-            return render_template("signup.html", error_popup="Password do not match!")
+            return render_template("general/signup.html", error_popup="Passwords do not match!")
 
         otp = str(random.randint(100000, 999999))
 
         session['pending_email'] = email
         session['pending_password'] = password
         session['pending_otp'] = otp
-
-        session['next_page'] = next_page
+        if next_page:
+            session['next_page'] = next_page
 
         send_otp_email(email, otp)
+        return render_template("general/verification.html")
 
-        return render_template("verification.html")
-
-    return render_template("signup.html", next=next_page)
-
+    return render_template("general/signup.html", next=next_page)
 
 
 @app.route('/verification', methods=['POST'])
@@ -265,46 +300,70 @@ def verification():
         if session.get('is_reset_flow'):
             session['otp_verified'] = True
             return redirect(url_for('reset_password'))
-        else:
-            email = session.get('pending_email')
-            password = session.get('pending_password')
 
-            if password:
-                register_user(email,password)
+        pending_password = session.pop('pending_password', None)
+        email = session.pop('pending_email', None)
+        name = session.pop('pending_name', 'User')
 
-            session.pop('pending_email', None)
-            session.pop('pending_password', None)
+        # Normalize incoming role string
+        raw_role = session.pop('pending_role', 'donor')
+        role = str(raw_role).strip().lower().replace(' ', '_')
 
-            session['user_email'] = email
+        if pending_password and email:
+            register_user(email, pending_password)
 
-            target_page = session.pop('next_page', 'index')
+        session['user_email'] = email
+        session['user_name'] = name
+        session['role'] = role
 
-            try:
-                redirect_url = url_for(target_page)
-            except:
-                redirect_url = target_page
+        target_page = session.pop('next_page', None)
+        if not target_page or target_page == 'None':
+            if role == 'admin':
+                target_page = 'admin_dashboard'
+            elif role == 'hospital_staff':
+                target_page = 'hospital_staff_dashboard'
+            elif role == 'blood_bank_staff':
+                target_page = 'blood_bank_staff_dashboard'
+            else:
+                target_page = 'donor_dashboard'
 
-            return f"""
-                <script>
-                    alert('Email verified successfully! Welcome!');
-                    window.location.href='{redirect_url}'
-                </script>
-            """
+        try:
+            redirect_url = url_for(target_page)
+        except Exception:
+            redirect_url = url_for('donor_dashboard')
 
+        return f"""
+            <script>
+                alert('Verification successful! Welcome!');
+                window.location.href="{redirect_url}";
+            </script>
+        """
     else:
-        return "Invalid OTP code. Please go back and try again.", 400
+        return render_template("general/verification.html", error_popup="Invalid OTP. Try again!")
 
 @app.route('/quiz', methods=['GET','POST'])
 def quiz():
-    return render_template("quiz.html")
+    return render_template("general/quiz.html")
+
+@app.route('/donor_quiz', methods=['GET','POST'])
+def donor_quiz():
+    return render_template("donor/donor_quiz.html")
 
 @app.route('/make_appointment', methods=['GET','POST'])
 def make_appointment():
-    return render_template("make_appointment.html")
+    return render_template("donor/make_appointment.html")
 
 @app.route('/rewards', methods=['GET','POST'])
 def rewards():
-    return render_template("rewards.html")
+    return render_template("donor/rewards.html")
+
+@app.route('/donor_faq', methods=['GET','POST'])
+def donor_faq():
+    return render_template("donor/donor_faq.html")
+
+@app.route('/blood_request', methods=['GET','POST'])
+def blood_request():
+    return render_template("blood_bank_staff/blood_request.html")
 
 def send_credentials_email(to_email, full_name, temp_password):
     message = EmailMessage()
@@ -336,11 +395,13 @@ def register_staff_user(full_name, email, phone_number, role, password):
     salt = bcrypt.gensalt()
     hashed_password = bcrypt.hashpw(password_bytes, salt).decode('utf-8')
 
+    normalized_role = str(role).strip().lower().replace(' ', '_')
+
     conn = sqlite3.connect('bloodbank.db')
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "INSERT INTO users (full_name, email, phone_number, hashed_password, role) VALUES (?,?,?,?,?)", (full_name, email, phone_number, hashed_password, role)
+            "INSERT INTO users (full_name, email, phone_number, hashed_password, role) VALUES (?,?,?,?,?)", (full_name, email, phone_number, hashed_password, normalized_role)
         )
         conn.commit()
         return True
@@ -359,80 +420,77 @@ def create_account():
         password = request.form.get('temp-password')
 
         if not full_name or not email or not role or not password:
-            return render_template('create_account.html', error_popup="Please enter all the details!")
+            return render_template('admin/create_account.html', error_popup="Please enter all the details!")
 
         db_success = register_staff_user(full_name, email, phone_number, role, password)
 
         if not db_success:
-            return render_template('create_account.html', error_popup="Email already registered!")
+            return render_template('admin/create_account.html', error_popup="Email already registered!")
 
         email_sent = send_credentials_email(email, full_name, password)
 
         if email_sent:
-            return render_template('create_account.html', success_popup="Account creation successful!")
+            return render_template('admin/create_account.html', success_popup="Account creation successful!")
         else:
-            return render_template('create_account.html', error_popup="Account creation unsuccessful!")
-    return render_template("create_account.html")
+            return render_template('admin/create_account.html', error_popup="Account creation unsuccessful!")
+    return render_template("admin/create_account.html")
 
 @app.route('/faq', methods=['GET','POST'])
 def faq():
-    return render_template("faq.html")
+    return render_template("general/faq.html")
 
-@app.route('/donorpage_faq', methods=['GET','POST'])
-def donorpage_faq():
-    return render_template("donorpage_faq.html")
+@app.route('/hospital_staff_dashboard', methods=['GET', 'POST'])
+def hospital_staff_dashboard():
+    return render_template("hospital_staff/hospital_staff_dashboard.html")
 
+@app.route('/manage_user', methods=['GET','POST'])
+def manage_user():
+    return render_template("admin/manage_user.html")
 
-@app.route("/donor_dashboard")
+@app.route('/view_blood_info', methods=['GET','POST'])
+def view_blood_info():
+    return render_template("admin/view_blood_info.html")
+
+@app.route('/admin_report', methods=['GET','POST'])
+def admin_report():
+    return render_template("admin/admin_report.html")
+
+@app.route('/staff_report', methods=['GET','POST'])
+def staff_report():
+    return render_template("blood_bank_staff/staff_report.html")
+
+@app.route("/donor_dashboard", methods=['GET','POST'])
 def donor_dashboard():
-    # Fake user information for testing
-    session["name"] = "John"
+    return render_template("donor/donor_dashboard.html")
 
-    return render_template("donor_dashboard.html")
+@app.route("/manage_profile", methods=["GET", "POST"])
+def manage_profile():
+    return render_template("donor/manage_profile.html")
 
+@app.route("/blood_bank_staff_dashboard", methods=["GET", "POST"])
+def blood_bank_staff_dashboard():
+    return render_template("blood_bank_staff/blood_bank_staff_dashboard.html")
 
-@app.route("/donor_manage_profile", methods=["GET", "POST"])
-def donor_manage_profile():
-    if request.method == "POST":
-        flash("Profile updated", "success")
-        return redirect(url_for("donor_manage_profile"))
+@app.route("/manage_blood_stock", methods=["GET", "POST"])
+def manage_blood_stock():
+    return render_template("blood_bank_staff/manage_blood_stock.html")
 
-    return render_template("donor_manage_profile.html", donor={})
+@app.route("/record_donation", methods=["GET", "POST"])
+def record_donation():
+    return render_template("blood_bank_staff/record_donation.html")
 
-@app.route("/merit_points")
-def merit_points():
-    return "<h1>Merit points</h1><p>Coming soon...</p>"
-
-
-@app.route("/booking")
-def booking():
-    return "<h1>Book Appointment</h1><p>Coming soon...</p>"
-
-@app.route("/donor_announcements")
-def donor_announcements():
-    return "<h1>announcements</h1><p>Coming soon...</p>"
-
-
-@app.route("/donation-history")
-def donation_history():
-    return "<h1>Donation History</h1><p>Coming soon...</p>"
+@app.route("/view_appointment", methods=["GET", "POST"])
+def view_appointment():
+    return render_template("blood_bank_staff/view_appointment.html")
 
 @app.route("/admin_dashboard")
 def admin_dashboard():
-    session["name"] = "Admin"
-
-    return render_template("admin_dashboard.html")
-
-
+    return render_template("admin/admin_dashboard.html")
 
 @app.route("/index")
 def logout():
     session.clear()
-
-    return """
-    <h1>You have been logged out.</h1>
-    <a href="/">Back to homepage</a>
-    """
+    return render_template("general/index.html")
 
 
 if __name__ == "__main__":

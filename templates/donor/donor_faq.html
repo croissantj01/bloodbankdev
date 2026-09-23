@@ -1,0 +1,141 @@
+{% extends "donor/donor_base.html" %}
+
+{% block title %}FAQ{% endblock %}
+
+{% block content %}
+<div class="content-page">
+
+<section class="faq-hero">
+    <span class="banner">FAQ</span>
+    <h1 class="faq-hero-title">Frequently Asked Questions</h1>
+    <p class="faq-hero-subtitle">Got a question about donating blood or using your account? Click a question below to see the answer.</p>
+</section>
+
+<section class="faq-list">
+
+    <div class="faq-item">
+        <button class="faq-question" type="button">
+            Who can donate blood?
+            <i class="fa-solid fa-plus faq-icon"></i>
+        </button>
+        <div class="faq-answer">
+            <p>Any healthy person between the age of 17 and 60 years old, weighing at least 45kg. A short health screening and questionnaire will be conducted to confirm if you're eligible to donate blood.</p>
+        </div>
+    </div>
+
+    <div class="faq-item">
+        <button class="faq-question" type="button">
+            What to prepare before the donation?
+            <i class="fa-solid fa-plus faq-icon"></i>
+        </button>
+        <div class="faq-answer">
+            <ul>
+                <li>Get a good night's sleep</li>
+                <li>Have breakfast or lunch</li>
+                <li>Drink plenty of water before the donation</li>
+                <li>Avoid fatty foods as it could affect the blood test results</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="faq-item">
+        <button class="faq-question" type="button">
+            How often can I donate blood?
+            <i class="fa-solid fa-plus faq-icon"></i>
+        </button>
+        <div class="faq-answer">
+            <p>Blood donation can be done every 3 months.</p>
+        </div>
+    </div>
+
+    <div class="faq-item">
+        <button class="faq-question" type="button">
+            How long does blood donation take?
+            <i class="fa-solid fa-plus faq-icon"></i>
+        </button>
+        <div class="faq-answer">
+            <p>A blood donation process takes about 8 to 10 minutes.</p>
+        </div>
+    </div>
+
+    <div class="faq-item">
+        <button class="faq-question" type="button">
+            What to take note after donating blood?
+            <i class="fa-solid fa-plus faq-icon"></i>
+        </button>
+        <div class="faq-answer">
+            <ul>
+                <li>Drink extra water for the rest of the day and avoid alcohol</li>
+                <li>Skip intense exercise or sports for the next 24 hours</li>
+                <li>Seek medical attention if you notice unusual bruising, swelling, or prolonged discomfort</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="faq-item">
+        <button class="faq-question" type="button">
+            How do I earn merit points?
+            <i class="fa-solid fa-plus faq-icon"></i>
+        </button>
+        <div class="faq-answer">
+            <p>You earn points automatically each time a donation is marked as completed by staff. Points can then be redeemed for rewards through your dashboard.</p>
+        </div>
+    </div>
+
+    <div class="faq-item">
+        <button class="faq-question" type="button">
+            Does donating blood hurt or have side effects?
+            <i class="fa-solid fa-plus faq-icon"></i>
+        </button>
+        <div class="faq-answer">
+            <p>You may feel a pinch when the needle is inserted. Some people feel mild lightheadedness or fatigue afterward, which usually passes with rest, food, and water. Serious side effects are rare.</p>
+        </div>
+    </div>
+
+    <div class="faq-item">
+        <button class="faq-question" type="button">
+            Do I have to sign up for an account to donate blood?
+            <i class="fa-solid fa-plus faq-icon"></i>
+        </button>
+        <div class="faq-answer">
+            <p>Yes, an account lets you book appointments, track your donation history, receive shortage/eligibility notifications, and earn merit points. It also lets staff verify your details and donation eligibility quickly.</p>
+        </div>
+    </div>
+
+    <div class="faq-item">
+        <button class="faq-question" type="button">
+            Didn't receive OTP verification, what do I do?
+            <i class="fa-solid fa-plus faq-icon"></i>
+        </button>
+        <div class="faq-answer">
+            <ul>
+                <li>Check your spam folder first</li>
+                <li>Try requesting a new OTP by logging in again</li>
+                <li>If still not received, please contact admin - bloodbanksystem.admin@gmail.com</li>
+            </ul>
+        </div>
+    </div>
+
+</section>
+
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const questions = document.querySelectorAll('.faq-question');
+
+        questions.forEach(function (question) {
+            question.addEventListener('click', function () {
+                const item = question.closest('.faq-item');
+                const icon = question.querySelector('.faq-icon');
+                const isOpen = item.classList.toggle('active');
+
+                icon.classList.toggle('fa-plus', !isOpen);
+                icon.classList.toggle('fa-minus', isOpen);
+                question.setAttribute('aria-expanded', isOpen);
+            });
+        });
+    });
+</script>
+
+{% endblock %}

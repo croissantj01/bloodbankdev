@@ -1,5 +1,5 @@
-{% extends "base.html" %}
-{% block title %}Signup{% endblock %}
+{% extends "general/base.html" %}
+{% block title %}Login{% endblock %}
 {% block content %}
 
 <div class="card">
@@ -9,10 +9,10 @@
 
     <div class="card-right">
         <div class="form-container">
-            <h2>Sign Up</h2>
+            <h2>Log In</h2>
         </div>
 
-        <form method="POST" action="{{ url_for('signup') }}">
+        <form method="POST" action="{{ url_for('login') }}">
             <input type="hidden" name="next" value="{{ next }}">
 
             <div class="input-group">
@@ -23,14 +23,10 @@
             <div class="input-group">
                 <label for="password">Password</label>
                 <input type="password" id="password" name="password" required>
+                <a href="{{ url_for('check_email') }}" class="reset-link">Forgot password?</a>
             </div>
 
-            <div class="input-group">
-                <label for="password">Confirm Password</label>
-                <input type="password" id="confirm_password" name="confirm_password" required>
-            </div>
-
-            <button type="submit" class="submit-button">Sign Up</button>
+            <button type="submit" class="submit-button">Log In</button>
         </form>
 
         <div class="divider">
@@ -67,7 +63,7 @@
         </div>
 
         <div class="input-group">
-                <a href="{{ url_for('login', next=next) }}" class="signup-link">Already have an account? Log In.</a>
+                <a href="{{ url_for('signup') }}" class="signup-link">Don't have an account? Sign up.</a>
         </div>
     </div>
 </div>
@@ -77,6 +73,5 @@
     alert("{{ error_popup }}");
 </script>
 {% endif %}
-
 
 {% endblock %}

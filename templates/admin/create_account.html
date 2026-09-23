@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "admin/admin_base.html" %}
 {% block title %}Create Account{% endblock %}
 {% block content %}
 
@@ -17,12 +17,12 @@
 
             <div class="input-group">
                 <label for="name">Full Name</label>
-                <input type="text" id="name" name="name" placeholder="e.g. Lee Chong Wei"required>
+                <input type="text" id="name" name="name" placeholder="e.g. Lee Chong Wei" required>
             </div>
 
             <div class="input-group">
                 <label for="email">Email</label>
-                <input type="email" id="email" name="email" placeholder="e.g. test@gmail.com"required>
+                <input type="email" id="email" name="email" placeholder="e.g. test@gmail.com" required>
             </div>
 
             <div class="input-group">
@@ -39,8 +39,8 @@
                 <label for="role">Role</label>
                 <select id="role" name="role" required>
                     <option value="" disabled selected>Select a role...</option>
-                    <option value="Blood Bank Staff">Blood Bank Staff</option>
-                    <option value="Hospital Staff">Hospital Staff</option>
+                    <option value="blood_bank_staff">Blood Bank Staff</option>
+                    <option value="hospital_staff">Hospital Staff</option>
                 </select>
             </div>
 
