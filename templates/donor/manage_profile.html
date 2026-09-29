@@ -1,5 +1,101 @@
 {% extends "donor/donor_base.html" %}
-{% block title %}Profile{% endblock %}
+
 {% block content %}
-<h1>Manage Profile</h1>
+<div class="profile-wrap">
+    <h1>Manage profile</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+            <div class="profile-alert profile-alert--{{ category }}" role="status">{{ message }}</div>
+        {% endfor %}
+    {% endwith %}
+
+    <form method="POST" class="profile-form" novalidate>
+
+        <!-- READ-ONLY FIELDS (from registration) -->
+        <div class="profile-field">
+            <span class="profile-field-label">Name</span>
+            <div class="profile-readonly">{{ donor.name or 'Not provided' }}</div>
+        </div>
+
+        <div class="profile-field">
+            <span class="profile-field-label">IC number</span>
+            <div class="profile-readonly">{{ donor.ic or 'Not provided' }}</div>
+        </div>
+
+        <div class="profile-row">
+            <div class="profile-field">
+                <span class="profile-field-label">Date of birth</span>
+                <div class="profile-readonly">{{ donor.dob or 'Not provided' }}</div>
+            </div>
+
+            <div class="profile-field">
+                <span class="profile-field-label">Gender</span>
+                <div class="profile-readonly">{{ donor.gender or 'Not provided' }}</div>
+            </div>
+        </div>
+
+        <div class="profile-field">
+            <span class="profile-field-label">Blood type</span>
+            <div class="profile-readonly" aria-describedby="blood-note">
+                {{ donor.blood_type or 'Not tested yet' }}
+            </div>
+            <small id="blood-note" class="profile-note">
+                Recorded by blood bank staff after testing. You can't change it here.
+            </small>
+        </div>
+
+        <!-- EDITABLE FIELDS -->
+        <div class="profile-field">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" placeholder="Email"
+                   value="{{ donor.email or '' }}" autocomplete="email" required>
+        </div>
+
+        <div class="profile-field">
+            <label for="phone">Phone number</label>
+            <input type="tel" id="phone" name="phone" placeholder="e.g. 012-3456789"
+                   value="{{ donor.phone or '' }}" autocomplete="tel" required>
+        </div>
+
+        <div class="profile-field">
+            <label for="address">Home address</label>
+            <textarea id="address" name="address" placeholder="Full address"
+                      rows="3">{{ donor['address'] or '' }}</textarea>
+        </div>
+
+        <div class="profile-field">
+            <label for="emergency_contact">Emergency contact</label>
+            <input type="text" id="emergency_contact" name="emergency_contact"
+                   placeholder="emergency contact phone number"
+                   value="{{ donor['emergency_contact'] or '' }}">
+        </div>
+
+        <hr class="profile-divider">
+        <p class="profile-section-text">Change password, or leave the password fields blank to keep your current password.</p>
+
+        <div class="profile-field">
+            <label for="current_password">Current password</label>
+            <input type="password" id="current_password" name="current_password"
+                   placeholder="Enter current password" autocomplete="current-password">
+        </div>
+
+        <div class="profile-field">
+            <label for="new_password">New password</label>
+            <input type="password" id="new_password" name="new_password"
+                   placeholder="Enter new password" autocomplete="new-password">
+        </div>
+
+        <div class="profile-field">
+            <label for="confirm_password">Confirm password</label>
+            <input type="password" id="confirm_password" name="confirm_password"
+                   placeholder="Confirm new password" autocomplete="new-password">
+        </div>
+
+        <div class="profile-actions">
+            <button type="submit" class="profile-btn-save">Save changes</button>
+        </div>
+
+    </form>
+</div>
 {% endblock %}

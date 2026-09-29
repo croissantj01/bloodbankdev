@@ -1,5 +1,164 @@
 {% extends "donor/donor_base.html" %}
-{% block title %}Appointment{% endblock %}
+
 {% block content %}
-<h1>Make appointment</h1>
+<div class="appt-page">
+    <div class="appt-card">
+        <h1 class="appt-title">Book Appointment</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <div class="appt-alert appt-alert--{{ category }}" role="status">{{ message }}</div>
+            {% endfor %}
+        {% endwith %}
+
+        <form method="POST" class="appt-form" id="apptForm" novalidate>
+
+
+            <div class="appt-row appt-row--top">
+                <div class="appt-field">
+                    <label for="appt-centre">Donation centre</label>
+                    <select id="appt-centre" name="centre" required>
+                        <option value="" disabled selected>Select a centre</option>
+                        <option value="1">Penang General Hospital Blood Bank</option>
+                        <option value="2">Mobile Blood Drive</option>
+                    </select>
+                </div>
+
+                <div class="appt-field">
+                    <label for="appt-type">Donation type</label>
+                    <select id="appt-type" name="donation_type" required>
+                        <option value="" disabled selected>Select a type</option>
+                        <option value="whole_blood">Whole blood</option>
+                        <option value="platelets">Platelets</option>
+                        <option value="plasma">Plasma</option>
+                    </select>
+                </div>
+
+                <button type="button" class="appt-btn" id="apptBookBtn">Book appointment</button>
+            </div>
+
+            <p class="appt-error" id="apptError" hidden>Please select a centre and donation type.</p>
+
+            <!-- STEP 2: shown after clicking Book appointment -->
+            <div class="appt-step2" id="apptStep2" hidden>
+
+                <div class="appt-divider"><span>available dates</span></div>
+
+                <div class="appt-chips">
+
+                    <label class="appt-chip">
+                        <input type="radio" name="date" value="2026-10-02">
+                        <span><small>Fri</small><strong>2 Oct</strong></span>
+                    </label>
+                    <label class="appt-chip">
+                        <input type="radio" name="date" value="2026-10-03">
+                        <span><small>Sat</small><strong>3 Oct</strong></span>
+                    </label>
+                    <label class="appt-chip">
+                        <input type="radio" name="date" value="2026-10-05">
+                        <span><small>Mon</small><strong>5 Oct</strong></span>
+                    </label>
+                    <label class="appt-chip">
+                        <input type="radio" name="date" value="2026-10-06">
+                        <span><small>Tue</small><strong>6 Oct</strong></span>
+                    </label>
+                    <label class="appt-chip">
+                        <input type="radio" name="date" value="2026-10-08">
+                        <span><small>Thu</small><strong>8 Oct</strong></span>
+                    </label>
+                    <label class="appt-chip">
+                        <input type="radio" name="date" value="2026-10-09">
+                        <span><small>Fri</small><strong>9 Oct</strong></span>
+                    </label>
+                </div>
+
+
+                <div id="apptTimes" hidden>
+                    <div class="appt-divider"><span>available times</span></div>
+
+                    <div class="appt-chips">
+                        <label class="appt-chip">
+                            <input type="radio" name="time" value="09:00">
+                            <span><strong>9:00 AM</strong></span>
+                        </label>
+                        <label class="appt-chip">
+                            <input type="radio" name="time" value="09:30">
+                            <span><strong>9:30 AM</strong></span>
+                        </label>
+                        <label class="appt-chip">
+                            <input type="radio" name="time" value="10:00" disabled>
+                            <span><strong>10:00 AM</strong><small>Full</small></span>
+                        </label>
+                        <label class="appt-chip">
+                            <input type="radio" name="time" value="10:30">
+                            <span><strong>10:30 AM</strong></span>
+                        </label>
+                        <label class="appt-chip">
+                            <input type="radio" name="time" value="11:00">
+                            <span><strong>11:00 AM</strong></span>
+                        </label>
+                        <label class="appt-chip">
+                            <input type="radio" name="time" value="14:00">
+                            <span><strong>2:00 PM</strong></span>
+                        </label>
+                    </div>
+
+
+                    <div class="appt-row appt-row--bottom">
+                        <div class="appt-field">
+                            <label for="appt-notes">Notes (optional)</label>
+                            <textarea id="appt-notes" name="notes" rows="2"
+                                      placeholder="Anything you want staff to know"></textarea>
+                        </div>
+                        <button type="submit" class="appt-btn" id="apptConfirmBtn" disabled>Confirm appointment</button>
+                    </div>
+                </div>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+<script>
+(function () {
+    var centre   = document.getElementById('appt-centre');
+    var type     = document.getElementById('appt-type');
+    var bookBtn  = document.getElementById('apptBookBtn');
+    var errorMsg = document.getElementById('apptError');
+    var step2    = document.getElementById('apptStep2');
+    var times    = document.getElementById('apptTimes');
+    var confirm  = document.getElementById('apptConfirmBtn');
+
+    bookBtn.addEventListener('click', function () {
+        if (!centre.value || !type.value) {
+            errorMsg.hidden = false;
+            return;
+        }
+        errorMsg.hidden = true;
+        step2.hidden = false;
+        step2.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+
+    document.querySelectorAll('input[name="date"]').forEach(function (r) {
+        r.addEventListener('change', function () {
+            times.hidden = false;
+        });
+    });
+
+    document.querySelectorAll('input[name="time"]').forEach(function (r) {
+        r.addEventListener('change', function () {
+            confirm.disabled = false;
+        });
+    });
+
+    [centre, type].forEach(function (el) {
+        el.addEventListener('change', function () {
+            step2.hidden = true;
+            times.hidden = true;
+            confirm.disabled = true;
+            document.querySelectorAll('.appt-chip input').forEach(function (i) { i.checked = false; });
+        });
+    });
+})();
+</script>
 {% endblock %}

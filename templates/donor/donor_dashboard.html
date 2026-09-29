@@ -1,5 +1,256 @@
+
 {% extends "donor/donor_base.html" %}
-{% block title %}Dashboard{% endblock %}
+
+{% block title %}Donor Dashboard{% endblock %}
+
 {% block content %}
-<h1>Donor Dashboard</h1>
+
+{% set donor_registered = false %}
+
+<div class="container py-4">
+
+    <!-- ================= HERO ================= -->
+
+    <div class="dashboard-hero shadow-sm">
+        <div class="row align-items-center">
+
+            <div class="col-lg-7 p-4 p-lg-5">
+
+                <span class="badge donor-badge mb-3">
+                    <i class="fas fa-heart me-1"></i>
+                    Blood Donor
+                </span>
+
+                <h1 class="fw-bold mb-3">
+                    Welcome, {{ session.get('name', 'Donor') }}!
+                </h1>
+
+                <p class="hero-description mb-4">
+                    Thank you for being a donor.
+                    Your contribution can help save lives.
+                </p>
+
+                {% if donor_registered %}
+
+                    <a href="{{ url_for('make_appointment') }}"
+                       class="btn btn-primary-custom">
+                        <i class="fas fa-calendar-plus me-2"></i>
+                        Book an Appointment
+                    </a>
+
+                {% else %}
+
+                    <a href="{{ url_for('registration') }}"
+                       class="btn btn-primary-custom">
+                        <i class="fas fa-user-plus me-2"></i>
+                        Register Now
+                    </a>
+
+                {% endif %}
+
+            </div>
+
+            <div class="col-lg-5">
+                <div class="hero-image-wrapper">
+                    <img src="{{ url_for('static', filename='images/imagedonation.jpg') }}"
+                         class="img-fluid hero-image"
+                         alt="Blood donation">
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+
+    <!-- ================= QUICK ACTIONS ================= -->
+
+    <div class="d-flex justify-content-between align-items-center mt-5 mb-3">
+        <div>
+            <h2 class="section-title mb-1">Donor Services</h2>
+            <p class="text-muted mb-0">
+                Manage your blood donation activities.
+            </p>
+        </div>
+    </div>
+
+    <div class="row g-4">
+
+        <!-- Appointments -->
+
+        <div class="col-md-4">
+            <div class="card dashboard-card h-100 shadow-sm">
+                <div class="card-body p-4">
+
+                    <div class="icon-circle">
+                        <i class="fas fa-calendar-check"></i>
+                    </div>
+
+                    <h4 class="fw-bold mt-3">Appointments</h4>
+
+                    <p class="text-muted">
+                        Book and manage your blood donation appointments.
+                    </p>
+
+                    <a href="{{ url_for('make_appointment') }}"
+                       class="btn btn-outline-primary-custom mt-2">
+                        Book Appointment
+                        <i class="fas fa-arrow-right ms-2"></i>
+                    </a>
+
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Donations -->
+
+        <div class="col-md-4">
+            <div class="card dashboard-card h-100 shadow-sm">
+                <div class="card-body p-4">
+
+                    <div class="icon-circle">
+                        <i class="fas fa-hand-holding-heart"></i>
+                    </div>
+
+                    <h4 class="fw-bold mt-3">Donations</h4>
+
+                    <p class="text-muted">
+                        View your previous blood donation records.
+                    </p>
+
+                    <a href="{{ url_for('donation_history') }}"
+                       class="btn btn-outline-primary-custom mt-2">
+                        Donation History
+                        <i class="fas fa-arrow-right ms-2"></i>
+                    </a>
+
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Rewards -->
+
+        <div class="col-md-4">
+            <div class="card dashboard-card h-100 shadow-sm">
+                <div class="card-body p-4">
+
+                    <div class="icon-circle">
+                        <i class="fas fa-award"></i>
+                    </div>
+
+                    <h4 class="fw-bold mt-3">Rewards</h4>
+
+                    <p class="text-muted">
+                        View your donor rewards and achievements.
+                    </p>
+
+                    <a href="{{ url_for('rewards') }}"
+                       class="btn btn-outline-primary-custom mt-2">
+                        View Rewards
+                        <i class="fas fa-arrow-right ms-2"></i>
+                    </a>
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+
+    <!-- ================= ANNOUNCEMENTS ================= -->
+
+    <div class="announcement-section mt-5">
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+
+                <h2 class="section-title mb-1">
+                    <i class="fas fa-bullhorn me-2"></i>
+                    Announcements
+                </h2>
+
+                <p class="text-muted mb-0">
+                    Stay updated with the latest blood donation information.
+                </p>
+
+            </div>
+
+            <a href="{{ url_for('donor_announcements') }}"
+               class="view-more d-none d-md-inline">
+                View All
+                <i class="fas fa-arrow-right ms-1"></i>
+            </a>
+        </div>
+
+
+        <div class="row g-3">
+
+            {% if announcements %}
+
+                {% for announcement in announcements %}
+
+                <div class="col-12">
+                    <div class="announcement-box shadow-sm">
+
+                        <div class="d-flex justify-content-between align-items-start">
+
+                            <div>
+                                <h5 class="announcement-title mb-2">
+                                    {{ announcement.title }}
+                                </h5>
+
+                                <p class="announcement-details mb-2">
+                                    {{ announcement.details|truncate(150) }}
+                                </p>
+                            </div>
+
+                            <span class="announcement-icon">
+                                <i class="fas fa-bullhorn"></i>
+                            </span>
+
+                        </div>
+
+                        <small class="announcement-date">
+                            <i class="far fa-calendar me-1"></i>
+                            {{ announcement.date }}
+                        </small>
+
+                    </div>
+                </div>
+
+                {% endfor %}
+
+            {% else %}
+
+                <div class="col-12">
+                    <div class="announcement-box shadow-sm text-center">
+
+                        <i class="fas fa-bell-slash empty-icon"></i>
+
+                        <p class="text-muted mb-0">
+                            No announcements at the moment.
+                        </p>
+
+                    </div>
+                </div>
+
+            {% endif %}
+
+        </div>
+
+        <!-- Mobile View All -->
+
+        <div class="text-center mt-3 d-md-none">
+            <a href="{{ url_for('donor_announcements') }}"
+               class="btn btn-outline-primary-custom">
+                View All Announcements
+                <i class="fas fa-arrow-right ms-2"></i>
+            </a>
+        </div>
+
+    </div>
+
+</div>
+
 {% endblock %}

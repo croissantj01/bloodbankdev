@@ -1,5 +1,150 @@
 {% extends "donor/donor_base.html" %}
-{% block title %}Rewards{% endblock %}
+
 {% block content %}
-<h1>Rewards</h1>
+<div class="rw-page">
+    <div class="rw-wrap">
+        <h1>Rewards</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <div class="rw-alert rw-alert--{{ category }}" role="status">{{ message }}</div>
+            {% endfor %}
+        {% endwith %}
+
+        <!-- POINTS SUMMARY -->
+        <div class="rw-stats">
+            <div class="rw-stat rw-stat--main">
+                <span class="rw-stat-label">Merit points</span>
+                <strong class="rw-stat-value">450</strong>
+                <small>Earn 100 points for every successful blood donation.</small>
+            </div>
+            <div class="rw-stat">
+                <span class="rw-stat-label">Total donations</span>
+                <strong class="rw-stat-value">5</strong>
+            </div>
+            <div class="rw-stat">
+                <span class="rw-stat-label">Points claimed</span>
+                <strong class="rw-stat-value">300</strong>
+            </div>
+        </div>
+
+        <!-- REWARDS LIST (demo data, later replace with a Jinja loop) -->
+        <h2 class="rw-heading">Available rewards</h2>
+
+        <div class="rw-grid">
+
+            <!-- Can claim -->
+            <div class="rw-card">
+                <div class="rw-card-body">
+                    <h3>Health screening voucher</h3>
+                    <p>Free basic health check at partner clinics.</p>
+                </div>
+                <div class="rw-card-foot">
+                    <span class="rw-cost">200 pts</span>
+                    <form method="POST" class="rw-claim-form"
+                          data-name="Health screening voucher" data-cost="200">
+                        <input type="hidden" name="reward_id" value="1">
+                        <button type="submit" class="rw-btn">Claim</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Can claim -->
+            <div class="rw-card">
+                <div class="rw-card-body">
+                    <h3>Donor T-shirt</h3>
+                    <p>Limited edition blood donor campaign T-shirt.</p>
+                </div>
+                <div class="rw-card-foot">
+                    <span class="rw-cost">300 pts</span>
+                    <form method="POST" class="rw-claim-form"
+                          data-name="Donor T-shirt" data-cost="300">
+                        <input type="hidden" name="reward_id" value="2">
+                        <button type="submit" class="rw-btn">Claim</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Not enough points -->
+            <div class="rw-card rw-card--locked">
+                <div class="rw-card-body">
+                    <h3>RM10 grocery voucher</h3>
+                    <p>Redeemable at selected supermarkets.</p>
+                    <div class="rw-progress" aria-hidden="true">
+                        <div class="rw-progress-bar" style="width: 90%;"></div>
+                    </div>
+                    <small class="rw-progress-text">50 more points needed</small>
+                </div>
+                <div class="rw-card-foot">
+                    <span class="rw-cost">500 pts</span>
+                    <button type="button" class="rw-btn" disabled>Claim</button>
+                </div>
+            </div>
+
+            <!-- Not enough points -->
+            <div class="rw-card rw-card--locked">
+                <div class="rw-card-body">
+                    <h3>Movie ticket pair</h3>
+                    <p>Two cinema tickets, valid for 3 months.</p>
+                    <div class="rw-progress" aria-hidden="true">
+                        <div class="rw-progress-bar" style="width: 56%;"></div>
+                    </div>
+                    <small class="rw-progress-text">350 more points needed</small>
+                </div>
+                <div class="rw-card-foot">
+                    <span class="rw-cost">800 pts</span>
+                    <button type="button" class="rw-btn" disabled>Claim</button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- POINTS HISTORY -->
+        <h2 class="rw-heading">Points history</h2>
+
+        <div class="rw-table-wrap">
+            <table class="rw-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Activity</th>
+                        <th class="rw-num">Points</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>2026-09-12</td>
+                        <td>Blood donation (Whole blood)</td>
+                        <td class="rw-num rw-plus">+100</td>
+                    </tr>
+                    <tr>
+                        <td>2026-08-20</td>
+                        <td>Claimed: Donor cap</td>
+                        <td class="rw-num rw-minus">-300</td>
+                    </tr>
+                    <tr>
+                        <td>2026-06-05</td>
+                        <td>Blood donation (Platelets)</td>
+                        <td class="rw-num rw-plus">+100</td>
+                    </tr>
+                    <!-- Empty state: show this row when there is no history
+                    <tr><td colspan="3" class="rw-empty">No points activity yet.</td></tr>
+                    -->
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</div>
+
+<script>
+document.querySelectorAll('.rw-claim-form').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+        var msg = 'Claim "' + form.dataset.name + '" for ' + form.dataset.cost + ' points?';
+        if (!confirm(msg)) {
+            e.preventDefault();
+        }
+    });
+});
+</script>
 {% endblock %}
