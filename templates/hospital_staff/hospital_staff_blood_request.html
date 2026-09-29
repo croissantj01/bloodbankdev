@@ -1,15 +1,58 @@
-{% extends "hospital_staff/hospital_staff_base.html" %}
-{% block title %}Hospital Staff Record{% endblock %}
-
+{% extends "hospital_staff_base.html" %}
+{% block title %}Blood Request{% endblock %}
 {% block content %}
 
-<h1>Blood Bank Staff Record</h1>
+<h1>Blood Request</h1>
 
-<p>Welcome to the Blood Bank Staff Dashboard.</p>
+<p>Please fill in the form below to request blood from the blood bank.</p>
 
-<h2>Dashboard</h2>
+<form method="POST" action="{{ url_for('hospital_staff_blood_request') }}">
 
-<p>Manage blood donations, blood requests, appointments, blood stock, reports, and announcements.</p>
+    <div>
+        <label for="hospital_name">Hospital Name:</label>
+        <input type="text" id="hospital_name" name="hospital_name" required>
+    </div>
+
+    <br>
+
+    <div>
+        <label for="blood_type">Blood Type:</label>
+
+        <select id="blood_type" name="blood_type" required>
+            <option value="">Select Blood Type</option>
+            <option value="A+">A+</option>
+            <option value="A-">A-</option>
+            <option value="B+">B+</option>
+            <option value="B-">B-</option>
+            <option value="AB+">AB+</option>
+            <option value="AB-">AB-</option>
+            <option value="O+">O+</option>
+            <option value="O-">O-</option>
+        </select>
+    </div>
+
+    <br>
+
+    <div>
+        <label for="quantity">Quantity (Units):</label>
+        <input type="number" id="quantity" name="quantity" min="1" required>
+    </div>
+
+    <br>
+
+    <div>
+        <label for="reason">Reason for Request:</label>
+        <br>
+        <textarea id="reason" name="reason" rows="5" cols="40" required></textarea>
+    </div>
+
+    <br>
+
+    <div>
+        <button type="submit">Submit Blood Request</button>
+    </div>
+
+</form>
 
 {% endblock %}
-```
+
