@@ -7,6 +7,7 @@ def get_db_connection():
 
 def init_db():
     conn = get_db_connection()
+
     conn.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -18,10 +19,28 @@ def init_db():
         )
     ''')
 
-    print('Database created!')
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS donors (
+            donor_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL UNIQUE,
+            ic TEXT NOT NULL UNIQUE,
+            blood_type TEXT NOT NULL,
+            dob TEXT NOT NULL,
+            address TEXT NOT NULL,
+            gender TEXT NOT NULL,
+            emergency_contact TEXT NOT NULL,
+
+            FOREIGN KEY (user_id)
+                REFERENCES users(id)
+                ON DELETE CASCADE
+        )
+    ''')
 
     conn.commit()
     conn.close()
+
+    print('Database created!')
+
 
 def get_user_by_email(email):
     conn = get_db_connection()
