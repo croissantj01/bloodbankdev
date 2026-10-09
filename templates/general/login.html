@@ -68,9 +68,15 @@
     </div>
 </div>
 
+{% if error %}
+<div style="color: red; margin-top: 10px;">
+    {{ error }}
+</div>
+{% endif %}
+
 {% if error_popup %}
 <script>
-    alert("{{ error_popup }}");
+    alert({{ error_popup | tojson }});
 </script>
 {% endif %}
 

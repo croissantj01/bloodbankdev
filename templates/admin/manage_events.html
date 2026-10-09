@@ -1,0 +1,445 @@
+{% extends 'admin/admin_base.html' %}
+{% block content %}
+
+{# SAMPLE DATA - delete this after do the backend.#}
+{% set events = events|default([
+    {'id': 1, 'title': 'Community Blood Drive',      'date': '2026-10-14', 'start': '09:00', 'end': '15:00', 'place': 'Dewan Komuniti Taman Maju',  'address': 'Jalan Maju 3, Taman Maju, 50000 Kuala Lumpur', 'notes': 'Walk-ins welcome. Bring your IC.'},
+    {'id': 2, 'title': 'University Donation Day',    'date': '2026-10-22', 'start': '10:00', 'end': '16:00', 'place': 'Universiti Malaya - Main Hall', 'address': 'Lembah Pantai, 50603 Kuala Lumpur',            'notes': ''},
+    {'id': 3, 'title': 'Hospital Open Day Drive',    'date': '2026-11-05', 'start': '08:30', 'end': '13:00', 'place': 'Hospital Kuala Lumpur',      'address': 'Jalan Pahang, 50586 Kuala Lumpur',             'notes': 'Free health screening for donors.'},
+    {'id': 4, 'title': 'Shopping Mall Blood Camp',   'date': '2026-09-20', 'start': '11:00', 'end': '17:00', 'place': 'Pavilion Event Hall',        'address': 'Bukit Bintang, 55100 Kuala Lumpur',            'notes': ''},
+    {'id': 5, 'title': 'Merdeka Month Drive',        'date': '2026-08-30', 'start': '09:00', 'end': '14:00', 'place': 'Dataran Merdeka',            'address': 'Jalan Raja, 50050 Kuala Lumpur',               'notes': ''}
+]) %}
+{# ===== END SAMPLE DATA ===== #}
+
+<div class="container py-4 events-page">
+
+    <!-- ================= HEADER ================= -->
+    <div class="ev-header">
+        <div>
+            <h1 class="report-heading">Manage Events</h1>
+            <p class="report-subtitle mb-0">
+                Add the date and place of upcoming blood donation events.
+            </p>
+        </div>
+
+        <button type="button" class="export-btn" id="openAddModal">
+            <i class="fas fa-calendar-plus"></i> Add Event
+        </button>
+    </div>
+
+
+    <!-- ================= SUMMARY ================= -->
+    <div class="report-summary ev-summary">
+
+        <div class="report-card">
+            <h4>Total Events</h4>
+            <div class="report-value" id="statTotal">0</div>
+        </div>
+
+        <div class="report-card">
+            <h4>Upcoming</h4>
+            <div class="report-value" id="statUpcoming">0</div>
+        </div>
+
+        <div class="report-card">
+            <h4>Happening Today</h4>
+            <div class="report-value" id="statToday">0</div>
+        </div>
+
+        <div class="report-card">
+            <h4>Past Events</h4>
+            <div class="report-value" id="statPast">0</div>
+        </div>
+
+    </div>
+
+
+    <!-- ================= TABS + SEARCH ================= -->
+    <div class="ev-toolbar">
+
+        <div class="ev-tabs" role="tablist">
+            <button type="button" class="ev-tab active" data-filter="upcoming">
+                <i class="fas fa-calendar-day"></i> Upcoming
+            </button>
+            <button type="button" class="ev-tab" data-filter="past">
+                <i class="fas fa-clock-rotate-left"></i> Past
+            </button>
+            <button type="button" class="ev-tab" data-filter="all">
+                <i class="fas fa-list"></i> All
+            </button>
+        </div>
+
+        <div class="ev-search">
+            <i class="fas fa-search"></i>
+            <input type="text" id="searchInput" placeholder="Search event or place">
+        </div>
+
+    </div>
+
+
+    <!-- ================= EVENT LIST ================= -->
+    <div class="ev-grid" id="eventGrid"></div>
+
+    <div class="ev-empty" id="emptyState" hidden>
+        <i class="fas fa-calendar-xmark"></i>
+        <p id="emptyText">No events found.</p>
+    </div>
+
+</div>
+
+
+<!-- ================= ADD / EDIT MODAL ================= -->
+<div class="ev-modal" id="eventModal" hidden>
+    <div class="ev-modal-backdrop" data-close></div>
+
+    <div class="ev-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="eventModalTitle">
+
+        <div class="ev-modal-head">
+            <h3 id="eventModalTitle"><i class="fas fa-calendar-plus"></i> Add Event</h3>
+            <button type="button" class="ev-close" data-close aria-label="Close">&times;</button>
+        </div>
+
+        <form id="eventForm" method="POST" action="#" autocomplete="off">
+
+            <div class="ev-form-grid">
+
+                <div class="ev-field ev-span-2">
+                    <label for="fTitle">Event name</label>
+                    <input type="text" id="fTitle" name="title" required
+                           placeholder="e.g. Community Blood Drive">
+                </div>
+
+                <div class="ev-field ev-span-2">
+                    <label for="fDate">Date</label>
+                    <input type="date" id="fDate" name="date" required>
+                </div>
+
+                <div class="ev-field">
+                    <label for="fStart">Start time</label>
+                    <input type="time" id="fStart" name="start" required>
+                </div>
+
+                <div class="ev-field">
+                    <label for="fEnd">End time</label>
+                    <input type="time" id="fEnd" name="end" required>
+                </div>
+
+                <div class="ev-field ev-span-2">
+                    <label for="fPlace">Place / venue</label>
+                    <input type="text" id="fPlace" name="place" required
+                           placeholder="e.g. Dewan Komuniti Taman Maju">
+                </div>
+
+                <div class="ev-field ev-span-2">
+                    <label for="fAddress">Address</label>
+                    <input type="text" id="fAddress" name="address" required
+                           placeholder="Street, city, postcode">
+                </div>
+
+                <div class="ev-field ev-span-2">
+                    <label for="fNotes">Notes <span class="ev-optional">(optional)</span></label>
+                    <textarea id="fNotes" name="notes" rows="3"
+                              placeholder="Anything donors should know before coming"></textarea>
+                </div>
+
+            </div>
+
+            <p class="ev-error" id="formError" hidden></p>
+
+            <div class="ev-modal-foot">
+                <button type="button" class="ev-btn-ghost" data-close>Cancel</button>
+                <button type="submit" class="export-btn" id="eventSubmit">
+                    <i class="fas fa-check"></i> Save Event
+                </button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+
+<!-- ================= DELETE CONFIRM ================= -->
+<div class="ev-modal" id="confirmModal" hidden>
+    <div class="ev-modal-backdrop" data-close></div>
+
+    <div class="ev-modal-dialog ev-modal-sm" role="alertdialog" aria-modal="true">
+        <div class="ev-confirm-icon"><i class="fas fa-triangle-exclamation"></i></div>
+        <h3>Delete this event?</h3>
+        <p class="ev-confirm-text" id="confirmText"></p>
+
+        <div class="ev-modal-foot center">
+            <button type="button" class="ev-btn-ghost" data-close>Cancel</button>
+            <button type="button" class="export-btn" id="confirmOk">Delete</button>
+        </div>
+    </div>
+</div>
+
+
+<div class="ev-toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+
+<script>
+(function () {
+
+    /* Events come from the template. Replace the sample block at the top with your route's `events`. */
+    let events = {{ events|tojson }};
+    let nextId = events.reduce((m, e) => Math.max(m, e.id || 0), 0) + 1;
+
+    const grid        = document.getElementById('eventGrid');
+    const emptyState  = document.getElementById('emptyState');
+    const emptyText   = document.getElementById('emptyText');
+    const searchInput = document.getElementById('searchInput');
+    const toast       = document.getElementById('toast');
+
+    let filter    = 'upcoming';
+    let editingId = null;
+    let deleteId  = null;
+
+    /* ---------- helpers ---------- */
+    function todayStr() {
+        const d = new Date();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return d.getFullYear() + '-' + m + '-' + day;
+    }
+
+    function statusOf(ev) {
+        const t = todayStr();
+        if (ev.date === t) return 'today';
+        return ev.date > t ? 'upcoming' : 'past';
+    }
+
+    function parts(dateStr) {
+        const d = new Date(dateStr + 'T00:00:00');
+        return {
+            day:   d.getDate(),
+            month: d.toLocaleDateString('en-GB', { month: 'short' }),
+            year:  d.getFullYear(),
+            weekday: d.toLocaleDateString('en-GB', { weekday: 'long' })
+        };
+    }
+
+    function fmtTime(t) {
+        if (!t) return '';
+        const [h, m] = t.split(':').map(Number);
+        const ap = h >= 12 ? 'PM' : 'AM';
+        return ((h % 12) || 12) + ':' + String(m).padStart(2, '0') + ' ' + ap;
+    }
+
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g,
+            c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function showToast(msg) {
+        toast.textContent = msg;
+        toast.hidden = false;
+        clearTimeout(showToast.t);
+        showToast.t = setTimeout(() => { toast.hidden = true; }, 2800);
+    }
+
+    function openModal(el)  { el.hidden = false; document.body.classList.add('ev-no-scroll'); }
+    function closeModal(el) { el.hidden = true;  document.body.classList.remove('ev-no-scroll'); }
+
+    document.querySelectorAll('.ev-modal').forEach(modal => {
+        modal.addEventListener('click', e => {
+            if (e.target.closest('[data-close]')) closeModal(modal);
+        });
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') document.querySelectorAll('.ev-modal').forEach(closeModal);
+    });
+
+    /* ---------- render ---------- */
+    function renderStats() {
+        document.getElementById('statTotal').textContent    = events.length;
+        document.getElementById('statUpcoming').textContent = events.filter(e => statusOf(e) === 'upcoming').length;
+        document.getElementById('statToday').textContent    = events.filter(e => statusOf(e) === 'today').length;
+        document.getElementById('statPast').textContent     = events.filter(e => statusOf(e) === 'past').length;
+    }
+
+    function render() {
+        renderStats();
+
+        const q = searchInput.value.trim().toLowerCase();
+
+        let list = events.filter(e => {
+            const s = statusOf(e);
+            const inTab =
+                filter === 'all' ||
+                (filter === 'upcoming' && (s === 'upcoming' || s === 'today')) ||
+                (filter === 'past' && s === 'past');
+            const hay = (e.title + ' ' + e.place + ' ' + e.address).toLowerCase();
+            return inTab && (!q || hay.includes(q));
+        });
+
+        list.sort((a, b) => {
+            const byDate = a.date.localeCompare(b.date) || (a.start || '').localeCompare(b.start || '');
+            return filter === 'past' ? -byDate : byDate;
+        });
+
+        grid.innerHTML = list.map(e => {
+            const p = parts(e.date);
+            const s = statusOf(e);
+            const label = s === 'today' ? 'Today' : (s === 'upcoming' ? 'Upcoming' : 'Past');
+
+            return `
+            <article class="ev-card ${s}" data-id="${e.id}">
+
+                <div class="ev-date">
+                    <span class="ev-day">${p.day}</span>
+                    <span class="ev-month">${esc(p.month)}</span>
+                    <span class="ev-year">${p.year}</span>
+                </div>
+
+                <div class="ev-body">
+                    <div class="ev-top">
+                        <h4 class="ev-title">${esc(e.title)}</h4>
+                        <span class="ev-badge ${s}">${label}</span>
+                    </div>
+
+                    <ul class="ev-meta">
+                        <li><i class="far fa-calendar"></i> ${esc(p.weekday)}</li>
+                        <li><i class="far fa-clock"></i> ${esc(fmtTime(e.start))} - ${esc(fmtTime(e.end))}</li>
+                        <li><i class="fas fa-location-dot"></i>
+                            <span><strong>${esc(e.place)}</strong><br><small>${esc(e.address)}</small></span>
+                        </li>
+                        ${e.notes ? `<li class="ev-notes"><i class="far fa-note-sticky"></i> ${esc(e.notes)}</li>` : ''}
+                    </ul>
+
+                    <div class="ev-actions">
+                        <button type="button" class="ev-icon-btn" title="Edit" data-action="edit">
+                            <i class="fas fa-pen"></i>
+                        </button>
+                        <button type="button" class="ev-icon-btn danger" title="Delete" data-action="delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+
+            </article>`;
+        }).join('');
+
+        const none = list.length === 0;
+        emptyState.hidden = !none;
+        if (none) {
+            emptyText.textContent = q
+                ? 'No events match your search.'
+                : (filter === 'past' ? 'No past events.' : 'No events yet. Click "Add Event" to create one.');
+        }
+    }
+
+    /* ---------- tabs + search ---------- */
+    document.querySelectorAll('.ev-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.ev-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            filter = tab.dataset.filter;
+            render();
+        });
+    });
+    searchInput.addEventListener('input', render);
+
+    /* ---------- add / edit ---------- */
+    const eventModal = document.getElementById('eventModal');
+    const form       = document.getElementById('eventForm');
+    const formError  = document.getElementById('formError');
+    const fDate      = document.getElementById('fDate');
+
+    function openForm(ev) {
+        editingId = ev ? ev.id : null;
+        form.reset();
+        formError.hidden = true;
+
+        if (ev) {
+            document.getElementById('eventModalTitle').innerHTML = '<i class="fas fa-pen"></i> Edit Event';
+            document.getElementById('fTitle').value   = ev.title;
+            fDate.value                               = ev.date;
+            document.getElementById('fStart').value   = ev.start;
+            document.getElementById('fEnd').value     = ev.end;
+            document.getElementById('fPlace').value   = ev.place;
+            document.getElementById('fAddress').value = ev.address;
+            document.getElementById('fNotes').value   = ev.notes || '';
+            fDate.removeAttribute('min');
+        } else {
+            document.getElementById('eventModalTitle').innerHTML = '<i class="fas fa-calendar-plus"></i> Add Event';
+            fDate.min = todayStr();      // new events cannot be set in the past
+        }
+
+        openModal(eventModal);
+    }
+
+    document.getElementById('openAddModal').addEventListener('click', () => openForm(null));
+
+    /* FRONTEND DEMO: events are added/edited in the page only.
+       When the backend exists, remove e.preventDefault() so the form POSTs to your route. */
+    form.addEventListener('submit', e => {
+        e.preventDefault();
+
+        const data = {
+            title:   document.getElementById('fTitle').value.trim(),
+            date:    fDate.value,
+            start:   document.getElementById('fStart').value,
+            end:     document.getElementById('fEnd').value,
+            place:   document.getElementById('fPlace').value.trim(),
+            address: document.getElementById('fAddress').value.trim(),
+            notes:   document.getElementById('fNotes').value.trim()
+        };
+
+        if (data.end <= data.start) {
+            formError.textContent = 'End time must be after the start time.';
+            formError.hidden = false;
+            return;
+        }
+
+        if (editingId !== null) {
+            const idx = events.findIndex(x => x.id === editingId);
+            events[idx] = Object.assign({ id: editingId }, data);
+            showToast('Event updated.');
+        } else {
+            events.push(Object.assign({ id: nextId++ }, data));
+            showToast('Event added.');
+            filter = 'upcoming';
+            document.querySelectorAll('.ev-tab').forEach(t =>
+                t.classList.toggle('active', t.dataset.filter === 'upcoming'));
+        }
+
+        closeModal(eventModal);
+        render();
+    });
+
+    /* ---------- card actions ---------- */
+    const confirmModal = document.getElementById('confirmModal');
+
+    grid.addEventListener('click', e => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+
+        const id = Number(btn.closest('.ev-card').dataset.id);
+        const ev = events.find(x => x.id === id);
+        if (!ev) return;
+
+        if (btn.dataset.action === 'edit') {
+            openForm(ev);
+        } else {
+            deleteId = id;
+            document.getElementById('confirmText').textContent =
+                '"' + ev.title + '" on ' + parts(ev.date).day + ' ' + parts(ev.date).month + ' ' +
+                parts(ev.date).year + ' will be removed.';
+            openModal(confirmModal);
+        }
+    });
+
+    document.getElementById('confirmOk').addEventListener('click', () => {
+        events = events.filter(x => x.id !== deleteId);
+        deleteId = null;
+        closeModal(confirmModal);
+        render();
+        showToast('Event deleted.');
+    });
+
+    render();
+})();
+</script>
+
+{% endblock %}

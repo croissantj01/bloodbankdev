@@ -1,5 +1,141 @@
 {% extends "admin/admin_base.html" %}
-{% block title %}Dashboard{% endblock %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
 {% block content %}
-<h1>Admin Dashboard</h1>
+
+<div class="container py-4">
+
+    <div class="dashboard-hero shadow-sm">
+        <div class="row align-items-center">
+
+            <div class="col-lg-7 p-4 p-lg-5">
+
+                <span class="badge donor-badge mb-3">
+                    <i class="fas fa-user-shield me-1"></i>
+                    Administrator
+                </span>
+
+                <h1 class="fw-bold mb-3">
+                    Welcome, {{ session.get('name', 'Admin') }}!
+                </h1>
+
+                <p class="hero-description mb-4">
+                    Manage users, monitor blood inventory,
+                    and keep the blood bank running smoothly.
+                </p>
+
+                <a href="{{ url_for('manage_events') }}"
+                   class="btn btn-primary-custom">
+                    Manage Blood Donation Events
+                </a>
+
+            </div>
+
+            <div class="col-lg-5">
+                <div class="hero-image-wrapper">
+                    <img src="{{ url_for('static', filename='images/bloodtypes.jpg') }}"
+                         class="img-fluid hero-image"
+                         alt="Blood bank administration">
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mt-5 mb-3">
+        <div>
+            <h2 class="section-title mb-1">Admin Services</h2>
+            <p class="text-muted mb-0">
+                View and manage blood bank operations.
+            </p>
+        </div>
+    </div>
+
+    <div class="row g-4">
+
+        <!-- Manage Users -->
+
+        <div class="col-md-4">
+            <div class="card dashboard-card h-100 shadow-sm">
+                <div class="card-body p-4">
+
+                    <div class="icon-circle">
+                        <i class="fas fa-users-cog"></i>
+                    </div>
+
+                    <h4 class="fw-bold mt-3">Manage Users</h4>
+
+                    <p class="text-muted">
+                        Add, edit, or remove donors and other user accounts.
+                    </p>
+
+                    <a href="{{ url_for('manage_user') }}"
+                       class="btn btn-outline-primary-custom mt-2">
+                        Manage Users
+                        <i class="fas fa-arrow-right ms-2"></i>
+                    </a>
+
+                </div>
+            </div>
+        </div>
+
+
+        <!-- View Blood Info -->
+
+        <div class="col-md-4">
+            <div class="card dashboard-card h-100 shadow-sm">
+                <div class="card-body p-4">
+
+                    <div class="icon-circle">
+                        <i class="fas fa-tint"></i>
+                    </div>
+
+                    <h4 class="fw-bold mt-3">Blood Info</h4>
+
+                    <p class="text-muted">
+                        View blood stock levels and details by blood type.
+                    </p>
+
+                    <a href="{{ url_for('view_blood_info') }}"
+                       class="btn btn-outline-primary-custom mt-2">
+                        View Blood Info
+                        <i class="fas fa-arrow-right ms-2"></i>
+                    </a>
+
+                </div>
+            </div>
+        </div>
+
+
+        <!-- View Reports -->
+
+        <div class="col-md-4">
+            <div class="card dashboard-card h-100 shadow-sm">
+                <div class="card-body p-4">
+
+                    <div class="icon-circle">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+
+                    <h4 class="fw-bold mt-3">Reports</h4>
+
+                    <p class="text-muted">
+                        Review donation statistics and system reports.
+                    </p>
+
+                    <a href="{{ url_for('admin_report') }}"
+                       class="btn btn-outline-primary-custom mt-2">
+                        View Reports
+                        <i class="fas fa-arrow-right ms-2"></i>
+                    </a>
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
 {% endblock %}

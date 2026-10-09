@@ -30,6 +30,7 @@ def register_user(username, plain_password):
         )
         conn.commit()
         print("User registered successful!")
+        return True
     except sqlite3.IntegrityError:
         print("Username already exists.")
         return False
@@ -345,9 +346,11 @@ def verification():
 def quiz():
     return render_template("general/quiz.html")
 
+
 @app.route('/donor_quiz', methods=['GET','POST'])
 def donor_quiz():
     return render_template("donor/donor_quiz.html")
+
 
 @app.route('/make_appointment', methods=['GET','POST'])
 def make_appointment():
@@ -361,9 +364,25 @@ def rewards():
 def donor_faq():
     return render_template("donor/donor_faq.html")
 
+@app.route('/donation_history', methods=['GET','POST'])
+def donation_history():
+    return render_template("donor/donation_history.html")
+
+@app.route('/donor_announcements', methods=['GET','POST'])
+def donor_announcements():
+    return render_template("donor/donor_announcements.html")
+
+@app.route('/manage_events', methods=['GET','POST'])
+def manage_events():
+    return render_template("admin/manage_events.html")
+
 @app.route('/blood_request', methods=['GET','POST'])
 def blood_request():
     return render_template("blood_bank_staff/blood_request.html")
+
+@app.route('/view_blood_request', methods=['GET','POST'])
+def view_blood_request():
+    return render_template("hospital_staff/blood_request.html")
 
 def send_credentials_email(to_email, full_name, temp_password):
     message = EmailMessage()
@@ -435,6 +454,7 @@ def create_account():
             return render_template('admin/create_account.html', error_popup="Account creation unsuccessful!")
     return render_template("admin/create_account.html")
 
+
 @app.route('/faq', methods=['GET','POST'])
 def faq():
     return render_template("general/faq.html")
@@ -463,6 +483,10 @@ def staff_report():
 def donor_dashboard():
     return render_template("donor/donor_dashboard.html")
 
+@app.route("/registration", methods=['GET','POST'])
+def registration():
+    return render_template("donor/registration.html")
+
 @app.route("/manage_profile", methods=["GET", "POST"])
 def manage_profile():
     return render_template("donor/manage_profile.html")
@@ -470,6 +494,10 @@ def manage_profile():
 @app.route("/blood_bank_staff_dashboard", methods=["GET", "POST"])
 def blood_bank_staff_dashboard():
     return render_template("blood_bank_staff/blood_bank_staff_dashboard.html")
+
+@app.route("/hospital_staff_blood_request", methods=["GET", "POST"])
+def hospital_staff_blood_request():
+    return render_template("hospital_staff/hospital_staff_blood_request.html")
 
 @app.route("/manage_blood_stock", methods=["GET", "POST"])
 def manage_blood_stock():
@@ -491,6 +519,7 @@ def admin_dashboard():
 def logout():
     session.clear()
     return render_template("general/index.html")
+
 
 
 if __name__ == "__main__":

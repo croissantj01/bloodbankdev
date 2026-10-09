@@ -1,5 +1,493 @@
-{% extends "admin/admin_base.html" %}
-{% block title %}Reports{% endblock %}
+{% extends 'admin/admin_base.html' %}
 {% block content %}
-<h1>Reports</h1>
+
+{# SAMPLE DATA - delete this after do the backend.#}
+{% set total_units = total_units|default(342) %}
+{% set sufficient_count = sufficient_count|default(5) %}
+{% set low_count = low_count|default(2) %}
+{% set critical_count = critical_count|default(1) %}
+{% set stock_labels = stock_labels|default(['A+','A-','B+','B-','AB+','AB-','O+','O-']) %}
+{% set stock_units = stock_units|default([68, 12, 55, 9, 30, 4, 90, 18]) %}
+
+{% set alerts_triggered = alerts_triggered|default(14) %}
+{% set alerts_notified = alerts_notified|default(14) %}
+{% set most_low_type = most_low_type|default('O-') %}
+{% set alert_labels = alert_labels|default(['A-','B-','AB-','O-']) %}
+{% set alert_counts = alert_counts|default([3, 4, 2, 5]) %}
+
+{% set total_requests = total_requests|default(86) %}
+{% set approved_requests = approved_requests|default(52) %}
+{% set rejected_requests = rejected_requests|default(8) %}
+{% set pending_requests = pending_requests|default(10) %}
+{% set auto_closed_requests = auto_closed_requests|default(16) %}
+
+{% set total_donations = total_donations|default(410) %}
+{% set donations_this_month = donations_this_month|default(38) %}
+{% set top_donated_type = top_donated_type|default('O+') %}
+{% set donation_months = donation_months|default(['May','Jun','Jul','Aug','Sep','Oct']) %}
+{% set donation_counts = donation_counts|default([52, 61, 58, 70, 66, 38]) %}
+{% set donation_type_labels = donation_type_labels|default(['A+','A-','B+','B-','AB+','AB-','O+','O-']) %}
+{% set donation_type_counts = donation_type_counts|default([80, 15, 66, 12, 34, 6, 160, 37]) %}
+
+{% set total_donors = total_donors|default(230) %}
+{% set new_registrations = new_registrations|default(18) %}
+{% set active_users = active_users|default(176) %}
+{% set inactive_users = inactive_users|default(54) %}
+{# ===== END SAMPLE DATA ===== #}
+
+
+<div class="container py-4">
+
+<h1 class="report-heading">Blood Bank Reports</h1>
+<p class="report-subtitle">Review stock, requests, donations and user activity.</p>
+
+<!-- Date Filter -->
+<form method="GET" class="report-filter">
+    <label for="from_date">From</label>
+    <input type="date" id="from_date" name="from_date" value="{{ from_date or '' }}">
+
+    <label for="to_date">To</label>
+    <input type="date" id="to_date" name="to_date" value="{{ to_date or '' }}">
+
+    <button type="submit" class="export-btn">
+        <i class="fas fa-filter"></i> Apply
+    </button>
+</form>
+
+
+<div class="report-grid">
+
+<div class="report-block">
+<!-- ================= 1. BLOOD STOCK REPORT ================= -->
+<h2 class="report-title"><i class="fas fa-tint"></i> 1. Blood Stock Report</h2>
+
+<div class="report-summary">
+
+    <div class="report-card">
+        <h4>Total Units in Stock</h4>
+        <div class="report-value">{{ total_units }}</div>
+    </div>
+
+    <div class="report-card">
+        <h4>Sufficient Types</h4>
+        <div class="report-value">{{ sufficient_count }}</div>
+    </div>
+
+    <div class="report-card">
+        <h4>Low Stock Types</h4>
+        <div class="report-value">{{ low_count }}</div>
+    </div>
+
+    <div class="report-card">
+        <h4>Critical Types</h4>
+        <div class="report-value">{{ critical_count }}</div>
+    </div>
+
+</div>
+
+<div class="chart-row">
+    <div class="chart-card">
+        <h3>Current Stock by Blood Type</h3>
+        <div class="chart-container">
+            <canvas id="stockChart"></canvas>
+        </div>
+    </div>
+</div>
+
+
+</div>
+
+<div class="report-block">
+<!-- ================= 2. LOW STOCK ALERT REPORT ================= -->
+<h2 class="report-title"><i class="fas fa-bell"></i> 2. Low Stock Alert Report</h2>
+
+<div class="report-summary">
+
+    <div class="report-card">
+        <h4>Alerts Triggered</h4>
+        <div class="report-value">{{ alerts_triggered }}</div>
+    </div>
+
+    <div class="report-card">
+        <h4>Staff Notified</h4>
+        <div class="report-value">{{ alerts_notified }}</div>
+    </div>
+
+    <div class="report-card">
+        <h4>Most Frequent Low Type</h4>
+        <div class="report-value">{{ most_low_type }}</div>
+    </div>
+
+</div>
+
+<div class="chart-row">
+    <div class="chart-card">
+        <h3>Low Stock Alerts by Blood Type</h3>
+        <div class="chart-container">
+            <canvas id="alertChart"></canvas>
+        </div>
+    </div>
+</div>
+
+
+</div>
+
+<div class="report-block">
+<!-- ================= 3. BLOOD REQUEST REPORT ================= -->
+<h2 class="report-title"><i class="fas fa-clipboard-list"></i> 3. Blood Request Report</h2>
+
+<div class="report-summary">
+
+    <div class="report-card">
+        <h4>Total Requests</h4>
+        <div class="report-value">{{ total_requests }}</div>
+    </div>
+
+    <div class="report-card">
+        <h4>Approved</h4>
+        <div class="report-value">{{ approved_requests }}</div>
+    </div>
+
+    <div class="report-card">
+        <h4>Rejected</h4>
+        <div class="report-value">{{ rejected_requests }}</div>
+    </div>
+
+    <div class="report-card">
+        <h4>Pending</h4>
+        <div class="report-value">{{ pending_requests }}</div>
+    </div>
+
+    <div class="report-card">
+        <h4>Auto-Closed (Quantity Met)</h4>
+        <div class="report-value">{{ auto_closed_requests }}</div>
+    </div>
+
+</div>
+
+<div class="chart-row">
+    <div class="chart-card">
+        <h3>Request Status</h3>
+        <div class="chart-container">
+            <canvas id="requestChart"></canvas>
+        </div>
+    </div>
+</div>
+
+
+</div>
+
+<div class="report-block">
+<!-- ================= 4. USER REPORT ================= -->
+<h2 class="report-title"><i class="fas fa-users"></i> 4. User Report</h2>
+
+<div class="report-summary">
+
+    <div class="report-card">
+        <h4>Registered Donors</h4>
+        <div class="report-value">{{ total_donors }}</div>
+    </div>
+
+    <div class="report-card">
+        <h4>New Registrations</h4>
+        <div class="report-value">{{ new_registrations }}</div>
+    </div>
+
+    <div class="report-card">
+        <h4>Active Users</h4>
+        <div class="report-value">{{ active_users }}</div>
+    </div>
+
+    <div class="report-card">
+        <h4>Inactive Users</h4>
+        <div class="report-value">{{ inactive_users }}</div>
+    </div>
+
+</div>
+
+<div class="chart-row">
+    <div class="chart-card">
+        <h3>Active vs Inactive Users</h3>
+        <div class="chart-container">
+            <canvas id="userChart"></canvas>
+        </div>
+    </div>
+</div>
+
+</div>
+
+<div class="report-block report-block--wide">
+<!-- ================= 5. DONATION REPORT ================= -->
+<h2 class="report-title"><i class="fas fa-hand-holding-heart"></i> 5. Donation Report</h2>
+
+<div class="report-summary">
+
+    <div class="report-card">
+        <h4>Total Donations</h4>
+        <div class="report-value">{{ total_donations }}</div>
+    </div>
+
+    <div class="report-card">
+        <h4>Donations This Month</h4>
+        <div class="report-value">{{ donations_this_month }}</div>
+    </div>
+
+    <div class="report-card">
+        <h4>Top Donated Type</h4>
+        <div class="report-value">{{ top_donated_type }}</div>
+    </div>
+
+</div>
+
+<div class="chart-row">
+    <div class="chart-card">
+        <h3>Monthly Donations</h3>
+        <div class="chart-container">
+            <canvas id="donationMonthChart"></canvas>
+        </div>
+    </div>
+    <div class="chart-card">
+        <h3>Donations by Blood Type</h3>
+        <div class="chart-container">
+            <canvas id="donationTypeChart"></canvas>
+        </div>
+    </div>
+</div>
+
+</div>
+
+</div><!-- /report-grid -->
+
+<!-- ================= EXPORT REPORTS ================= -->
+<div class="export-section">
+    <h3><i class="fas fa-download"></i> Export Reports</h3>
+    <div class="export-buttons">
+
+        <div class="export-group">
+            <p>Stock Reports</p>
+            <a href="#" class="export-btn">
+                <i class="fas fa-file-pdf"></i> Blood Stock Report
+            </a>
+            <a href="#" class="export-btn">
+                <i class="fas fa-file-pdf"></i> Low Stock Alert Report
+            </a>
+        </div>
+
+        <div class="export-group">
+            <p>Request Reports</p>
+            <a href="#" class="export-btn">
+                <i class="fas fa-file-pdf"></i> Blood Request Report
+            </a>
+        </div>
+
+        <div class="export-group">
+            <p>Donation Reports</p>
+            <a href="#" class="export-btn">
+                <i class="fas fa-file-pdf"></i> Donation Report
+            </a>
+        </div>
+
+        <div class="export-group">
+            <p>User Reports</p>
+            <a href="#" class="export-btn">
+                <i class="fas fa-file-pdf"></i> User Report
+            </a>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+const smallFont = { font: { size: 10 } };
+
+// =====================
+// 1. Blood Stock (Bar)
+// =====================
+new Chart(document.getElementById('stockChart'), {
+    type: 'bar',
+    data: {
+        labels: {{ stock_labels|tojson }},
+        datasets: [{
+            label: 'Units',
+            data: {{ stock_units|tojson }},
+            backgroundColor: 'rgba(220, 53, 69, 0.75)',
+            borderColor: 'rgba(176, 30, 45, 1)',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        aspectRatio: 2,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { beginAtZero: true, ticks: smallFont },
+            x: { ticks: smallFont }
+        }
+    }
+});
+
+// =====================
+// 2. Low Stock Alerts (Bar)
+// =====================
+new Chart(document.getElementById('alertChart'), {
+    type: 'bar',
+    data: {
+        labels: {{ alert_labels|tojson }},
+        datasets: [{
+            label: 'Alerts',
+            data: {{ alert_counts|tojson }},
+            backgroundColor: 'rgba(255, 163, 163, 1)',
+            borderWidth: 0
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        aspectRatio: 2,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { beginAtZero: true, ticks: { ...smallFont, precision: 0 } },
+            x: { ticks: smallFont }
+        }
+    }
+});
+
+// =====================
+// 3. Request Status (Pie)
+// =====================
+new Chart(document.getElementById('requestChart'), {
+    type: 'pie',
+    data: {
+        labels: ['Approved', 'Rejected', 'Pending', 'Auto-Closed'],
+        datasets: [{
+            data: [
+                {{ approved_requests }},
+                {{ rejected_requests }},
+                {{ pending_requests }},
+                {{ auto_closed_requests }}
+            ],
+            backgroundColor: [
+                'rgba(135, 206, 235, 0.9)',
+                'rgba(255, 163, 163, 1)',
+                'rgba(255, 193, 7, 0.85)',
+                'rgba(25, 25, 112, 0.9)'
+            ],
+            borderWidth: 0
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        aspectRatio: 1.8,
+        plugins: {
+            legend: {
+                display: true,
+                position: 'bottom',
+                labels: { font: { size: 12 }, padding: 15 }
+            }
+        }
+    }
+});
+
+// =====================
+// 4a. Monthly Donations (Bar)
+// =====================
+new Chart(document.getElementById('donationMonthChart'), {
+    type: 'bar',
+    data: {
+        labels: {{ donation_months|tojson }},
+        datasets: [{
+            label: 'Donations',
+            data: {{ donation_counts|tojson }},
+            backgroundColor: 'rgba(255, 182, 193, 0.8)',
+            borderColor: 'rgba(255, 105, 180, 1)',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        aspectRatio: 1.5,
+        plugins: {
+            legend: { display: true, position: 'top', labels: { font: { size: 11 } } }
+        },
+        scales: {
+            y: { beginAtZero: true, ticks: { ...smallFont, precision: 0 } },
+            x: { ticks: smallFont }
+        }
+    }
+});
+
+// =====================
+// 4b. Donations by Blood Type (Bar)
+// =====================
+new Chart(document.getElementById('donationTypeChart'), {
+    type: 'bar',
+    data: {
+        labels: {{ donation_type_labels|tojson }},
+        datasets: [{
+            label: 'Donations',
+            data: {{ donation_type_counts|tojson }},
+            backgroundColor: 'rgba(135, 206, 235, 0.9)',
+            borderWidth: 0
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        aspectRatio: 1.5,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { beginAtZero: true, ticks: { ...smallFont, precision: 0 } },
+            x: { ticks: smallFont }
+        }
+    }
+});
+
+// =====================
+// 5. Active vs Inactive Users (Pie)
+// =====================
+new Chart(document.getElementById('userChart'), {
+    type: 'pie',
+    data: {
+        labels: ['Active Users', 'Inactive Users'],
+        datasets: [{
+            data: [{{ active_users }}, {{ inactive_users }}],
+            backgroundColor: [
+                'rgba(135, 206, 235, 0.9)',
+                'rgba(255, 163, 163, 1)'
+            ],
+            borderWidth: 0
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        aspectRatio: 1.8,
+        plugins: {
+            legend: {
+                display: true,
+                position: 'bottom',
+                labels: { font: { size: 12 }, padding: 15 }
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        const total = {{ active_users }} + {{ inactive_users }};
+                        const value = context.raw;
+                        const pct = total ? ((value / total) * 100).toFixed(1) : 0;
+                        return `${context.label}: ${value} (${pct}%)`;
+                    }
+                }
+            }
+        }
+    }
+});
+</script>
+
+</div>
+
 {% endblock %}

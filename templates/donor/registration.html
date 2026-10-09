@@ -1,0 +1,196 @@
+
+{% extends "donor/donor_base.html" %}
+
+{% block title %}Donor Registration{% endblock %}
+
+{% block content %}
+
+<div class="profile-wrap">
+
+    <h1>Donor Registration</h1>
+
+    <p class="registration-info">
+    Registration must be completed before booking an appointment.
+    The authenticity of your information will be verified during your physical visit.
+</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+            <div class="profile-alert profile-alert--{{ category }}" role="status">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endwith %}
+
+    <form method="POST" class="profile-form" novalidate>
+
+        <!-- PERSONAL INFORMATION -->
+
+        <div class="profile-field">
+            <label for="name">Name</label>
+            <input type="text"
+                   id="name"
+                   name="name"
+                   placeholder="Full name"
+                   autocomplete="name"
+                   required>
+        </div>
+
+        <div class="profile-field">
+            <label for="ic">IC number</label>
+            <input type="text"
+                   id="ic"
+                   name="ic"
+                   placeholder="e.g. 010203-10-1234"
+                   required>
+        </div>
+
+        <div class="profile-row">
+
+            <div class="profile-field">
+                <label for="dob">Date of birth</label>
+                <input type="date"
+                       id="dob"
+                       name="dob"
+                       required>
+            </div>
+
+            <div class="profile-field">
+                <label for="gender">Gender</label>
+                <select id="gender"
+                        name="gender"
+                        required>
+                    <option value="">Select gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                </select>
+            </div>
+
+        </div>
+
+        <div class="profile-field">
+            <label for="blood_type">Blood type</label>
+
+            <select id="blood_type"
+                    name="blood_type"
+                    required>
+
+                <option value="">Select blood type</option>
+                <option value="A+">A+</option>
+                <option value="A-">A-</option>
+                <option value="B+">B+</option>
+                <option value="B-">B-</option>
+                <option value="AB+">AB+</option>
+                <option value="AB-">AB-</option>
+                <option value="O+">O+</option>
+                <option value="O-">O-</option>
+                <option value="Unknown">Unknown</option>
+
+            </select>
+
+            <small class="profile-note">
+                If you do not know your blood type, select "Unknown".
+            </small>
+        </div>
+
+
+        <!-- CONTACT INFORMATION -->
+
+        <div class="profile-row">
+
+            <div class="profile-field">
+                <label for="email">Email</label>
+
+                <input type="email"
+                       id="email"
+                       name="email"
+                       placeholder="Email"
+                       autocomplete="email"
+                       required>
+            </div>
+
+            <div class="profile-field">
+                <label for="phone">Phone number</label>
+
+                <input type="tel"
+                       id="phone"
+                       name="phone"
+                       placeholder="e.g. 012-3456789"
+                       autocomplete="tel"
+                       required>
+            </div>
+
+        </div>
+
+
+        <div class="profile-field">
+            <label for="address">Home address</label>
+
+            <textarea id="address"
+                      name="address"
+                      placeholder="Full address"
+                      rows="3"
+                      required></textarea>
+        </div>
+
+        <div class="profile-field">
+            <label for="emergency_contact">Emergency contact</label>
+
+            <input type="tel"
+                   id="emergency_contact"
+                   name="emergency_contact"
+                   placeholder="Emergency contact phone number"
+                   required>
+        </div>
+
+
+        <!-- ACCOUNT INFORMATION -->
+
+        <hr class="profile-divider">
+
+        <p class="profile-section-text">
+            Create a password for your donor account.
+        </p>
+
+        <div class="profile-row">
+
+            <div class="profile-field">
+                <label for="password">Password</label>
+
+                <input type="password"
+                       id="password"
+                       name="password"
+                       placeholder="Enter password"
+                       autocomplete="new-password"
+                       required>
+            </div>
+
+            <div class="profile-field">
+                <label for="confirm_password">Confirm password</label>
+
+                <input type="password"
+                       id="confirm_password"
+                       name="confirm_password"
+                       placeholder="Confirm password"
+                       autocomplete="new-password"
+                       required>
+            </div>
+
+        </div>
+
+
+        <!-- REGISTER BUTTON -->
+
+        <div class="profile-actions">
+
+            <button type="submit" class="profile-btn-save">
+                Register
+            </button>
+
+        </div>
+
+    </form>
+
+</div>
+
+{% endblock %}

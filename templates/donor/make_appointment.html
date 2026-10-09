@@ -1,3 +1,4 @@
+
 {% extends "donor/donor_base.html" %}
 
 {% block content %}
@@ -5,160 +6,197 @@
     <div class="appt-card">
         <h1 class="appt-title">Book Appointment</h1>
 
+        <!-- Flask flash messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% for category, message in messages %}
-                <div class="appt-alert appt-alert--{{ category }}" role="status">{{ message }}</div>
+                <div class="appt-alert appt-alert--{{ category }}"
+                     role="status">
+                    {{ message }}
+                </div>
             {% endfor %}
         {% endwith %}
 
-        <form method="POST" class="appt-form" id="apptForm" novalidate>
+        {% if events %}
+        <form method="POST"
+              action="{{ url_for('book_appointment') }}"
+              class="appt-form"
+              id="apptForm">
 
+            <!-- STEP 1: Select an event created by the admin -->
+            <div class="appt-field">
+                <label for="appt-event">Available blood donation events</label>
 
-            <div class="appt-row appt-row--top">
-                <div class="appt-field">
-                    <label for="appt-centre">Donation centre</label>
-                    <select id="appt-centre" name="centre" required>
-                        <option value="" disabled selected>Select a centre</option>
-                        <option value="1">Penang General Hospital Blood Bank</option>
-                        <option value="2">Mobile Blood Drive</option>
-                    </select>
-                </div>
+                <select id="appt-event" name="event_id" required>
+                    <option value="" selected disabled>
+                        Select an event
+                    </option>
 
-                <div class="appt-field">
-                    <label for="appt-type">Donation type</label>
-                    <select id="appt-type" name="donation_type" required>
-                        <option value="" disabled selected>Select a type</option>
-                        <option value="whole_blood">Whole blood</option>
-                        <option value="platelets">Platelets</option>
-                        <option value="plasma">Plasma</option>
-                    </select>
-                </div>
-
-                <button type="button" class="appt-btn" id="apptBookBtn">Book appointment</button>
+                    {% for event in events %}
+                    <option value="{{ event.id }}">
+                        {{ event.name }} — {{ event.location }}
+                        ({{ event.event_date.strftime('%d %b %Y')
+                            if event.event_date.strftime is defined
+                            else event.event_date }})
+                    </option>
+                    {% endfor %}
+                </select>
             </div>
 
-            <p class="appt-error" id="apptError" hidden>Please select a centre and donation type.</p>
+            <!-- STEP 2: Show details for the selected event -->
+            {% for event in events %}
+            <section class="appt-event-details"
+                     data-event-id="{{ event.id }}"
+                     hidden>
 
-            <!-- STEP 2: shown after clicking Book appointment -->
-            <div class="appt-step2" id="apptStep2" hidden>
+                <div class="appt-divider">
+                    <span>event details</span>
+                </div>
 
-                <div class="appt-divider"><span>available dates</span></div>
+                <h3>{{ event.name }}</h3>
+
+                <p>
+                    <strong>Location:</strong>
+                    {{ event.location }}
+                </p>
+
+                <p>
+                    <strong>Date:</strong>
+                    {{ event.event_date.strftime('%d %b %Y')
+                       if event.event_date.strftime is defined
+                       else event.event_date }}
+                </p>
+
+                <p>
+                    <strong>Time:</strong>
+                    {{ event.start_time }} – {{ event.end_time }}
+                </p>
+
+                {% if event.description %}
+                <p>{{ event.description }}</p>
+                {% endif %}
+
+                <!-- STEP 3: Select an available time -->
+                <div class="appt-divider">
+                    <span>available appointment times</span>
+                </div>
 
                 <div class="appt-chips">
+                    {% for slot in event.available_times %}
+                    <label class="appt-chip">
+                        <input
+                            type="radio"
+                            name="appointment_time"
+                            value="{{ slot.time }}"
+                            data-event-id="{{ event.id }}"
+                            {% if slot.available <= 0 %}disabled{% endif %}
+                            required>
 
-                    <label class="appt-chip">
-                        <input type="radio" name="date" value="2026-10-02">
-                        <span><small>Fri</small><strong>2 Oct</strong></span>
+                        <span>
+                            <strong>{{ slot.time }}</strong>
+                            {% if slot.available <= 0 %}
+                                <small>Full</small>
+                            {% else %}
+                                <small>
+                                    {{ slot.available }} slot(s) left
+                                </small>
+                            {% endif %}
+                        </span>
                     </label>
-                    <label class="appt-chip">
-                        <input type="radio" name="date" value="2026-10-03">
-                        <span><small>Sat</small><strong>3 Oct</strong></span>
-                    </label>
-                    <label class="appt-chip">
-                        <input type="radio" name="date" value="2026-10-05">
-                        <span><small>Mon</small><strong>5 Oct</strong></span>
-                    </label>
-                    <label class="appt-chip">
-                        <input type="radio" name="date" value="2026-10-06">
-                        <span><small>Tue</small><strong>6 Oct</strong></span>
-                    </label>
-                    <label class="appt-chip">
-                        <input type="radio" name="date" value="2026-10-08">
-                        <span><small>Thu</small><strong>8 Oct</strong></span>
-                    </label>
-                    <label class="appt-chip">
-                        <input type="radio" name="date" value="2026-10-09">
-                        <span><small>Fri</small><strong>9 Oct</strong></span>
-                    </label>
+                    {% else %}
+                    <p>No appointment times are currently available.</p>
+                    {% endfor %}
                 </div>
+            </section>
+            {% endfor %}
 
-
-                <div id="apptTimes" hidden>
-                    <div class="appt-divider"><span>available times</span></div>
-
-                    <div class="appt-chips">
-                        <label class="appt-chip">
-                            <input type="radio" name="time" value="09:00">
-                            <span><strong>9:00 AM</strong></span>
-                        </label>
-                        <label class="appt-chip">
-                            <input type="radio" name="time" value="09:30">
-                            <span><strong>9:30 AM</strong></span>
-                        </label>
-                        <label class="appt-chip">
-                            <input type="radio" name="time" value="10:00" disabled>
-                            <span><strong>10:00 AM</strong><small>Full</small></span>
-                        </label>
-                        <label class="appt-chip">
-                            <input type="radio" name="time" value="10:30">
-                            <span><strong>10:30 AM</strong></span>
-                        </label>
-                        <label class="appt-chip">
-                            <input type="radio" name="time" value="11:00">
-                            <span><strong>11:00 AM</strong></span>
-                        </label>
-                        <label class="appt-chip">
-                            <input type="radio" name="time" value="14:00">
-                            <span><strong>2:00 PM</strong></span>
-                        </label>
-                    </div>
-
-
-                    <div class="appt-row appt-row--bottom">
-                        <div class="appt-field">
-                            <label for="appt-notes">Notes (optional)</label>
-                            <textarea id="appt-notes" name="notes" rows="2"
-                                      placeholder="Anything you want staff to know"></textarea>
-                        </div>
-                        <button type="submit" class="appt-btn" id="apptConfirmBtn" disabled>Confirm appointment</button>
-                    </div>
-                </div>
+            <!-- STEP 4: Additional information -->
+            <div class="appt-field">
+                <label for="appt-notes">Notes (optional)</label>
+                <textarea id="appt-notes"
+                          name="notes"
+                          rows="3"
+                          placeholder="Anything you want staff to know"></textarea>
             </div>
 
+            <button type="submit" class="appt-btn" id="apptConfirmBtn" disabled>
+                Confirm appointment
+            </button>
         </form>
+
+        {% else %}
+        <!-- Empty state when the admin has not created any events -->
+        <div class="appt-empty">
+            <h3>No upcoming blood donation events</h3>
+            <p>
+                There are currently no available events to book.
+                Please check again later.
+            </p>
+        </div>
+        {% endif %}
     </div>
 </div>
 
 <script>
-(function () {
-    var centre   = document.getElementById('appt-centre');
-    var type     = document.getElementById('appt-type');
-    var bookBtn  = document.getElementById('apptBookBtn');
-    var errorMsg = document.getElementById('apptError');
-    var step2    = document.getElementById('apptStep2');
-    var times    = document.getElementById('apptTimes');
-    var confirm  = document.getElementById('apptConfirmBtn');
+document.addEventListener("DOMContentLoaded", function () {
+    const eventSelect = document.getElementById("appt-event");
+    const eventSections = document.querySelectorAll(".appt-event-details");
+    const confirmButton = document.getElementById("apptConfirmBtn");
+    const form = document.getElementById("apptForm");
 
-    bookBtn.addEventListener('click', function () {
-        if (!centre.value || !type.value) {
-            errorMsg.hidden = false;
-            return;
+    if (!eventSelect || !form) return;
+
+    function updateEvent() {
+        const selectedEventId = eventSelect.value;
+
+        eventSections.forEach(function (section) {
+            const isSelected =
+                section.dataset.eventId === selectedEventId;
+
+            section.hidden = !isSelected;
+
+            section.querySelectorAll(
+                'input[name="appointment_time"]'
+            ).forEach(function (input) {
+                input.disabled = !isSelected ||
+                    input.dataset.eventId !== selectedEventId;
+
+                if (input.disabled) {
+                    input.checked = false;
+                }
+            });
+        });
+
+        updateButton();
+    }
+
+    function updateButton() {
+        const selectedTime = form.querySelector(
+            'input[name="appointment_time"]:checked:not(:disabled)'
+        );
+
+        confirmButton.disabled = !eventSelect.value || !selectedTime;
+    }
+
+    eventSelect.addEventListener("change", updateEvent);
+
+    form.querySelectorAll(
+        'input[name="appointment_time"]'
+    ).forEach(function (input) {
+        input.addEventListener("change", updateButton);
+    });
+
+    form.addEventListener("submit", function (e) {
+        const selectedTime = form.querySelector(
+            'input[name="appointment_time"]:checked:not(:disabled)'
+        );
+
+        if (!eventSelect.value || !selectedTime) {
+            e.preventDefault();
+            alert("Please select an event and an available appointment time.");
         }
-        errorMsg.hidden = true;
-        step2.hidden = false;
-        step2.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
 
-    document.querySelectorAll('input[name="date"]').forEach(function (r) {
-        r.addEventListener('change', function () {
-            times.hidden = false;
-        });
-    });
-
-    document.querySelectorAll('input[name="time"]').forEach(function (r) {
-        r.addEventListener('change', function () {
-            confirm.disabled = false;
-        });
-    });
-
-    [centre, type].forEach(function (el) {
-        el.addEventListener('change', function () {
-            step2.hidden = true;
-            times.hidden = true;
-            confirm.disabled = true;
-            document.querySelectorAll('.appt-chip input').forEach(function (i) { i.checked = false; });
-        });
-    });
-})();
+    updateEvent();
+});
 </script>
 {% endblock %}

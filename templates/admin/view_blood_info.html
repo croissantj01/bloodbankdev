@@ -1,5 +1,289 @@
-{% extends "admin/admin_base.html" %}
-{% block title %}Blood Details{% endblock %}
+{% extends 'admin/admin_base.html' %}
 {% block content %}
-<h1>View Blood Details</h1>
+
+
+<div class="container py-4 blood-page">
+
+    <h1 class="report-heading">View Blood Details</h1>
+    <p class="report-subtitle">View Blood Info/Inventory</p>
+
+    <!-- Summary -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="card stat-card p-3">
+                <h6>Total Units in Stock</h6>
+                <h3 id="totalUnits">342</h3>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card stat-card p-3">
+                <h6>Blood Types</h6>
+                <h3>8</h3>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card stat-card p-3">
+                <h6>Sufficient Types</h6>
+                <h3 id="sufficientCount">4</h3>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card stat-card p-3">
+                <h6>Low / Critical Types</h6>
+                <h3 id="lowCount">4</h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- Low Stock Alert -->
+    <div class="alert alert-danger" id="criticalAlert">
+        <strong>Low Stock Warning!</strong>
+        Some blood types require attention.
+    </div>
+
+    <!-- Search and Filters -->
+    <div class="card p-3 mb-4">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <input type="search" id="searchBlood"
+                       class="form-control"
+                       placeholder="Search blood type...">
+            </div>
+
+            <div class="col-md-3">
+                <select id="statusFilter" class="form-select">
+                    <option value="All">All Statuses</option>
+                    <option value="Sufficient">Sufficient</option>
+                    <option value="Low">Low</option>
+                    <option value="Critical">Critical</option>
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <select id="sortBlood" class="form-select">
+                    <option value="desc">Quantity: High to Low</option>
+                    <option value="asc">Quantity: Low to High</option>
+                    <option value="type">Blood Type: A to Z</option>
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <button class="btn btn-secondary w-100"
+                        onclick="resetFilters()">Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Blood Inventory Table -->
+    <div class="card p-3">
+        <h4>Blood Inventory</h4>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Blood Type</th>
+                        <th>Available Units</th>
+                        <th>Reserved Units</th>
+                        <th>Minimum Threshold</th>
+                        <th>Status</th>
+                        <th>Last Updated</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="bloodTableBody"></tbody>
+            </table>
+        </div>
+
+        <p id="resultCount" class="text-muted"></p>
+    </div>
+
+</div>
+
+<!-- Blood Details Modal -->
+<div class="modal fade" id="bloodModal" tabindex="-1"
+     aria-labelledby="modalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">Blood Details</h5>
+                <button type="button" class="btn-close"
+                        data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body" id="bloodModalBody"></div>
+
+            <div class="modal-footer">
+                <button class="btn btn-secondary"
+                        data-bs-dismiss="modal">Close</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+const bloodInventory = [
+/*dummy data*/
+    {type:"A+", units:68, reserved:8, minimum:30, updated:"08 Oct 2026"},
+    {type:"A-", units:12, reserved:4, minimum:20, updated:"08 Oct 2026"},
+    {type:"B+", units:55, reserved:5, minimum:30, updated:"08 Oct 2026"},
+    {type:"B-", units:9, reserved:3, minimum:20, updated:"08 Oct 2026"},
+    {type:"AB+", units:30, reserved:2, minimum:15, updated:"08 Oct 2026"},
+    {type:"AB-", units:4, reserved:2, minimum:10, updated:"08 Oct 2026"},
+    {type:"O+", units:90, reserved:10, minimum:40, updated:"08 Oct 2026"},
+    {type:"O-", units:18, reserved:6, minimum:25, updated:"08 Oct 2026"}
+];
+
+// Determine stock status
+function getStatus(blood) {
+    if (blood.units <= blood.minimum * 0.5) return "Critical";
+    if (blood.units < blood.minimum) return "Low";
+    return "Sufficient";
+}
+
+function renderSummary() {
+    document.getElementById("totalUnits").textContent =
+        bloodInventory.reduce((sum, b) => sum + b.units, 0);
+
+    document.getElementById("sufficientCount").textContent =
+        bloodInventory.filter(b => getStatus(b) === "Sufficient").length;
+
+    document.getElementById("lowCount").textContent =
+        bloodInventory.filter(b => getStatus(b) !== "Sufficient").length;
+
+    const critical = bloodInventory.filter(
+        b => getStatus(b) === "Critical"
+    );
+
+    const alert = document.getElementById("criticalAlert");
+    alert.style.display = critical.length ? "block" : "none";
+
+    if (critical.length) {
+        alert.textContent =
+            "Critical stock warning: " +
+            critical.map(b => b.type).join(", ") +
+            " blood is critically low.";
+    }
+}
+
+// Display inventory
+function renderTable() {
+    const search = document.getElementById("searchBlood")
+        .value.trim().toLowerCase();
+    const filter = document.getElementById("statusFilter").value;
+    const sort = document.getElementById("sortBlood").value;
+
+    let rows = bloodInventory.filter(b =>
+        b.type.toLowerCase().includes(search) &&
+        (filter === "All" || getStatus(b) === filter)
+    );
+
+    if (sort === "asc") rows.sort((a, b) => a.units - b.units);
+    if (sort === "desc") rows.sort((a, b) => b.units - a.units);
+    if (sort === "type") rows.sort((a, b) => a.type.localeCompare(b.type));
+
+    const body = document.getElementById("bloodTableBody");
+
+    if (rows.length === 0) {
+        body.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-muted">
+                    No blood types found.
+                </td>
+            </tr>`;
+    } else {
+        body.innerHTML = rows.map(b => {
+            const status = getStatus(b);
+            const badge = {
+                Sufficient: "bg-success",
+                Low: "bg-warning text-dark",
+                Critical: "bg-danger"
+            }[status];
+
+            return `
+                <tr>
+                    <td><strong>${b.type}</strong></td>
+                    <td>${b.units}</td>
+                    <td>${b.reserved}</td>
+                    <td>${b.minimum}</td>
+                    <td>
+                        <span class="badge ${badge}">${status}</span>
+                    </td>
+                    <td>${b.updated}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary"
+                            onclick="viewBlood('${b.type}')">
+                            View Details
+                        </button>
+                    </td>
+                </tr>`;
+        }).join("");
+    }
+
+    document.getElementById("resultCount").textContent =
+        `Showing ${rows.length} of ${bloodInventory.length} blood types`;
+}
+
+// View a selected blood type
+function viewBlood(type) {
+    const b = bloodInventory.find(item => item.type === type);
+    if (!b) return;
+
+    const status = getStatus(b);
+    const available = Math.max(0, b.units - b.reserved);
+
+    document.getElementById("modalTitle").textContent =
+        `${b.type} Blood Details`;
+
+    const details = [
+        ["Blood Type", b.type],
+        ["Total Stock", `${b.units} units`],
+        ["Reserved Units", `${b.reserved} units`],
+        ["Unreserved Units", `${available} units`],
+        ["Minimum Threshold", `${b.minimum} units`],
+        ["Status", status],
+        ["Last Updated", b.updated]
+    ];
+
+    const modalBody = document.getElementById("bloodModalBody");
+    modalBody.replaceChildren();
+
+    details.forEach(([label, value]) => {
+        const row = document.createElement("p");
+        const strong = document.createElement("strong");
+        strong.textContent = label + ": ";
+        row.append(strong, document.createTextNode(value));
+        modalBody.appendChild(row);
+    });
+
+    bootstrap.Modal.getOrCreateInstance(
+        document.getElementById("bloodModal")
+    ).show();
+}
+
+// Reset all filters
+function resetFilters() {
+    document.getElementById("searchBlood").value = "";
+    document.getElementById("statusFilter").value = "All";
+    document.getElementById("sortBlood").value = "desc";
+    renderTable();
+}
+
+// Search and filter events
+document.getElementById("searchBlood")
+    .addEventListener("input", renderTable);
+
+document.getElementById("statusFilter")
+    .addEventListener("change", renderTable);
+
+document.getElementById("sortBlood")
+    .addEventListener("change", renderTable);
+
+// Initialize page
+renderSummary();
+renderTable();
+</script>
+
 {% endblock %}

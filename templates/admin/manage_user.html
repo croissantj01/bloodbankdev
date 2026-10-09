@@ -1,5 +1,604 @@
-{% extends "admin/admin_base.html" %}
-{% block title %}Manage User{% endblock %}
+{% extends 'admin/admin_base.html' %}
 {% block content %}
-<h1>Manage User</h1>
+
+{# SAMPLE DATA - delete this after do the backend.#}
+{% set users = users|default([
+    {'id': 1, 'name': 'Aisyah Rahman',   'email': 'aisyah@hospitalkl.com',  'phone': '012-345 6789', 'role': 'Hospital Staff',   'org': 'Hospital Kuala Lumpur', 'status': 'Active',   'date': '2026-08-14'},
+    {'id': 2, 'name': 'Daniel Lim',      'email': 'daniel@hospitalpg.com',  'phone': '016-222 3344', 'role': 'Hospital Staff',   'org': 'Hospital Pulau Pinang', 'status': 'Active',   'date': '2026-08-20'},
+    {'id': 3, 'name': 'Nurul Huda',      'email': 'nurul@bloodbank.my',     'phone': '013-777 8899', 'role': 'Blood Bank Staff', 'org': 'National Blood Centre', 'status': 'Active',   'date': '2026-07-02'},
+    {'id': 4, 'name': 'Kevin Tan',       'email': 'kevin@bloodbank.my',     'phone': '011-5566 7788', 'role': 'Blood Bank Staff', 'org': 'Penang Blood Bank',     'status': 'Inactive', 'date': '2026-06-18'},
+    {'id': 5, 'name': 'Siti Marlina',    'email': 'siti@gmail.com',         'phone': '019-888 1122', 'role': 'Donor',            'org': 'O+',                    'status': 'Active',   'date': '2026-09-01'},
+    {'id': 6, 'name': 'Ahmad Faiz',      'email': 'faiz@gmail.com',         'phone': '017-654 3210', 'role': 'Donor',            'org': 'A+',                    'status': 'Active',   'date': '2026-09-12'},
+    {'id': 7, 'name': 'Priya Nair',      'email': 'priya@gmail.com',        'phone': '014-333 9900', 'role': 'Donor',            'org': 'B-',                    'status': 'Inactive', 'date': '2026-05-27'},
+    {'id': 8, 'name': 'Jason Wong',      'email': 'jason@gmail.com',        'phone': '018-120 4567', 'role': 'Donor',            'org': 'AB+',                   'status': 'Active',   'date': '2026-10-03'}
+]) %}
+{# ===== END SAMPLE DATA ===== #}
+
+{% set staff  = users|rejectattr('role', 'equalto', 'Donor')|list %}
+{% set donors = users|selectattr('role', 'equalto', 'Donor')|list %}
+
+
+<div class="container py-4">
+
+    <!-- ================= HEADER ================= -->
+    <div class="mu-header">
+        <div>
+            <h1 class="report-heading">Manage Users</h1>
+            <p class="report-subtitle mb-0">
+                Create and manage staff accounts. Donors register by themselves.
+            </p>
+        </div>
+
+        <button type="button" class="export-btn mu-add-btn" id="openAddModal">
+            <i class="fas fa-user-plus"></i> Add Staff Account
+        </button>
+    </div>
+
+
+    <!-- ================= SUMMARY ================= -->
+    <div class="report-summary mu-summary">
+
+        <div class="report-card">
+            <h4>Total Users</h4>
+            <div class="report-value" id="statTotal">{{ users|length }}</div>
+        </div>
+
+        <div class="report-card">
+            <h4>Hospital Staff</h4>
+            <div class="report-value" id="statHospital">{{ users|selectattr('role', 'equalto', 'Hospital Staff')|list|length }}</div>
+        </div>
+
+        <div class="report-card">
+            <h4>Blood Bank Staff</h4>
+            <div class="report-value" id="statBank">{{ users|selectattr('role', 'equalto', 'Blood Bank Staff')|list|length }}</div>
+        </div>
+
+        <div class="report-card">
+            <h4>Donors</h4>
+            <div class="report-value" id="statDonors">{{ donors|length }}</div>
+        </div>
+
+        <div class="report-card">
+            <h4>Inactive Accounts</h4>
+            <div class="report-value" id="statInactive">{{ users|selectattr('status', 'equalto', 'Inactive')|list|length }}</div>
+        </div>
+
+    </div>
+
+
+    <!-- ================= TABS ================= -->
+    <div class="mu-tabs" role="tablist">
+        <button type="button" class="mu-tab active" data-tab="staff" role="tab">
+            <i class="fas fa-user-shield"></i> Staff Accounts
+            <span class="mu-count" id="countStaff">{{ staff|length }}</span>
+        </button>
+        <button type="button" class="mu-tab" data-tab="donor" role="tab">
+            <i class="fas fa-heart"></i> Donor Accounts
+            <span class="mu-count" id="countDonor">{{ donors|length }}</span>
+        </button>
+    </div>
+
+
+    <!-- ================= TABLE CARD ================= -->
+    <div class="mu-card">
+
+        <!-- Search + filters -->
+        <div class="mu-toolbar">
+
+            <div class="mu-search">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search by name, email or phone">
+            </div>
+
+            <select id="roleFilter" class="mu-select" aria-label="Filter by role">
+                <option value="">All roles</option>
+                <option value="Hospital Staff">Hospital Staff</option>
+                <option value="Blood Bank Staff">Blood Bank Staff</option>
+            </select>
+
+            <select id="statusFilter" class="mu-select" aria-label="Filter by status">
+                <option value="">All status</option>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+            </select>
+
+        </div>
+
+        <div class="mu-donor-note" id="donorNote" hidden>
+            <i class="fas fa-info-circle"></i>
+            Donors create their own accounts. You can view them and activate or deactivate their access.
+        </div>
+
+        <div class="mu-table-wrap">
+            <table class="mu-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Contact</th>
+                        <th>Role</th>
+                        <th id="orgHeader">Hospital / Branch</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody id="userTableBody">
+
+                {% for u in users %}
+                    {% set is_donor = u.role == 'Donor' %}
+                    <tr data-group="{{ 'donor' if is_donor else 'staff' }}"
+                        data-role="{{ u.role }}"
+                        data-status="{{ u.status }}">
+
+                        <td>
+                            <div class="mu-user">
+                                <span class="mu-avatar">{{ u.name[0]|upper }}</span>
+                                <span class="mu-name">{{ u.name }}</span>
+                            </div>
+                        </td>
+
+                        <td>
+                            <div class="mu-email">{{ u.email }}</div>
+                            <div class="mu-phone">{{ u.phone }}</div>
+                        </td>
+
+                        <td>
+                            <span class="mu-badge {{ 'role-donor' if is_donor else ('role-hospital' if u.role == 'Hospital Staff' else 'role-bank') }}">
+                                {{ u.role }}
+                            </span>
+                        </td>
+
+                        <td>
+                            {% if is_donor %}
+                                <span class="mu-blood">{{ u.org }}</span>
+                            {% else %}
+                                {{ u.org }}
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            <span class="mu-badge status {{ 'active' if u.status == 'Active' else 'inactive' }}" data-status-badge>
+                                {{ u.status }}
+                            </span>
+                        </td>
+
+                        <td>{{ u.date }}</td>
+
+                        <td class="text-end">
+                            <div class="mu-actions">
+
+                                <button type="button" class="mu-icon-btn" title="View" data-action="view">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+
+                                {% if not is_donor %}
+                                <button type="button" class="mu-icon-btn" title="Edit" data-action="edit">
+                                    <i class="fas fa-pen"></i>
+                                </button>
+
+                                <button type="button" class="mu-icon-btn" title="Reset password" data-action="reset">
+                                    <i class="fas fa-key"></i>
+                                </button>
+                                {% endif %}
+
+                                <button type="button" class="mu-icon-btn" data-action="toggle"
+                                        title="{{ 'Deactivate' if u.status == 'Active' else 'Activate' }}">
+                                    <i class="fas {{ 'fa-user-slash' if u.status == 'Active' else 'fa-user-check' }}"></i>
+                                </button>
+
+                                {% if not is_donor %}
+                                <button type="button" class="mu-icon-btn danger" title="Delete" data-action="delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                {% endif %}
+
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+
+                </tbody>
+            </table>
+
+            <div class="mu-empty" id="emptyState" hidden>
+                <i class="fas fa-users-slash"></i>
+                <p>No users match your search.</p>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- ================= ADD / EDIT STAFF MODAL ================= -->
+<div class="mu-modal" id="staffModal" hidden>
+    <div class="mu-modal-backdrop" data-close></div>
+
+    <div class="mu-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="staffModalTitle">
+
+        <div class="mu-modal-head">
+            <h3 id="staffModalTitle">
+                <i class="fas fa-user-plus"></i> Add Staff Account
+            </h3>
+            <button type="button" class="mu-close" data-close aria-label="Close">&times;</button>
+        </div>
+
+        <form id="staffForm" method="POST" action="#" autocomplete="off">
+
+            <div class="mu-form-grid">
+
+                <div class="mu-field mu-span-2">
+                    <label for="fName">Full name</label>
+                    <input type="text" id="fName" name="name" required placeholder="e.g. Aisyah Rahman">
+                </div>
+
+                <div class="mu-field">
+                    <label for="fEmail">Email</label>
+                    <input type="email" id="fEmail" name="email" required placeholder="name@example.com">
+                </div>
+
+                <div class="mu-field">
+                    <label for="fPhone">Phone number</label>
+                    <input type="tel" id="fPhone" name="phone" required placeholder="012-345 6789">
+                </div>
+
+                <div class="mu-field">
+                    <label for="fRole">Role</label>
+                    <select id="fRole" name="role" required>
+                        <option value="Hospital Staff">Hospital Staff</option>
+                        <option value="Blood Bank Staff">Blood Bank Staff</option>
+                    </select>
+                </div>
+
+                <div class="mu-field">
+                    <label for="fOrg" id="fOrgLabel">Hospital name</label>
+                    <input type="text" id="fOrg" name="organisation" required placeholder="e.g. Hospital Kuala Lumpur">
+                </div>
+
+                <div class="mu-field">
+                    <label for="fPassword">Temporary password</label>
+                    <input type="password" id="fPassword" name="password" required minlength="8" placeholder="At least 8 characters">
+                </div>
+
+                <div class="mu-field">
+                    <label for="fStatus">Status</label>
+                    <select id="fStatus" name="status">
+                        <option value="Active" selected>Active</option>
+                        <option value="Inactive">Inactive</option>
+                    </select>
+                </div>
+
+            </div>
+
+            <p class="mu-hint">
+                <i class="fas fa-info-circle"></i>
+                The staff member will be asked to change this password on first login.
+            </p>
+
+            <div class="mu-modal-foot">
+                <button type="button" class="mu-btn-ghost" data-close>Cancel</button>
+                <button type="submit" class="export-btn" id="staffSubmit">
+                    <i class="fas fa-check"></i> Create Account
+                </button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+
+<!-- ================= CONFIRM MODAL ================= -->
+<div class="mu-modal" id="confirmModal" hidden>
+    <div class="mu-modal-backdrop" data-close></div>
+
+    <div class="mu-modal-dialog mu-modal-sm" role="alertdialog" aria-modal="true">
+        <div class="mu-confirm-icon"><i class="fas fa-triangle-exclamation"></i></div>
+        <h3 id="confirmTitle">Are you sure?</h3>
+        <p id="confirmText" class="mu-confirm-text"></p>
+
+        <div class="mu-modal-foot center">
+            <button type="button" class="mu-btn-ghost" data-close>Cancel</button>
+            <button type="button" class="export-btn" id="confirmOk">Confirm</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- ================= TOAST ================= -->
+<div class="mu-toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+
+<script>
+(function () {
+
+    const body          = document.getElementById('userTableBody');
+    const searchInput   = document.getElementById('searchInput');
+    const roleFilter    = document.getElementById('roleFilter');
+    const statusFilter  = document.getElementById('statusFilter');
+    const emptyState    = document.getElementById('emptyState');
+    const donorNote     = document.getElementById('donorNote');
+    const orgHeader     = document.getElementById('orgHeader');
+    const toast         = document.getElementById('toast');
+
+    let activeTab = 'staff';
+
+    /* ---------- helpers ---------- */
+    const rows = () => Array.from(body.querySelectorAll('tr'));
+
+    function showToast(msg) {
+        toast.textContent = msg;
+        toast.hidden = false;
+        clearTimeout(showToast.t);
+        showToast.t = setTimeout(() => { toast.hidden = true; }, 2800);
+    }
+
+    function openModal(el)  { el.hidden = false; document.body.classList.add('mu-no-scroll'); }
+    function closeModal(el) { el.hidden = true;  document.body.classList.remove('mu-no-scroll'); }
+
+    document.querySelectorAll('.mu-modal').forEach(modal => {
+        modal.addEventListener('click', e => {
+            if (e.target.closest('[data-close]')) closeModal(modal);
+        });
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') document.querySelectorAll('.mu-modal').forEach(m => closeModal(m));
+    });
+
+    /* ---------- summary + counts ---------- */
+    function updateStats() {
+        const all = rows();
+        const count = fn => all.filter(fn).length;
+
+        document.getElementById('statTotal').textContent    = all.length;
+        document.getElementById('statHospital').textContent = count(r => r.dataset.role === 'Hospital Staff');
+        document.getElementById('statBank').textContent     = count(r => r.dataset.role === 'Blood Bank Staff');
+        document.getElementById('statDonors').textContent   = count(r => r.dataset.group === 'donor');
+        document.getElementById('statInactive').textContent = count(r => r.dataset.status === 'Inactive');
+
+        document.getElementById('countStaff').textContent = count(r => r.dataset.group === 'staff');
+        document.getElementById('countDonor').textContent = count(r => r.dataset.group === 'donor');
+    }
+
+    /* ---------- tabs / search / filters ---------- */
+    function applyFilters() {
+        const q      = searchInput.value.trim().toLowerCase();
+        const role   = roleFilter.value;
+        const status = statusFilter.value;
+        let visible  = 0;
+
+        rows().forEach(r => {
+            const match =
+                r.dataset.group === activeTab &&
+                (!role   || r.dataset.role   === role) &&
+                (!status || r.dataset.status === status) &&
+                (!q      || r.textContent.toLowerCase().includes(q));
+
+            r.hidden = !match;
+            if (match) visible++;
+        });
+
+        emptyState.hidden = visible > 0;
+    }
+
+    document.querySelectorAll('.mu-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.mu-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            activeTab = tab.dataset.tab;
+
+            const isDonor = activeTab === 'donor';
+            roleFilter.hidden = isDonor;
+            roleFilter.value  = '';
+            donorNote.hidden  = !isDonor;
+            orgHeader.textContent = isDonor ? 'Blood Type' : 'Hospital / Branch';
+            document.getElementById('openAddModal').hidden = isDonor;
+
+            applyFilters();
+        });
+    });
+
+    [searchInput, roleFilter, statusFilter].forEach(el => {
+        el.addEventListener('input', applyFilters);
+    });
+
+    /* ---------- add / edit staff modal ---------- */
+    const staffModal = document.getElementById('staffModal');
+    const staffForm  = document.getElementById('staffForm');
+    const fRole      = document.getElementById('fRole');
+    let editingRow   = null;
+
+    function syncOrgLabel() {
+        const bank = fRole.value === 'Blood Bank Staff';
+        document.getElementById('fOrgLabel').textContent = bank ? 'Blood bank / centre name' : 'Hospital name';
+        document.getElementById('fOrg').placeholder      = bank ? 'e.g. National Blood Centre' : 'e.g. Hospital Kuala Lumpur';
+    }
+    fRole.addEventListener('change', syncOrgLabel);
+
+    document.getElementById('openAddModal').addEventListener('click', () => {
+        editingRow = null;
+        staffForm.reset();
+        syncOrgLabel();
+        document.getElementById('staffModalTitle').innerHTML = '<i class="fas fa-user-plus"></i> Add Staff Account';
+        document.getElementById('staffSubmit').innerHTML     = '<i class="fas fa-check"></i> Create Account';
+        document.getElementById('fPassword').required = true;
+        document.getElementById('fPassword').placeholder = 'At least 8 characters';
+        openModal(staffModal);
+    });
+
+    function cell(r, i) { return r.children[i]; }
+
+    function openEdit(r) {
+        editingRow = r;
+        staffForm.reset();
+        document.getElementById('fName').value   = r.querySelector('.mu-name').textContent.trim();
+        document.getElementById('fEmail').value  = r.querySelector('.mu-email').textContent.trim();
+        document.getElementById('fPhone').value  = r.querySelector('.mu-phone').textContent.trim();
+        fRole.value                              = r.dataset.role;
+        document.getElementById('fOrg').value    = cell(r, 3).textContent.trim();
+        document.getElementById('fStatus').value = r.dataset.status;
+        syncOrgLabel();
+
+        document.getElementById('staffModalTitle').innerHTML = '<i class="fas fa-pen"></i> Edit Staff Account';
+        document.getElementById('staffSubmit').innerHTML     = '<i class="fas fa-check"></i> Save Changes';
+        document.getElementById('fPassword').required = false;
+        document.getElementById('fPassword').placeholder = 'Leave blank to keep current password';
+        openModal(staffModal);
+    }
+
+    function esc(s) {
+        return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function applyRowData(r, d) {
+        r.dataset.role   = d.role;
+        r.dataset.status = d.status;
+
+        r.querySelector('.mu-avatar').textContent = d.name.charAt(0).toUpperCase();
+        r.querySelector('.mu-name').textContent   = d.name;
+        r.querySelector('.mu-email').textContent  = d.email;
+        r.querySelector('.mu-phone').textContent  = d.phone;
+        cell(r, 3).textContent                    = d.org;
+
+        const roleBadge = cell(r, 2).querySelector('.mu-badge');
+        roleBadge.textContent = d.role;
+        roleBadge.className   = 'mu-badge ' + (d.role === 'Hospital Staff' ? 'role-hospital' : 'role-bank');
+
+        setStatus(r, d.status);
+    }
+
+    function setStatus(r, status) {
+        r.dataset.status = status;
+        const badge = r.querySelector('[data-status-badge]');
+        badge.textContent = status;
+        badge.className   = 'mu-badge status ' + (status === 'Active' ? 'active' : 'inactive');
+
+        const t = r.querySelector('[data-action="toggle"]');
+        t.title = status === 'Active' ? 'Deactivate' : 'Activate';
+        t.querySelector('i').className = 'fas ' + (status === 'Active' ? 'fa-user-slash' : 'fa-user-check');
+    }
+
+    /* FRONTEND DEMO: the row is added/edited in the page only.
+       When the backend exists, remove e.preventDefault() so the form POSTs to your route. */
+    staffForm.addEventListener('submit', e => {
+        e.preventDefault();
+
+        const d = {
+            name:   document.getElementById('fName').value.trim(),
+            email:  document.getElementById('fEmail').value.trim(),
+            phone:  document.getElementById('fPhone').value.trim(),
+            role:   fRole.value,
+            org:    document.getElementById('fOrg').value.trim(),
+            status: document.getElementById('fStatus').value
+        };
+
+        if (editingRow) {
+            applyRowData(editingRow, d);
+            showToast('Staff account updated.');
+        } else {
+            const today = new Date().toISOString().slice(0, 10);
+            const tr = document.createElement('tr');
+            tr.dataset.group = 'staff';
+            tr.dataset.role = d.role;
+            tr.dataset.status = d.status;
+            tr.innerHTML = `
+                <td><div class="mu-user"><span class="mu-avatar">${esc(d.name.charAt(0).toUpperCase())}</span><span class="mu-name">${esc(d.name)}</span></div></td>
+                <td><div class="mu-email">${esc(d.email)}</div><div class="mu-phone">${esc(d.phone)}</div></td>
+                <td><span class="mu-badge ${d.role === 'Hospital Staff' ? 'role-hospital' : 'role-bank'}">${esc(d.role)}</span></td>
+                <td>${esc(d.org)}</td>
+                <td><span class="mu-badge status ${d.status === 'Active' ? 'active' : 'inactive'}" data-status-badge>${esc(d.status)}</span></td>
+                <td>${today}</td>
+                <td class="text-end"><div class="mu-actions">
+                    <button type="button" class="mu-icon-btn" title="View" data-action="view"><i class="fas fa-eye"></i></button>
+                    <button type="button" class="mu-icon-btn" title="Edit" data-action="edit"><i class="fas fa-pen"></i></button>
+                    <button type="button" class="mu-icon-btn" title="Reset password" data-action="reset"><i class="fas fa-key"></i></button>
+                    <button type="button" class="mu-icon-btn" data-action="toggle" title="${d.status === 'Active' ? 'Deactivate' : 'Activate'}"><i class="fas ${d.status === 'Active' ? 'fa-user-slash' : 'fa-user-check'}"></i></button>
+                    <button type="button" class="mu-icon-btn danger" title="Delete" data-action="delete"><i class="fas fa-trash"></i></button>
+                </div></td>`;
+            body.prepend(tr);
+            showToast('Staff account created.');
+        }
+
+        closeModal(staffModal);
+        updateStats();
+        applyFilters();
+    });
+
+    /* ---------- confirm modal ---------- */
+    const confirmModal = document.getElementById('confirmModal');
+    let confirmCb = null;
+
+    function confirmAction(title, text, okLabel, cb) {
+        document.getElementById('confirmTitle').textContent = title;
+        document.getElementById('confirmText').textContent  = text;
+        document.getElementById('confirmOk').textContent    = okLabel;
+        confirmCb = cb;
+        openModal(confirmModal);
+    }
+
+    document.getElementById('confirmOk').addEventListener('click', () => {
+        closeModal(confirmModal);
+        if (confirmCb) confirmCb();
+        confirmCb = null;
+    });
+
+    /* ---------- row actions ---------- */
+    body.addEventListener('click', e => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+
+        const r    = btn.closest('tr');
+        const name = r.querySelector('.mu-name').textContent.trim();
+
+        switch (btn.dataset.action) {
+
+            case 'view':
+                showToast('Viewing ' + name + ' (profile page goes here).');
+                break;
+
+            case 'edit':
+                openEdit(r);
+                break;
+
+            case 'reset':
+                confirmAction('Reset password?',
+                    'A temporary password will be generated for ' + name + '.',
+                    'Reset', () => showToast('Password reset for ' + name + '.'));
+                break;
+
+            case 'toggle': {
+                const goingInactive = r.dataset.status === 'Active';
+                confirmAction(
+                    goingInactive ? 'Deactivate account?' : 'Activate account?',
+                    goingInactive
+                        ? name + ' will no longer be able to log in. Their history is kept.'
+                        : name + ' will be able to log in again.',
+                    goingInactive ? 'Deactivate' : 'Activate',
+                    () => {
+                        setStatus(r, goingInactive ? 'Inactive' : 'Active');
+                        updateStats();
+                        applyFilters();
+                        showToast(name + (goingInactive ? ' deactivated.' : ' activated.'));
+                    });
+                break;
+            }
+
+            case 'delete':
+                confirmAction('Delete account?',
+                    'This permanently removes ' + name + '. Consider deactivating instead to keep their history.',
+                    'Delete', () => {
+                        r.remove();
+                        updateStats();
+                        applyFilters();
+                        showToast(name + ' deleted.');
+                    });
+                break;
+        }
+    });
+
+    applyFilters();
+})();
+</script>
+
 {% endblock %}
