@@ -1,5 +1,66 @@
 {% extends "blood_bank_staff/blood_bank_staff_base.html" %}
 {% block title %}Blood Request{% endblock %}
 {% block content %}
-<h1>Blood Request</h1>
+
+<h1>Manage Blood Request</h1>
+
+<p>Review and manage blood requests submitted by hospitals.</p>
+
+<table border="1">
+
+    <tr>
+        <th>Request ID</th>
+        <th>Hospital Name</th>
+        <th>Blood Type</th>
+        <th>Quantity</th>
+        <th>Requested Date</th>
+        <th>Reason</th>
+        <th>Status</th>
+        <th>Action</th>
+    </tr>
+
+    {% for request in requests %}
+
+    <tr>
+        <td>{{ request.id }}</td>
+        <td>{{ request.hospital_name }}</td>
+        <td>{{ request.blood_type }}</td>
+        <td>{{ request.quantity }}</td>
+        <td>{{ request.requested_date }}</td>
+        <td>{{ request.reason }}</td>
+        <td>{{ request.status }}</td>
+
+        <td>
+            {% if request.status == 'Pending' %}
+
+            <form method="POST"
+                  action="{{ url_for('approve_blood_request', request_id=request.id) }}">
+                <button type="submit">Approve</button>
+            </form>
+
+            <br>
+
+            <form method="POST"
+                  action="{{ url_for('reject_blood_request', request_id=request.id) }}">
+                <button type="submit">Reject</button>
+            </form>
+
+            {% else %}
+
+            {{ request.status }}
+
+            {% endif %}
+        </td>
+    </tr>
+
+    {% else %}
+
+    <tr>
+        <td colspan="8">No blood requests have been submitted yet.</td>
+    </tr>
+
+    {% endfor %}
+
+</table>
+
 {% endblock %}

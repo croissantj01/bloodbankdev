@@ -1,5 +1,37 @@
 {% extends "blood_bank_staff/blood_bank_staff_base.html" %}
 {% block title %}Blood Stock{% endblock %}
 {% block content %}
+
 <h1>Manage blood Stock</h1>
+
+<p>View and manage the available blood stock in the blood bank.</p>
+
+<table border="1">
+
+    <tr>
+        <th>Blood Type</th>
+        <th>Available Quantity (Units)</th>
+        <th>Last Updated</th>
+        <th>Status</th>
+    </tr>
+
+    {% for stock in blood_stocks %}
+
+    <tr>
+        <td>{{ stock.blood_type }}</td>
+        <td>{{ stock.quantity }}</td>
+        <td>{{ stock.last_updated }}</td>
+        <td>{{ stock.status }}</td>
+    </tr>
+
+    {% else %}
+
+    <tr>
+        <td colspan="4">No blood stock records available.</td>
+    </tr>
+
+    {% endfor %}
+
+</table>
+
 {% endblock %}

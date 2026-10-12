@@ -1,5 +1,41 @@
-{% extends "blood_bank_staff/blood_bank_staff_base.html" %}
-{% block title %}Appointment{% endblock %}
+{% extends "blood_bank_staff_base.html" %}
+{% block title %}View Appointments{% endblock %}
 {% block content %}
-<h1>View appointment</h1>
+
+<h1>View Appointments</h1>
+
+<p>View and monitor blood donation appointments made by registered donors.</p>
+
+<hr>
+
+<table border="1" cellpadding="10" cellspacing="0" width="100%">
+
+    <thead>
+        <tr>
+            <th>Appointment ID</th>
+            <th>Donor Name</th>
+            <th>Appointment Date</th>
+            <th>Appointment Time</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {% for appointment in appointments %}
+        <tr>
+            <td>{{ appointment.id }}</td>
+            <td>{{ appointment.donor_name }}</td>
+            <td>{{ appointment.appointment_date }}</td>
+            <td>{{ appointment.appointment_time }}</td>
+            <td>{{ appointment.status }}</td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="5">No appointments available.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+
+</table>
+
 {% endblock %}
