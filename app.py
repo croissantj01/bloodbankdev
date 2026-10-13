@@ -382,7 +382,7 @@ def blood_request():
 
 @app.route('/view_blood_request', methods=['GET','POST'])
 def view_blood_request():
-    return render_template("hospital_staff/blood_request.html")
+    return render_template("hospital_staff/view_blood_request.html")
 
 def send_credentials_email(to_email, full_name, temp_password):
     message = EmailMessage()
@@ -479,6 +479,10 @@ def admin_report():
 def staff_report():
     return render_template("blood_bank_staff/staff_report.html")
 
+@app.route('/make_announcement', methods=['GET', 'POST'])
+def make_announcement():
+    return render_template('blood_bank_staff/make_announcement.html')
+
 @app.route("/donor_dashboard", methods=['GET','POST'])
 def donor_dashboard():
     return render_template("donor/donor_dashboard.html")
@@ -495,9 +499,15 @@ def manage_profile():
 def blood_bank_staff_dashboard():
     return render_template("blood_bank_staff/blood_bank_staff_dashboard.html")
 
-@app.route("/hospital_staff_blood_request", methods=["GET", "POST"])
+@app.route('/hospital_staff/blood_request', methods=['GET', 'POST'])
 def hospital_staff_blood_request():
-    return render_template("hospital_staff/hospital_staff_blood_request.html")
+    if request.method == 'POST':
+
+        #The existing code to save the blood request to the database goes here.
+
+        return redirect(url_for('view_blood_request'))
+
+    return render_template('hospital_staff/hospital_staff_blood_request.html')
 
 @app.route("/manage_blood_stock", methods=["GET", "POST"])
 def manage_blood_stock():

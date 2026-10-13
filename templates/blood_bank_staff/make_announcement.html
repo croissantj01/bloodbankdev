@@ -1,0 +1,122 @@
+{% extends "blood_bank_staff/blood_bank_staff_base.html" %}
+{% block title %}Make Announcement{% endblock %}
+{% block content %}
+
+<div class="staff-page">
+
+    <h1>Make Announcement</h1>
+
+    <p class="staff-subtitle">
+        Create announcements to share important information with users.
+    </p>
+
+    <form method="POST"
+          enctype="multipart/form-data"
+          class="staff-form announcement-form">
+
+        <div class="announcement-layout">
+
+        <div class="staff-panel announcement-form-panel">
+
+            <h2>Create New Announcement</h2>
+
+                <div class="staff-form-group">
+                    <label for="title">Announcement Title</label>
+                    <input type="text" id="title" name="title"
+                           placeholder="Enter announcement title" required>
+                </div>
+
+                <div class="staff-form-group">
+                    <label for="category">Announcement Category</label>
+                    <select id="category" name="category" required>
+                        <option value="">Select a category</option>
+                        <option value="Blood Donation">Blood Donation</option>
+                        <option value="Blood Stock">Blood Stock</option>
+                        <option value="Event">Event</option>
+                        <option value="Urgent Notice">Urgent Notice</option>
+                        <option value="General">General</option>
+                    </select>
+                </div>
+
+                <div class="staff-form-group">
+                    <label for="message">Announcement Message</label>
+                    <textarea id="message" name="message" rows="6"
+                              placeholder="Write your announcement here..."
+                              required></textarea>
+                </div>
+
+                <button type="submit" class="staff-btn">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    Publish Announcement
+                </button>
+
+                <button type="reset" class="staff-btn staff-btn-outline">
+                    <i class="fa-solid fa-rotate-left"></i>
+                    Clear Form
+                </button>
+
+
+
+        </div>
+
+        <div class="staff-panel announcement-image-panel">
+
+            <h2>Announcement Image</h2>
+
+            <input
+                type="file"
+                id="announcement_image"
+                name="announcement_image"
+                accept="image/png, image/jpeg"
+            >
+
+            <div class="image-preview">
+                <img
+                    id="image_preview"
+                    src=""
+                    alt="Announcement image preview"
+                    hidden
+                >
+
+                <p id="preview_message">
+                    Your selected image will appear here.
+                </p>
+            </div>
+
+        </div>
+
+        </div>
+
+    </form>
+
+</div>
+
+<script>
+    const imageInput = document.getElementById("announcement_image");
+    const imagePreview = document.getElementById("image_preview");
+    const previewMessage = document.getElementById("preview_message");
+
+    imageInput.addEventListener("change", function () {
+        const file = this.files[0];
+
+        if (!file) {
+            imagePreview.src = "";
+            imagePreview.hidden = true;
+            previewMessage.hidden = false;
+            return;
+        }
+
+        if (!file.type.startsWith("image/")) {
+            alert("Please select an image file.");
+            this.value = "";
+            return;
+        }
+
+        imagePreview.src = URL.createObjectURL(file);
+        imagePreview.hidden = false;
+        previewMessage.hidden = true;
+    });
+</script>
+
+{% endblock %}
+

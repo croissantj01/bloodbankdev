@@ -1,15 +1,59 @@
 {% extends "general/base.html" %}
 {% block title %}About Us{% endblock %}
 {% block content %}
-    <h1>About our services</h1>
-    <p>Welcome to our blood bank page!</p>
 
-    <h2> Who we are </h2>
-    <p> We are a blood bank that utilizes modern technology to send blood packs to whoever is in need immediately. </p>
+<div class="content-page">
 
-    <h2> Our mission </h2>
-    <p> We aim to reduce the current burdens that the current blood banks are facing and to solve the issues faced by them.</p>
+    <section class="about-hero">
+        <h1 class="about-hero-title">About Our Services</h1>
+        <p class="about-hero-subtitle">
+            Welcome to our blood bank page!
+        </p>
+    </section>
 
-    <h2> Our vision </h2>
-    <p> We aim to keep all blood types in sufficient amount and to urgently deliver them to hospital with as little delay as possible.</p>
+    <section class="about-list">
+
+        <div class="about-item">
+            <div class="about-icon">
+                <i class="fa-solid fa-hospital"></i>
+            </div>
+
+            <div class="about-text">
+                <h2>Who We Are</h2>
+                <p>
+                    We are a blood bank that utilizes modern technology to send blood packs to whoever is in need immediately.
+                </p>
+            </div>
+        </div>
+
+        <div class="about-item">
+            <div class="about-icon">
+                <i class="fa-solid fa-heart"></i>
+            </div>
+
+            <div class="about-text">
+                <h2>Our Mission</h2>
+                <p>
+                    We aim to reduce the current burdens that the current blood banks are facing and to solve the issues faced by them.
+                </p>
+            </div>
+        </div>
+
+        <div class="about-item">
+            <div class="about-icon">
+                <i class="fa-solid fa-eye"></i>
+            </div>
+
+            <div class="about-text">
+                <h2>Our Vision</h2>
+                <p>
+                    We aim to keep all blood types in sufficient amount and to urgently deliver them to hospital with as little delay as possible.
+                </p>
+            </div>
+        </div>
+
+    </section>
+
+</div>
+
 {% endblock %}

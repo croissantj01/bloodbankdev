@@ -1,66 +1,107 @@
 {% extends "blood_bank_staff/blood_bank_staff_base.html" %}
-{% block title %}Blood Request{% endblock %}
+{% block title %}Manage Blood Request{% endblock %}
 {% block content %}
 
-<h1>Manage Blood Request</h1>
+<div class="staff-page">
 
-<p>Review and manage blood requests submitted by hospitals.</p>
+    <h1>Manage Blood Requests</h1>
 
-<table border="1">
+    <p class="staff-subtitle">
+        Review and manage blood requests submitted by hospitals.
+    </p>
 
-    <tr>
-        <th>Request ID</th>
-        <th>Hospital Name</th>
-        <th>Blood Type</th>
-        <th>Quantity</th>
-        <th>Requested Date</th>
-        <th>Reason</th>
-        <th>Status</th>
-        <th>Action</th>
-    </tr>
+    <div class="staff-panel">
 
-    {% for request in requests %}
+        <h2>Blood Request Records</h2>
 
-    <tr>
-        <td>{{ request.id }}</td>
-        <td>{{ request.hospital_name }}</td>
-        <td>{{ request.blood_type }}</td>
-        <td>{{ request.quantity }}</td>
-        <td>{{ request.requested_date }}</td>
-        <td>{{ request.reason }}</td>
-        <td>{{ request.status }}</td>
+        <div class="staff-table-wrapper">
+            <table class="staff-table">
 
-        <td>
-            {% if request.status == 'Pending' %}
+                <thead>
+                    <tr>
+                        <th>Request ID</th>
+                        <th>Hospital Name</th>
+                        <th>Blood Type</th>
+                        <th>Quantity</th>
+                        <th>Requested Date</th>
+                        <th>Reason</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
 
-            <form method="POST"
-                  action="{{ url_for('approve_blood_request', request_id=request.id) }}">
-                <button type="submit">Approve</button>
-            </form>
+                <tbody>
+                    {% for request in requests %}
 
-            <br>
+                    <tr>
+                        <td>{{ request.id }}</td>
+                        <td>{{ request.hospital_name }}</td>
+                        <td>{{ request.blood_type }}</td>
+                        <td>{{ request.quantity }}</td>
+                        <td>{{ request.requested_date }}</td>
+                        <td>{{ request.reason }}</td>
 
-            <form method="POST"
-                  action="{{ url_for('reject_blood_request', request_id=request.id) }}">
-                <button type="submit">Reject</button>
-            </form>
+                        <td>
+                            {% if request.status == 'Pending' %}
+                                <span class="staff-status staff-status-pending">
+                                    Pending
+                                </span>
+                            {% elif request.status == 'Approved' %}
+                                <span class="staff-status staff-status-approved">
+                                    Approved
+                                </span>
+                            {% elif request.status == 'Rejected' %}
+                                <span class="staff-status staff-status-rejected">
+                                    Rejected
+                                </span>
+                            {% else %}
+                                {{ request.status }}
+                            {% endif %}
+                        </td>
 
-            {% else %}
+                        <td>
+                            {% if request.status == 'Pending' %}
 
-            {{ request.status }}
+                            <form method="POST"
+                                  action="{{ url_for('approve_blood_request', request_id=request.id) }}"
+                                  style="display: inline;">
+                                <button type="submit" class="staff-btn">
+                                    Approve
+                                </button>
+                            </form>
 
-            {% endif %}
-        </td>
-    </tr>
+                            <form method="POST"
+                                  action="{{ url_for('reject_blood_request', request_id=request.id) }}"
+                                  style="display: inline; margin-top: 6px;">
+                                <button type="submit"
+                                        class="staff-btn staff-btn-outline">
+                                    Reject
+                                </button>
+                            </form>
 
-    {% else %}
+                            {% else %}
+                                <span>Processed</span>
+                            {% endif %}
+                        </td>
+                    </tr>
 
-    <tr>
-        <td colspan="8">No blood requests have been submitted yet.</td>
-    </tr>
+                    {% else %}
 
-    {% endfor %}
+                    <tr>
+                        <td colspan="8" class="staff-empty">
+                            No blood requests have been submitted yet.
+                        </td>
+                    </tr>
 
-</table>
+                    {% endfor %}
+                </tbody>
+
+            </table>
+        </div>
+
+    </div>
+
+</div>
 
 {% endblock %}
+

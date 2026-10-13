@@ -1,37 +1,62 @@
+
 {% extends "blood_bank_staff/blood_bank_staff_base.html" %}
+
 {% block title %}Blood Stock{% endblock %}
+
 {% block content %}
 
-<h1>Manage blood Stock</h1>
+<div class="staff-page">
 
-<p>View and manage the available blood stock in the blood bank.</p>
+    <h1>Manage Blood Stock</h1>
 
-<table border="1">
+    <p class="staff-subtitle">
+        View and manage the available blood stock in the blood bank.
+    </p>
 
-    <tr>
-        <th>Blood Type</th>
-        <th>Available Quantity (Units)</th>
-        <th>Last Updated</th>
-        <th>Status</th>
-    </tr>
+    <div class="staff-panel">
 
-    {% for stock in blood_stocks %}
+        <h2>Available Blood Stock</h2>
 
-    <tr>
-        <td>{{ stock.blood_type }}</td>
-        <td>{{ stock.quantity }}</td>
-        <td>{{ stock.last_updated }}</td>
-        <td>{{ stock.status }}</td>
-    </tr>
+        <div class="staff-table-wrapper">
+            <table class="staff-table">
 
-    {% else %}
+                <thead>
+                    <tr>
+                        <th>Blood Type</th>
+                        <th>Available Quantity (Units)</th>
+                        <th>Last Updated</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
 
-    <tr>
-        <td colspan="4">No blood stock records available.</td>
-    </tr>
+                <tbody>
+                    {% for stock in blood_stocks %}
+                    <tr>
+                        <td>{{ stock.blood_type }}</td>
+                        <td>{{ stock.quantity }}</td>
+                        <td>{{ stock.last_updated }}</td>
+                        <td>
+                            <span class="staff-status staff-status-{{ stock.status|lower }}">
+                                {{ stock.status }}
+                            </span>
+                        </td>
+                    </tr>
 
-    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="staff-empty">
+                            No blood stock records available.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
 
-</table>
+            </table>
+        </div>
+
+    </div>
+
+</div>
 
 {% endblock %}
+
