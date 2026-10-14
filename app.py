@@ -1,12 +1,16 @@
 import os
 import smtplib
 import sqlite3
+from datetime import datetime, date
+
 import bcrypt
 from email.message import EmailMessage
 from flask import Flask, render_template, url_for, redirect, session, request, flash
 from authlib.integrations.flask_client import OAuth
 from dotenv import load_dotenv
-from database import get_user_by_email
+from database import (get_user_by_email, get_all_events,
+                      add_event, update_event, delete_event, get_donor_by_email, create_appointment,
+                      get_donor_upcoming_appointments, get_bookable_events, cancel_donor_appointment, get_db_connection)
 import random
 
 load_dotenv()
@@ -16,33 +20,50 @@ app.secret_key = os.getenv('FLASK_SECRET_KEY', 'a-very-secure-permanent-fallback
 
 oauth = OAuth(app)
 
-def register_user(username, plain_password):
-    password_bytes = plain_password.encode('utf-8')
-    salt=bcrypt.gensalt()
-    hashed_password = bcrypt.hashpw(password_bytes, salt)
 
-    conn = sqlite3.connect('bloodbank.db')
-    cursor = conn.cursor()
+
+
+def register_user(email, plain_password):
+    email = email.strip().lower()
+
+    hashed_password = bcrypt.hashpw(
+        plain_password.encode("utf-8"),
+        bcrypt.gensalt()
+    ).decode("utf-8")
+
+    conn = get_db_connection()
+
     try:
-        cursor.execute(
-            "INSERT INTO users (email, hashed_password, role) VALUES (?,?,?)",
-            (username, hashed_password.decode('utf-8'), 'donor')
+        conn.execute(
+            """
+            INSERT INTO users (
+                full_name,
+                email,
+                hashed_password,
+                role
+            )
+            VALUES (?, ?, ?, ?)
+            """,
+            (email, email, hashed_password, "donor")
         )
+
         conn.commit()
-        print("User registered successful!")
+        print("Registration successful!")
         return True
-    except sqlite3.IntegrityError:
-        print("Username already exists.")
+
+    except sqlite3.IntegrityError as e:
+        print("Registration failed:", e)
         return False
-    except Exception as e:
+
+    except sqlite3.Error as e:
+        print("Database error:", e)
         return False
+
     finally:
         conn.close()
 
-def get_db_connection():
-    conn = sqlite3.connect('bloodbank.db')
-    conn.row_factory = sqlite3.Row
-    return conn
+
+
 
 oauth.register(
     name='google',
@@ -126,19 +147,20 @@ def login():
     next_page = request.args.get('next') or request.form.get('next')
 
     if request.method == "POST":
-        email = request.form.get('email')
-        password = request.form.get('password')
+        email = (request.form.get("email") or "").strip().lower()
+        password = request.form.get("password") or ""
 
-        admin_email = os.getenv('ADMIN_EMAIL')
-        admin_password = os.getenv('ADMIN_PASSWORD')
+        admin_email = (os.getenv("ADMIN_EMAIL") or "").strip().lower()
+        admin_password = os.getenv("ADMIN_PASSWORD") or ""
+
 
         if email == admin_email and password == admin_password:
             otp = str(random.randint(100000, 999999))
 
-            session['user_email'] = email
-            session['pending_otp'] = str(otp)
-            session['user_name'] = "Admin"
-            session['pending_role'] = 'admin'
+            session['pending_email'] = email
+            session['pending_otp'] = otp
+            session['pending_name'] = "Admin"
+            session['pending_role'] = "admin"
             session['next_page'] = next_page
 
             send_otp_email(email, otp)
@@ -210,18 +232,32 @@ def check_email():
             return render_template("general/verification.html")
     return render_template("general/check_email.html")
 
-def update_password(email, new_password):
-    password_bytes = new_password.encode('utf-8')
-    salt = bcrypt.gensalt()
-    hashed_new_password = bcrypt.hashpw(password_bytes, salt).decode('utf-8')
 
-    conn = sqlite3.connect('bloodbank.db')
-    cursor = conn.cursor()
-    cursor.execute(
-        "UPDATE users SET hashed_password =? WHERE email = ?", (hashed_new_password, email)
-    )
-    conn.commit()
-    conn.close()
+def update_password(email, new_password):
+    hashed_password = bcrypt.hashpw(
+        new_password.encode("utf-8"),
+        bcrypt.gensalt()
+    ).decode("utf-8")
+
+    conn = get_db_connection()
+
+    try:
+        cursor = conn.execute(
+            """
+            UPDATE users
+            SET hashed_password = ?
+            WHERE email = ?
+            """,
+            (hashed_password, email.strip().lower())
+        )
+
+        conn.commit()
+
+        if cursor.rowcount == 0:
+            print("No account found for password update.")
+    finally:
+        conn.close()
+
 
 @app.route("/reset_password", methods=["GET", "POST"])
 def reset_password():
@@ -264,83 +300,129 @@ def send_otp_email(to_email, otp):
         return False
 
 
-@app.route("/signup", methods=['GET', 'POST'])
+
+@app.route("/signup", methods=["GET", "POST"])
 def signup():
-    session.pop('is_reset_flow', None)
-    next_page = request.args.get('next') or request.form.get('next')
+    session.pop("is_reset_flow", None)
+
+    next_page = request.args.get("next") or request.form.get("next")
 
     if request.method == "POST":
-        email = request.form.get('email')
-        password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
+        email = (request.form.get("email") or "").strip().lower()
+        password = request.form.get("password") or ""
+        confirm_password = request.form.get("confirm_password") or ""
 
-        if confirm_password != password:
-            return render_template("general/signup.html", error_popup="Passwords do not match!")
+        if not email or not password:
+            return render_template(
+                "general/signup.html",
+                error_popup="Please enter your email and password."
+            )
+
+        if password != confirm_password:
+            return render_template(
+                "general/signup.html",
+                error_popup="Passwords do not match!"
+            )
+
+        # Check whether the email is already registered
+        if get_user_by_email(email):
+            return render_template(
+                "general/signup.html",
+                error_popup="This email is already registered. Please log in."
+            )
 
         otp = str(random.randint(100000, 999999))
 
-        session['pending_email'] = email
-        session['pending_password'] = password
-        session['pending_otp'] = otp
+        session["pending_email"] = email
+        session["pending_password"] = password
+        session["pending_otp"] = otp
+
         if next_page:
-            session['next_page'] = next_page
+            session["next_page"] = next_page
 
         send_otp_email(email, otp)
+
         return render_template("general/verification.html")
 
     return render_template("general/signup.html", next=next_page)
 
 
-@app.route('/verification', methods=['POST'])
+
+
+@app.route("/verification", methods=["POST"])
 def verification():
-    entered_otp = request.form.get('otp')
-    generated_otp = session.get('pending_otp')
+    entered_otp = (request.form.get("otp") or "").strip()
+    generated_otp = session.get("pending_otp")
 
-    if entered_otp == generated_otp:
-        session.pop('pending_otp', None)
+    if not generated_otp or entered_otp != generated_otp:
+        return render_template(
+            "general/verification.html",
+            error_popup="Invalid OTP. Try again!"
+        )
 
-        if session.get('is_reset_flow'):
-            session['otp_verified'] = True
-            return redirect(url_for('reset_password'))
+    session.pop("pending_otp", None)
 
-        pending_password = session.pop('pending_password', None)
-        email = session.pop('pending_email', None)
-        name = session.pop('pending_name', 'User')
+    # Password reset flow
+    if session.get("is_reset_flow"):
+        session["otp_verified"] = True
+        return redirect(url_for("reset_password"))
 
-        raw_role = session.pop('pending_role', 'donor')
-        role = str(raw_role).strip().lower().replace(' ', '_')
+    pending_password = session.get("pending_password")
+    email = session.get("pending_email")
 
-        if pending_password and email:
-            register_user(email, pending_password)
+    # Create the account only after OTP verification
+    if pending_password and email:
+        if not register_user(email, pending_password):
+            session.pop("pending_password", None)
+            session.pop("pending_email", None)
 
-        session['user_email'] = email
-        session['user_name'] = name
-        session['role'] = role
+            return render_template(
+                "general/signup.html",
+                error_popup=(
+                    "Registration failed. Please try logging in "
+                    "or signing up with another email."
+                )
+            )
 
-        target_page = session.pop('next_page', None)
-        if not target_page or target_page == 'None':
-            if role == 'admin':
-                target_page = 'admin_dashboard'
-            elif role == 'hospital_staff':
-                target_page = 'hospital_staff_dashboard'
-            elif role == 'blood_bank_staff':
-                target_page = 'blood_bank_staff_dashboard'
-            else:
-                target_page = 'donor_dashboard'
+        session.pop("pending_password", None)
+        session.pop("pending_email", None)
 
-        try:
-            redirect_url = url_for(target_page)
-        except Exception:
-            redirect_url = url_for('donor_dashboard')
+        session["user_email"] = email
+        session["user_name"] = "User"
+        session["role"] = "donor"
 
-        return f"""
-            <script>
-                alert('Verification successful! Welcome!');
-                window.location.href="{redirect_url}";
-            </script>
-        """
     else:
-        return render_template("general/verification.html", error_popup="Invalid OTP. Try again!")
+        # Handle other OTP flows that already have a pending user
+        email = session.pop("pending_email", None)
+        name = session.pop("pending_name", "User")
+        role = session.pop("pending_role", "donor")
+
+        if not email:
+            return redirect(url_for("login"))
+
+        session["user_email"] = email
+        session["user_name"] = name
+        session["role"] = role
+
+    target_page = session.pop("next_page", None)
+
+    if not target_page or target_page == "None":
+        role = session.get("role", "donor")
+
+        if role == "admin":
+            target_page = "admin_dashboard"
+        elif role == "hospital_staff":
+            target_page = "hospital_staff_dashboard"
+        elif role == "blood_bank_staff":
+            target_page = "blood_bank_staff_dashboard"
+        else:
+            target_page = "donor_dashboard"
+
+    try:
+        return redirect(url_for(target_page))
+    except Exception:
+        return redirect(url_for("donor_dashboard"))
+
 
 @app.route('/quiz', methods=['GET','POST'])
 def quiz():
@@ -351,10 +433,6 @@ def quiz():
 def donor_quiz():
     return render_template("donor/donor_quiz.html")
 
-
-@app.route('/make_appointment', methods=['GET','POST'])
-def make_appointment():
-    return render_template("donor/make_appointment.html")
 
 @app.route('/rewards', methods=['GET','POST'])
 def rewards():
@@ -371,10 +449,6 @@ def donation_history():
 @app.route('/donor_announcements', methods=['GET','POST'])
 def donor_announcements():
     return render_template("donor/donor_announcements.html")
-
-@app.route('/manage_events', methods=['GET','POST'])
-def manage_events():
-    return render_template("admin/manage_events.html")
 
 @app.route('/blood_request', methods=['GET','POST'])
 def blood_request():
@@ -409,25 +483,46 @@ def send_credentials_email(to_email, full_name, temp_password):
     except Exception as e:
         return False
 
+
 def register_staff_user(full_name, email, phone_number, role, password):
-    password_bytes = password.encode('utf-8')
-    salt = bcrypt.gensalt()
-    hashed_password = bcrypt.hashpw(password_bytes, salt).decode('utf-8')
+    hashed_password = bcrypt.hashpw(
+        password.encode("utf-8"),
+        bcrypt.gensalt()
+    ).decode("utf-8")
 
-    normalized_role = str(role).strip().lower().replace(' ', '_')
+    normalized_role = str(role).strip().lower().replace(" ", "_")
+    email = email.strip().lower()
+    conn = get_db_connection()
 
-    conn = sqlite3.connect('bloodbank.db')
-    cursor = conn.cursor()
     try:
-        cursor.execute(
-            "INSERT INTO users (full_name, email, phone_number, hashed_password, role) VALUES (?,?,?,?,?)", (full_name, email, phone_number, hashed_password, normalized_role)
+        conn.execute(
+            """
+            INSERT INTO users
+                (full_name, email, phone_number, hashed_password, role)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                full_name,
+                email,
+                phone_number,
+                hashed_password,
+                normalized_role
+            )
         )
         conn.commit()
         return True
+
     except sqlite3.IntegrityError as e:
+        print(f"Staff registration failed: {e}")
         return False
+
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+        return False
+
     finally:
         conn.close()
+
 
 @app.route('/create_account', methods=['GET','POST'])
 def create_account():
@@ -677,7 +772,144 @@ def logout():
     return render_template("general/index.html")
 
 
+def _clean_event_form(form, is_new):
+    """Read and validate the event form. Returns (data_tuple, error_message)."""
+    title   = (form.get('title') or '').strip()
+    ev_date = (form.get('date') or '').strip()
+    start   = (form.get('start') or '').strip()
+    end     = (form.get('end') or '').strip()
+    place   = (form.get('place') or '').strip()
+    address = (form.get('address') or '').strip()
+    notes   = (form.get('notes') or '').strip()
+
+    if not (title and ev_date and start and end and place and address):
+        return None, "Please fill in all the required fields."
+
+    if len(title) > 120 or len(place) > 120 or len(address) > 200 or len(notes) > 500:
+        return None, "One of the fields is too long."
+
+    try:
+        parsed_date = datetime.strptime(ev_date, "%Y-%m-%d").date()
+        t_start = datetime.strptime(start, "%H:%M")
+        t_end   = datetime.strptime(end, "%H:%M")
+    except ValueError:
+        return None, "Invalid date or time."
+
+    if t_end <= t_start:
+        return None, "End time must be after the start time."
+
+    if is_new and parsed_date < date.today():
+        return None, "New events cannot be set in the past."
+
+    return (title, ev_date, start, end, place, address, notes), None
+
+
+@app.route('/manage_events', methods=['GET', 'POST'])
+def manage_events():
+    # Only the admin can see or change events
+    if session.get('role') != 'admin':
+        return redirect(url_for('login', next='manage_events'))
+
+    if request.method == 'POST':
+        action   = request.form.get('action')
+        event_id = request.form.get('event_id', type=int)
+
+        if action == 'delete':
+            if event_id and delete_event(event_id):
+                flash("Event deleted.", "success")
+            else:
+                flash("Event not found.", "error")
+
+        elif action in ('add', 'edit'):
+            data, error = _clean_event_form(request.form, is_new=(action == 'add'))
+
+            if error:
+                flash(error, "error")
+            elif action == 'add':
+                add_event(*data)
+                flash("Event added.", "success")
+            elif event_id and update_event(event_id, *data):
+                flash("Event updated.", "success")
+            else:
+                flash("Event not found.", "error")
+
+        # Post/Redirect/Get: refreshing the page will not re-submit the form
+        return redirect(url_for('manage_events'))
+
+    return render_template("admin/manage_events.html", events=get_all_events())
+
+# ---------------------------------------------------------------
+# DONOR BOOK APPOINTMENT
+#
+
+def _logged_in_donor():
+    """
+    Returns (donor, redirect_response).
+    donor is None when the user is not a logged-in, registered donor,
+    and redirect_response then says where to send them.
+    """
+    if session.get('role') != 'donor':
+        return None, redirect(url_for('login', next='make_appointment'))
+
+    donor = get_donor_by_email(session.get('user_email'))
+    if not donor:
+        flash("Please complete your donor registration before booking an appointment.", "error")
+        return None, redirect(url_for('registration'))
+
+    return donor, None
+
+
+@app.route('/make_appointment', methods=['GET'])
+def make_appointment():
+    donor, response = _logged_in_donor()
+    if response:
+        return response
+
+    return render_template(
+        "donor/make_appointment.html",
+        events=get_bookable_events(donor['donor_id']),
+        my_appointments=get_donor_upcoming_appointments(donor['donor_id'])
+    )
+
+
+@app.route('/book_appointment', methods=['POST'])
+def book_appointment():
+    donor, response = _logged_in_donor()
+    if response:
+        return response
+
+    event_id  = request.form.get('event_id', type=int)
+    appt_time = (request.form.get('appointment_time') or '').strip()
+    notes     = (request.form.get('notes') or '').strip()[:300]
+
+    if not event_id or not appt_time:
+        flash("Please select an event and an appointment time.", "error")
+    else:
+        ok, message = create_appointment(donor['donor_id'], event_id, appt_time, notes)
+        flash(message, "success" if ok else "error")
+
+    return redirect(url_for('make_appointment'))
+
+
+@app.route('/cancel_appointment', methods=['POST'])
+def cancel_appointment():
+    donor, response = _logged_in_donor()
+    if response:
+        return response
+
+    appointment_id = request.form.get('appointment_id', type=int)
+
+    if appointment_id and cancel_donor_appointment(appointment_id, donor['donor_id']):
+        flash("Appointment cancelled.", "success")
+    else:
+        flash("Appointment not found.", "error")
+
+    return redirect(url_for('make_appointment'))
 
 if __name__ == "__main__":
+    from database import init_db, DB_PATH
+
+    init_db()
+    print("Using database:", DB_PATH)
+
     app.run(debug=True, port=5000)
-    # app.run(debug=True, ssl_context='adhoc', port=5000)
