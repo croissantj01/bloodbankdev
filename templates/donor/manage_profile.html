@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="profile-wrap">
-    <h1>Manage profile</h1>
+    <h1>{% if donor %}Manage profile{% else %}Donor Registration{% endif %}</h1>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% for category, message in messages %}
@@ -12,88 +12,85 @@
 
     <form method="POST" class="profile-form" novalidate>
 
-        <!-- READ-ONLY FIELDS (from registration) -->
+        <!-- NAME -->
         <div class="profile-field">
-            <span class="profile-field-label">Name</span>
-            <div class="profile-readonly">{{ donor.name or 'Not provided' }}</div>
+            <label for="name">Name</label>
+            <input type="text" id="name" name="name" placeholder="Full name"
+                   value="{{ donor.full_name if donor else (user.full_name if user else '') }}" required>
         </div>
 
+        <!-- IC NUMBER (Editable first time, Greyed out/Readonly afterwards) -->
         <div class="profile-field">
-            <span class="profile-field-label">IC number</span>
-            <div class="profile-readonly">{{ donor.ic or 'Not provided' }}</div>
+            <label for="ic">IC number</label>
+            <input type="text" id="ic" name="ic" placeholder="e.g. 010203-10-1234"
+                   value="{{ donor.ic if donor else '' }}"
+                   {% if donor %}readonly style="background-color: #e9ecef; cursor: not-allowed;"{% endif %}
+                   required>
         </div>
 
         <div class="profile-row">
+            <!-- DATE OF BIRTH -->
             <div class="profile-field">
-                <span class="profile-field-label">Date of birth</span>
-                <div class="profile-readonly">{{ donor.dob or 'Not provided' }}</div>
+                <label for="dob">Date of birth</label>
+                <input type="date" id="dob" name="dob"
+                       value="{{ donor.dob if donor else '' }}" required>
             </div>
 
+            <!-- GENDER -->
             <div class="profile-field">
-                <span class="profile-field-label">Gender</span>
-                <div class="profile-readonly">{{ donor.gender or 'Not provided' }}</div>
+                <label for="gender">Gender</label>
+                <select id="gender" name="gender" required>
+                    <option value="">Select gender</option>
+                    <option value="Male" {% if donor and donor.gender == 'Male' %}selected{% endif %}>Male</option>
+                    <option value="Female" {% if donor and donor.gender == 'Female' %}selected{% endif %}>Female</option>
+                </select>
             </div>
         </div>
 
+        <!-- BLOOD TYPE -->
         <div class="profile-field">
-            <span class="profile-field-label">Blood type</span>
-            <div class="profile-readonly" aria-describedby="blood-note">
-                {{ donor.blood_type or 'Not tested yet' }}
-            </div>
+            <label for="blood_type">Blood type</label>
+            <select id="blood_type" name="blood_type" required>
+                <option value="">Select blood type</option>
+                {% set bt = donor.blood_type if donor else '' %}
+                <option value="A+" {% if bt == 'A+' %}selected{% endif %}>A+</option>
+                <option value="A-" {% if bt == 'A-' %}selected{% endif %}>A-</option>
+                <option value="B+" {% if bt == 'B+' %}selected{% endif %}>B+</option>
+                <option value="B-" {% if bt == 'B-' %}selected{% endif %}>B-</option>
+                <option value="AB+" {% if bt == 'AB+' %}selected{% endif %}>AB+</option>
+                <option value="AB-" {% if bt == 'AB-' %}selected{% endif %}>AB-</option>
+                <option value="O+" {% if bt == 'O+' %}selected{% endif %}>O+</option>
+                <option value="O-" {% if bt == 'O-' %}selected{% endif %}>O-</option>
+                <option value="Unknown" {% if bt == 'Unknown' or not bt %}selected{% endif %}>Unknown</option>
+            </select>
             <small id="blood-note" class="profile-note">
-                Recorded by blood bank staff after testing. You can't change it here.
+                Recorded by blood bank staff after testing or select unknown if unsure.
             </small>
         </div>
 
         <!-- EDITABLE FIELDS -->
-        <div class="profile-field">
-            <label for="email">Email</label>
-            <input type="email" id="email" name="email" placeholder="Email"
-                   value="{{ donor.email or '' }}" autocomplete="email" required>
-        </div>
 
         <div class="profile-field">
             <label for="phone">Phone number</label>
             <input type="tel" id="phone" name="phone" placeholder="e.g. 012-3456789"
-                   value="{{ donor.phone or '' }}" autocomplete="tel" required>
+                   value="{{ donor.phone_number if donor else (user.phone_number if user else '') }}" autocomplete="tel" required>
         </div>
 
         <div class="profile-field">
             <label for="address">Home address</label>
             <textarea id="address" name="address" placeholder="Full address"
-                      rows="3">{{ donor['address'] or '' }}</textarea>
+                      rows="3" required>{{ donor.address if donor else '' }}</textarea>
         </div>
 
         <div class="profile-field">
             <label for="emergency_contact">Emergency contact</label>
             <input type="text" id="emergency_contact" name="emergency_contact"
-                   placeholder="emergency contact phone number"
-                   value="{{ donor['emergency_contact'] or '' }}">
-        </div>
-
-        <hr class="profile-divider">
-        <p class="profile-section-text">Change password, or leave the password fields blank to keep your current password.</p>
-
-        <div class="profile-field">
-            <label for="current_password">Current password</label>
-            <input type="password" id="current_password" name="current_password"
-                   placeholder="Enter current password" autocomplete="current-password">
-        </div>
-
-        <div class="profile-field">
-            <label for="new_password">New password</label>
-            <input type="password" id="new_password" name="new_password"
-                   placeholder="Enter new password" autocomplete="new-password">
-        </div>
-
-        <div class="profile-field">
-            <label for="confirm_password">Confirm password</label>
-            <input type="password" id="confirm_password" name="confirm_password"
-                   placeholder="Confirm new password" autocomplete="new-password">
+                   placeholder="Emergency contact phone number"
+                   value="{{ donor.emergency_contact if donor else '' }}" required>
         </div>
 
         <div class="profile-actions">
-            <button type="submit" class="profile-btn-save">Save changes</button>
+            <button type="submit" class="profile-btn-save">{% if donor %}Save changes{% else %}Register profile{% endif %}</button>
         </div>
 
     </form>

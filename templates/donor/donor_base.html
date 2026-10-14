@@ -13,24 +13,53 @@
 </head>
 <body>
 
-```html
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top nav-head">
-    <div class="container">
+    <div class="container" style="max-width: none; padding: 0 40px; height: 100%; position: relative;">
 
-        <a class="navbar-brand">
+        <a class="navbar-brand" href="{{ url_for('donor_dashboard') }}">
             ✦✧ Blood Bank Management System ✦✧
         </a>
 
-        <button class="navbar-toggler"
-                type="button"
-                data-bs-toggle="collapse"
-                data-bs-target="#donorNav"
-                aria-controls="donorNav"
-                aria-expanded="false"
-                aria-label="Toggle navigation">
+        <!-- Absolute Far-Right Corner Container for Bell and Toggler -->
+        <div style="position: absolute; right: 40px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; gap: 15px; z-index: 1010;">
 
-            <span class="navbar-toggler-icon"></span>
-        </button>
+            <!-- Notification Bell Dropdown -->
+            <div class="dropdown">
+                <a href="#" class="text-secondary text-decoration-none position-relative dropdown-toggle" id="notificationDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 20px; padding: 6px 10px;">
+                    <i class="fa-solid fa-bell"></i>
+                    {% if notifications and notifications|length > 0 %}
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.6rem; padding: 3px 5px;">
+                        {{ notifications|length }}
+                    </span>
+                    {% endif %}
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2 notification-dropdown" aria-labelledby="notificationDropdown" style="min-width: 280px; padding: 10px; border-radius: 12px;">
+                    <li><h6 class="dropdown-header fw-bold">Notifications</h6></li>
+                    <li><hr class="dropdown-divider"></li>
+
+                    {% if notifications and notifications|length > 0 %}
+                        {% for notif in notifications %}
+                            <li><a class="dropdown-item small py-2 text-wrap" href="#">{{ notif.message }}</a></li>
+                        {% endfor %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-center small text-primary fw-bold" href="#">Mark all as read</a></li>
+                    {% else %}
+                        <li><span class="dropdown-item small text-muted text-center py-2">No new notifications</span></li>
+                    {% endif %}
+                </ul>
+            </div>
+
+            <!-- Mobile Toggler -->
+            <button class="navbar-toggler"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#donorNav"
+                    aria-controls="donorNav"
+                    aria-expanded="false"
+                    aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+        </div>
 
         <div class="collapse navbar-collapse" id="donorNav">
 
@@ -55,9 +84,9 @@
                     {% if not donor_registered %}
 
                         <li class="nav-item">
-                            <a href="{{ url_for('registration') }}" class="nav-link">
+                            <a href="{{ url_for('manage_profile') }}" class="nav-link">
                                 <i class="fa-solid fa-user-plus"></i>
-                                <span class="nav-text">Register</span>
+                                <span class="nav-text">Manage Profile</span>
                             </a>
                         </li>
 
@@ -138,4 +167,3 @@
 
 </body>
 </html>
-```

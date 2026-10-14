@@ -10,6 +10,11 @@
         Record a donation made by a registered donor.
     </p>
 
+    {% if error_popup %}
+    <div class="alert-popup">
+        <p>{{ error_popup }}</p>
+    </div>
+    {% endif %}
 
 <div class="donation-layout">
 
@@ -21,19 +26,33 @@
               action="{{ url_for('record_donation') }}"
               class="staff-form">
 
+            <input type="hidden" name="action" value="record">
+            <!-- Hidden field to hold donor_id once IC is verified -->
+            <input type="hidden" id="donor_id" name="donor_id" required>
+
+            <!-- IC Search Field -->
             <div class="staff-form-group">
-                <label for="donor_id">Select Donor:</label>
-                <select id="donor_id" name="donor_id" required>
-                    <option value="">Select Donor</option>
-                    {% for donor in donors %}
-                    <option value="{{ donor.id }}">{{ donor.fullname }}</option>
-                    {% endfor %}
-                </select>
+                <label for="ic">Donor IC Number:</label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="ic" name="ic" placeholder="Enter IC number..." style="flex: 1;">
+                    <button type="button" id="search_ic_btn" class="staff-btn" style="width: auto; padding: 0 15px;">Verify IC</button>
+                </div>
             </div>
 
+            <!-- Donor Name Confirmation Badge (Shows up after search) -->
+            <div id="donor_info_display" style="display: none; margin-bottom: 15px; padding: 10px 14px; background: #eef9f2; border: 1px solid #c3e6cb; border-radius: 4px; color: #155724;">
+                <strong>Donor Name:</strong> <span id="confirmed_donor_name">-</span>
+            </div>
+
+            <!-- Error message if IC is not found -->
+            <div id="donor_error_display" style="display: none; margin-bottom: 15px; padding: 10px 14px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;">
+                <span id="ic_error_msg">No registered donor found with this IC number.</span>
+            </div>
+
+            <!-- Blood Type Selection -->
             <div class="staff-form-group">
-                <label for="blood_type">Blood Type:</label>
-                <select id="blood_type" name="blood_type" required>
+                <label for="blood_group">Blood Type:</label>
+                <select id="blood_group" name="blood_group" required>
                     <option value="">Select Blood Type</option>
                     <option value="A+">A+</option>
                     <option value="A-">A-</option>
@@ -46,11 +65,19 @@
                 </select>
             </div>
 
+            <!-- Volume Collected (ml) -->
             <div class="staff-form-group">
-                <label for="quantity">Quantity (Units):</label>
-                <input type="number" id="quantity" name="quantity" min="1" required>
+                <label for="volume_blood">Volume Collected (ml):</label>
+                <input type="number" id="volume_blood" name="volume_blood" min="50" step="10" placeholder="e.g., 450" required>
             </div>
 
+            <!-- Expiry Date -->
+            <div class="staff-form-group">
+                <label for="expiry_date">Expiry Date:</label>
+                <input type="date" id="expiry_date" name="expiry_date" required>
+            </div>
+
+            <!-- Remarks -->
             <div class="staff-form-group">
                 <label for="remarks">Remarks:</label>
                 <textarea id="remarks" name="remarks" rows="3"
@@ -65,7 +92,6 @@
 
     </div>
 
-
     <div class="donation-image">
         <img
             src="{{ url_for('static', filename='images/blooddonation.jpg') }}"
@@ -77,5 +103,64 @@
 
 </div>
 
-{% endblock %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const icInput = document.getElementById("ic");
+    const searchBtn = document.getElementById("search_ic_btn");
+    const donorInfoDisplay = document.getElementById("donor_info_display");
+    const donorErrorDisplay = document.getElementById("donor_error_display");
+    const confirmedNameSpan = document.getElementById("confirmed_donor_name");
+    const donorIdInput = document.getElementById("donor_id");
+    const bloodGroupSelect = document.getElementById("blood_group");
 
+    function verifyIC() {
+        const icVal = icInput.value.trim();
+        if (!icVal) {
+            alert("Please enter an IC number first.");
+            return;
+        }
+
+        // Use Flask's url_for via template injection for the fetch route
+        const fetchUrl = "{{ url_for('get_donor_by_ic') }}?ic=" + encodeURIComponent(icVal);
+
+        fetch(fetchUrl)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    donorErrorDisplay.style.display = "none";
+                    confirmedNameSpan.textContent = data.full_name;
+                    donorInfoDisplay.style.display = "block";
+                    donorIdInput.value = data.donor_id;
+
+                    if (data.blood_type) {
+                        bloodGroupSelect.value = data.blood_type;
+                    }
+                } else {
+                    donorInfoDisplay.style.display = "none";
+                    donorIdInput.value = "";
+                    donorErrorDisplay.style.display = "block";
+                }
+            })
+            .catch(err => {
+                console.error("Error fetching donor:", err);
+                alert("An error occurred while searching for the donor.");
+            });
+    }
+
+    // Trigger on button click
+    searchBtn.addEventListener("click", function(e) {
+        e.preventDefault();
+        verifyIC();
+    });
+
+    // Also trigger when user presses "Enter" inside the IC text field
+    icInput.addEventListener("keydown", function(e) {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            verifyIC();
+        }
+    });
+});
+</script>
+
+{% endblock %}
