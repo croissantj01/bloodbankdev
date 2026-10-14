@@ -2,12 +2,83 @@
 {% block title %}Dashboard{% endblock %}
 {% block content %}
 
-<h1>Blood Bank Staff Dashboard</h1>
+<div class="staff-page">
 
-<p>Welcome to the Blood Bank Staff Dashboard.</p>
+    <h1>Blood Bank Staff Dashboard</h1>
 
-<h2>Dashboard</h2>
+    <p class="staff-subtitle">
+        Welcome! Manage blood donations, appointments, inventory and requests from here.
+    </p>
 
-<p>Record blood donations, view appointments, manage blood stock and blood request, and view reports here.</p>
+
+    <div class="staff-panel">
+        <h2>Welcome to the Blood Bank Management System</h2>
+
+        <p>
+            Record blood donations, monitor donation appointments,
+            manage blood stock, process blood requests made by hospitals,
+            and review reports here.
+        </p>
+    </div>
+
+    <!-- Main Responsibilities -->
+    <h2 class="dashboard-section-title">Functionalities</h2>
+            <p class="staff-subtitle">
+                Please use the sidebar to navigate through these functions.
+            </p>
+
+    <div class="staff-report-grid">
+
+        <div class="staff-report-card">
+            <h2>Record Blood Donations</h2>
+            <p>
+                Record donations from registered donors and keep donation
+                records up to date.
+            </p>
+        </div>
+
+        <div class="staff-report-card">
+            <h2>View Appointments</h2>
+            <p>
+                Review donation appointments and manage visits
+                from registered donors.
+            </p>
+        </div>
+
+        <div class="staff-report-card">
+            <h2>Manage Blood Stock</h2>
+            <p>
+                Monitor available blood units across blood types
+                and identify stock that needs attention.
+            </p>
+        </div>
+
+        <div class="staff-report-card">
+            <h2>Manage Blood Requests</h2>
+            <p>
+                Review blood requests submitted by hospitals and manage
+                their request status.
+            </p>
+        </div>
+
+        <div class="staff-report-card">
+            <h2>View Reports</h2>
+            <p>
+                Review blood bank information and reports to support
+                daily operations.
+            </p>
+        </div>
+
+        <div class="staff-report-card">
+            <h2>Make Announcements</h2>
+            <p>
+                Publish important announcements to share updates with
+                the relevant users.
+            </p>
+        </div>
+
+    </div>
+
+</div>
 
 {% endblock %}

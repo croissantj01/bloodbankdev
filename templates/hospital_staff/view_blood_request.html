@@ -2,43 +2,55 @@
 {% block title %}View Blood Request{% endblock %}
 {% block content %}
 
-<h1>View Blood Request</h1>
+<div class="view-request-container">
 
-<p>Below are the blood requests submitted by your hospital.</p>
+    <div class="view-request-header">
+        <h1>View Blood Request</h1>
+        <p>Below are the blood requests submitted by your hospital.</p>
+    </div>
 
-<table border="1">
+    <div class="view-request-card">
 
-    <tr>
-        <th>Request ID</th>
-        <th>Hospital Name</th>
-        <th>Blood Type</th>
-        <th>Quantity</th>
-        <th>Requested Date</th>
-        <th>Reason</th>
-        <th>Status</th>
-    </tr>
+        <table class="view-request-table">
 
-    {% for request in requests %}
+            <thead>
+                <tr>
+                    <th>Request ID</th>
+                    <th>Hospital Name</th>
+                    <th>Blood Type</th>
+                    <th>Quantity</th>
+                    <th>Requested Date</th>
+                    <th>Reason</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
 
-    <tr>
-        <td>{{ request.id }}</td>
-        <td>{{ request.hospital_name }}</td>
-        <td>{{ request.blood_type }}</td>
-        <td>{{ request.quantity }}</td>
-        <td>{{ request.requested_date }}</td>
-        <td>{{ request.reason }}</td>
-        <td>{{ request.status }}</td>
-    </tr>
+            <tbody>
+                {% for request in requests %}
+                <tr>
+                    <td>{{ request.id }}</td>
+                    <td>{{ request.hospital_name }}</td>
+                    <td>{{ request.blood_type }}</td>
+                    <td>{{ request.quantity }}</td>
+                    <td>{{ request.requested_date }}</td>
+                    <td>{{ request.reason }}</td>
+                    <td>{{ request.status }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="view-request-empty">
+                        No blood requests have been submitted yet.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
 
-    {% else %}
+        </table>
 
-    <tr>
-        <td colspan="7">No blood requests have been submitted yet.</td>
-    </tr>
+    </div>
 
-    {% endfor %}
-
-</table>
+</div>
 
 {% endblock %}
+
 
