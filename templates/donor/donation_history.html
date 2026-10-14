@@ -1,4 +1,3 @@
-
 {% extends 'donor/donor_base.html' %}
 
 {% block content %}
@@ -16,7 +15,7 @@
                         <i class="fas fa-droplet"></i>
                     </div>
                     <p>Total Donations</p>
-                    <h3 id="totalDonations">4</h3>
+                    <h3 id="totalDonations">{{ total_donations }}</h3>
                     <small>Recorded donations</small>
                 </div>
             </div>
@@ -29,8 +28,8 @@
                         <i class="fas fa-calendar-check"></i>
                     </div>
                     <p>This Year</p>
-                    <h3 id="yearDonations">2</h3>
-                    <small>Donations in 2026</small>
+                    <h3 id="yearDonations">{{ year_donations }}</h3>
+                    <small>Donations in {{ current_year }}</small>
                 </div>
             </div>
         </div>
@@ -43,9 +42,9 @@
                     </div>
                     <p>Last Donation</p>
                     <h3 class="history-stat-date" id="lastDonation">
-                        18 Aug
+                        {{ last_donation_day }}
                     </h3>
-                    <small id="lastDonationYear">2026</small>
+                    <small id="lastDonationYear">{{ last_donation_year }}</small>
                 </div>
             </div>
         </div>
@@ -80,7 +79,7 @@
                     <input type="search"
                            id="historySearch"
                            class="form-control"
-                           placeholder="Search event or location"
+                           placeholder="Search blood group or date"
                            aria-label="Search donation history">
                 </div>
 
@@ -115,9 +114,9 @@
                     <thead>
                         <tr>
                             <th>Date</th>
-                            <th>Donation Event</th>
-                            <th>Location</th>
-                            <th>Donation Type</th>
+                            <th>Record</th>
+                            <th>Blood Group</th>
+                            <th>Volume</th>
                             <th>Status</th>
                             <th class="text-end">Action</th>
                         </tr>
@@ -125,18 +124,18 @@
 
                     <tbody id="historyTableBody">
 
-                        <!-- FRONTEND SAMPLE RECORD 1 -->
-                        <tr data-status="completed"
-                            data-date="2026-08-18"
-                            data-title="Community Blood Drive"
-                            data-location="Dewan Komuniti Taman Maju"
-                            data-type="Whole Blood"
-                            data-time="09:00 AM"
-                            data-notes="Donation completed successfully.">
+                        {% for r in records %}
+                        <tr data-status="{{ r.status }}"
+                            data-date="{{ r.date_iso }}"
+                            data-title="{{ r.title }}"
+                            data-location="{{ r.blood_group }}"
+                            data-type="{{ r.volume }}"
+                            data-time="{{ r.time }}"
+                            data-notes="{{ r.notes }}">
 
                             <td>
-                                <strong>18 Aug 2026</strong>
-                                <small>09:00 AM</small>
+                                <strong>{{ r.date }}</strong>
+                                <small>{{ r.time }}</small>
                             </td>
 
                             <td>
@@ -144,144 +143,25 @@
                                     <span class="history-event-icon">
                                         <i class="fas fa-droplet"></i>
                                     </span>
-                                    <span>Community Blood Drive</span>
+                                    <span>{{ r.title }}</span>
                                 </div>
                             </td>
 
-                            <td>Dewan Komuniti Taman Maju</td>
-                            <td>Whole Blood</td>
+                            <td>{{ r.blood_group }}</td>
+                            <td>{{ r.volume }}</td>
 
                             <td>
+                                {% if r.status == 'completed' %}
                                 <span class="history-status completed">
                                     <i class="fas fa-check-circle"></i>
                                     Completed
                                 </span>
-                            </td>
-
-                            <td class="text-end">
-                                <button type="button"
-                                        class="history-view-btn"
-                                        data-view>
-                                    View
-                                </button>
-                            </td>
-                        </tr>
-
-                        <!-- FRONTEND SAMPLE RECORD 2 -->
-                        <tr data-status="completed"
-                            data-date="2026-05-12"
-                            data-title="University Donation Day"
-                            data-location="Universiti Malaya Main Hall"
-                            data-type="Whole Blood"
-                            data-time="10:30 AM"
-                            data-notes="Donation completed successfully.">
-
-                            <td>
-                                <strong>12 May 2026</strong>
-                                <small>10:30 AM</small>
-                            </td>
-
-                            <td>
-                                <div class="history-event">
-                                    <span class="history-event-icon">
-                                        <i class="fas fa-droplet"></i>
-                                    </span>
-                                    <span>University Donation Day</span>
-                                </div>
-                            </td>
-
-                            <td>Universiti Malaya Main Hall</td>
-                            <td>Whole Blood</td>
-
-                            <td>
-                                <span class="history-status completed">
-                                    <i class="fas fa-check-circle"></i>
-                                    Completed
-                                </span>
-                            </td>
-
-                            <td class="text-end">
-                                <button type="button"
-                                        class="history-view-btn"
-                                        data-view>
-                                    View
-                                </button>
-                            </td>
-                        </tr>
-
-                        <!-- FRONTEND SAMPLE RECORD 3 -->
-                        <tr data-status="completed"
-                            data-date="2026-02-20"
-                            data-title="Hospital Blood Donation Drive"
-                            data-location="Hospital Kuala Lumpur"
-                            data-type="Platelets"
-                            data-time="11:00 AM"
-                            data-notes="Platelet donation completed.">
-
-                            <td>
-                                <strong>20 Feb 2026</strong>
-                                <small>11:00 AM</small>
-                            </td>
-
-                            <td>
-                                <div class="history-event">
-                                    <span class="history-event-icon">
-                                        <i class="fas fa-droplet"></i>
-                                    </span>
-                                    <span>Hospital Blood Donation Drive</span>
-                                </div>
-                            </td>
-
-                            <td>Hospital Kuala Lumpur</td>
-                            <td>Platelets</td>
-
-                            <td>
-                                <span class="history-status completed">
-                                    <i class="fas fa-check-circle"></i>
-                                    Completed
-                                </span>
-                            </td>
-
-                            <td class="text-end">
-                                <button type="button"
-                                        class="history-view-btn"
-                                        data-view>
-                                    View
-                                </button>
-                            </td>
-                        </tr>
-
-                        <!-- FRONTEND SAMPLE RECORD 4 -->
-                        <tr data-status="cancelled"
-                            data-date="2025-11-08"
-                            data-title="Community Health Donation Camp"
-                            data-location="Penang Community Hall"
-                            data-type="Whole Blood"
-                            data-time="02:00 PM"
-                            data-notes="Appointment cancelled. No donation recorded.">
-
-                            <td>
-                                <strong>08 Nov 2025</strong>
-                                <small>02:00 PM</small>
-                            </td>
-
-                            <td>
-                                <div class="history-event">
-                                    <span class="history-event-icon">
-                                        <i class="fas fa-droplet"></i>
-                                    </span>
-                                    <span>Community Health Donation Camp</span>
-                                </div>
-                            </td>
-
-                            <td>Penang Community Hall</td>
-                            <td>Whole Blood</td>
-
-                            <td>
+                                {% else %}
                                 <span class="history-status cancelled">
                                     <i class="fas fa-times-circle"></i>
                                     Cancelled
                                 </span>
+                                {% endif %}
                             </td>
 
                             <td class="text-end">
@@ -292,19 +172,29 @@
                                 </button>
                             </td>
                         </tr>
+                        {% endfor %}
 
                     </tbody>
                 </table>
             </div>
 
-            <div id="historyEmpty" class="history-empty" hidden>
+            <div id="historyEmpty" class="history-empty"
+                 {% if records %}hidden{% endif %}>
                 <i class="fas fa-folder-open"></i>
                 <h3>No donation records found</h3>
-                <p>Try changing your search or filter.</p>
+                <p>
+                    {% if records %}
+                    Try changing your search or filter.
+                    {% else %}
+                    Your donations will appear here once they are recorded.
+                    {% endif %}
+                </p>
             </div>
 
             <div class="history-footer">
-                <span id="historyCount">Showing 4 records</span>
+                <span id="historyCount">
+                    Showing {{ records|length }} record{{ '' if records|length == 1 else 's' }}
+                </span>
                 <span><i class="fas fa-shield-heart me-1"></i>
                     Your donation journey matters.
                 </span>
@@ -336,7 +226,7 @@
             <div class="modal-body">
                 <div class="history-detail-banner">
                     <i class="fas fa-heart-pulse"></i>
-                    <h4 id="detailEvent">Donation Event</h4>
+                    <h4 id="detailEvent">Donation</h4>
                     <p id="detailStatus"></p>
                 </div>
 
@@ -350,11 +240,11 @@
                         <strong id="detailTime">—</strong>
                     </div>
                     <div>
-                        <span>Location</span>
+                        <span>Blood group</span>
                         <strong id="detailLocation">—</strong>
                     </div>
                     <div>
-                        <span>Donation type</span>
+                        <span>Volume</span>
                         <strong id="detailType">—</strong>
                     </div>
                     <div>

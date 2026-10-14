@@ -1798,6 +1798,252 @@ h2 {
     }
 }
 ```
+/* =========================================================
+   Donor Appointments
+   ========================================================= */
+
+/* ---------- Section ---------- */
+.my-appointments {
+    margin: 2rem 0;
+}
+
+.my-appointments h2 {
+    margin-bottom: 1.25rem;
+    color: var(--text);
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+/* Add spacing between My Appointments and Book a New Appointment */
+.appt-booking-section {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+}
+
+/* Space below the section heading */
+.appt-section-header {
+    margin-bottom: 1.5rem;
+}
+
+.appt-section-header h2 {
+    margin: 0 0 0.5rem;
+}
+
+.appt-section-header p {
+    margin: 0;
+    color: var(--muted);
+}
+
+/* ---------- Appointment grid ---------- */
+.appt-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1.25rem;
+}
+
+/* ---------- Appointment card ---------- */
+.my-appt-card {
+    display: flex;
+    min-width: 0;
+    overflow: hidden;
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.my-appt-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, .1);
+}
+
+/* ---------- Date block ---------- */
+.appt-date {
+    flex: 0 0 88px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem .5rem;
+    background: var(--primary);
+    color: #fff;
+    text-align: center;
+}
+
+.appt-day {
+    font-size: 2.2rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.appt-month {
+    margin-top: .3rem;
+    font-size: .9rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+}
+
+.appt-year {
+    font-size: .8rem;
+    opacity: .85;
+}
+
+/* ---------- Card body ---------- */
+.appt-body {
+    flex: 1;
+    min-width: 0;
+    padding: 1.1rem 1.25rem;
+}
+
+.appt-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: .6rem;
+    margin-bottom: .7rem;
+}
+
+.appt-card-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text);
+    overflow-wrap: anywhere;
+}
+
+/* ---------- Status badge ---------- */
+.appt-status {
+    flex-shrink: 0;
+    padding: .2rem .7rem;
+    border-radius: 50px;
+    font-size: .75rem;
+    font-weight: 700;
+    text-transform: capitalize;
+}
+
+.appt-status.pending {
+    background: #fff3e0;
+    color: #e65100;
+}
+
+.appt-status.confirmed,
+.appt-status.booked {
+    background: #e3f2fd;
+    color: #1565c0;
+}
+
+.appt-status.cancelled {
+    background: #ffebee;
+    color: #c62828;
+}
+
+.appt-status.completed {
+    background: #eceff1;
+    color: #607d8b;
+}
+
+/* ---------- Appointment details ---------- */
+.appt-meta {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    color: var(--text);
+    font-size: .92rem;
+}
+
+.appt-meta li {
+    display: flex;
+    align-items: flex-start;
+    gap: .6rem;
+    overflow-wrap: anywhere;
+}
+
+.appt-meta li > i {
+    width: 1.1rem;
+    flex-shrink: 0;
+    margin-top: .2rem;
+    text-align: center;
+    color: var(--primary);
+}
+
+.appt-notes {
+    margin-top: .65rem;
+    color: var(--muted);
+    font-size: .86rem;
+    overflow-wrap: anywhere;
+}
+
+/* ---------- Actions ---------- */
+.appt-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: .5rem;
+    margin-top: .9rem;
+}
+
+.appt-cancel-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .4rem;
+    padding: .5rem .9rem;
+    border: 1px solid var(--border);
+    border-radius: 50px;
+    background: #fff;
+    color: var(--muted);
+    font-size: .85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s ease;
+}
+
+.appt-cancel-btn:hover {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+/* ---------- Empty state ---------- */
+.appt-empty {
+    padding: 3rem 1rem;
+    text-align: center;
+    color: var(--muted);
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+.appt-empty i {
+    margin-bottom: .6rem;
+    font-size: 2.2rem;
+    color: var(--primary);
+    opacity: .5;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 420px) {
+    .appt-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .appt-date {
+        flex-basis: 70px;
+    }
+
+    .appt-body {
+        padding: 1rem;
+    }
+
+    .appt-day {
+        font-size: 1.8rem;
+    }
+}
 
 /* =========================================================
    APPOINTMENT PAGE
@@ -2062,6 +2308,8 @@ h2 {
 .appt-chip:has(input:disabled):hover > span {
     border-color: var(--appt-line);
 }
+
+
 
 @media (max-width: 800px) {
     .appt-row--top {

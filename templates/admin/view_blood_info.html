@@ -12,34 +12,31 @@
         <div class="col-md-3 col-6">
             <div class="card stat-card p-3">
                 <h6>Total Units in Stock</h6>
-                <h3 id="totalUnits">342</h3>
+                <h3 id="totalUnits">0</h3>
             </div>
         </div>
         <div class="col-md-3 col-6">
             <div class="card stat-card p-3">
                 <h6>Blood Types</h6>
-                <h3>8</h3>
+                <h3 id="typeCount">0</h3>
             </div>
         </div>
         <div class="col-md-3 col-6">
             <div class="card stat-card p-3">
                 <h6>Sufficient Types</h6>
-                <h3 id="sufficientCount">4</h3>
+                <h3 id="sufficientCount">0</h3>
             </div>
         </div>
         <div class="col-md-3 col-6">
             <div class="card stat-card p-3">
                 <h6>Low / Critical Types</h6>
-                <h3 id="lowCount">4</h3>
+                <h3 id="lowCount">0</h3>
             </div>
         </div>
     </div>
 
     <!-- Low Stock Alert -->
-    <div class="alert alert-danger" id="criticalAlert">
-        <strong>Low Stock Warning!</strong>
-        Some blood types require attention.
-    </div>
+    <div class="alert alert-danger" id="criticalAlert" style="display:none;"></div>
 
     <!-- Search and Filters -->
     <div class="card p-3 mb-4">
@@ -77,6 +74,10 @@
     <!-- Blood Inventory Table -->
     <div class="card p-3">
         <h4>Blood Inventory</h4>
+        <p class="text-muted mb-2">
+            Stock is flagged Low below {{ min_threshold }} units
+            and Critical at {{ (min_threshold * 0.5)|int }} units or fewer.
+        </p>
 
         <div class="table-responsive">
             <table class="table table-hover align-middle">
@@ -84,8 +85,6 @@
                     <tr>
                         <th>Blood Type</th>
                         <th>Available Units</th>
-                        <th>Reserved Units</th>
-                        <th>Minimum Threshold</th>
                         <th>Status</th>
                         <th>Last Updated</th>
                         <th>Actions</th>
@@ -124,28 +123,25 @@
 </div>
 
 <script>
-const bloodInventory = [
-/*dummy data*/
-    {type:"A+", units:68, reserved:8, minimum:30, updated:"08 Oct 2026"},
-    {type:"A-", units:12, reserved:4, minimum:20, updated:"08 Oct 2026"},
-    {type:"B+", units:55, reserved:5, minimum:30, updated:"08 Oct 2026"},
-    {type:"B-", units:9, reserved:3, minimum:20, updated:"08 Oct 2026"},
-    {type:"AB+", units:30, reserved:2, minimum:15, updated:"08 Oct 2026"},
-    {type:"AB-", units:4, reserved:2, minimum:10, updated:"08 Oct 2026"},
-    {type:"O+", units:90, reserved:10, minimum:40, updated:"08 Oct 2026"},
-    {type:"O-", units:18, reserved:6, minimum:25, updated:"08 Oct 2026"}
-];
+// Real data from the database (built in the view_blood_info route)
+const bloodInventory = {{ inventory|tojson }};
+
+// One threshold for every blood type (set in app.py)
+const MIN_THRESHOLD = {{ min_threshold }};
 
 // Determine stock status
 function getStatus(blood) {
-    if (blood.units <= blood.minimum * 0.5) return "Critical";
-    if (blood.units < blood.minimum) return "Low";
+    if (blood.units <= MIN_THRESHOLD * 0.5) return "Critical";
+    if (blood.units < MIN_THRESHOLD) return "Low";
     return "Sufficient";
 }
 
 function renderSummary() {
     document.getElementById("totalUnits").textContent =
         bloodInventory.reduce((sum, b) => sum + b.units, 0);
+
+    document.getElementById("typeCount").textContent =
+        bloodInventory.length;
 
     document.getElementById("sufficientCount").textContent =
         bloodInventory.filter(b => getStatus(b) === "Sufficient").length;
@@ -189,7 +185,7 @@ function renderTable() {
     if (rows.length === 0) {
         body.innerHTML = `
             <tr>
-                <td colspan="7" class="text-center text-muted">
+                <td colspan="5" class="text-center text-muted">
                     No blood types found.
                 </td>
             </tr>`;
@@ -206,8 +202,6 @@ function renderTable() {
                 <tr>
                     <td><strong>${b.type}</strong></td>
                     <td>${b.units}</td>
-                    <td>${b.reserved}</td>
-                    <td>${b.minimum}</td>
                     <td>
                         <span class="badge ${badge}">${status}</span>
                     </td>
@@ -231,19 +225,14 @@ function viewBlood(type) {
     const b = bloodInventory.find(item => item.type === type);
     if (!b) return;
 
-    const status = getStatus(b);
-    const available = Math.max(0, b.units - b.reserved);
-
     document.getElementById("modalTitle").textContent =
         `${b.type} Blood Details`;
 
     const details = [
         ["Blood Type", b.type],
-        ["Total Stock", `${b.units} units`],
-        ["Reserved Units", `${b.reserved} units`],
-        ["Unreserved Units", `${available} units`],
-        ["Minimum Threshold", `${b.minimum} units`],
-        ["Status", status],
+        ["Available Units", `${b.units} units`],
+        ["Minimum Threshold", `${MIN_THRESHOLD} units`],
+        ["Status", getStatus(b)],
         ["Last Updated", b.updated]
     ];
 

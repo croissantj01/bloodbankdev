@@ -11,22 +11,15 @@ DB_PATH = os.path.join(
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    # SQLite ignores FOREIGN KEY / ON DELETE CASCADE unless this is set per connection
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 
 def _fix_old_users_table():
-    """
-    Older versions of this project created users.phone_number as NOT NULL.
-    CREATE TABLE IF NOT EXISTS never changes an existing table, so if that
-    old table is still there, rebuild it once with phone_number nullable.
-    Existing rows are kept.
-    """
-    conn = sqlite3.connect(DB_PATH)  # foreign keys OFF while rebuilding
+
+    conn = sqlite3.connect(DB_PATH)
     try:
         columns = conn.execute("PRAGMA table_info(users)").fetchall()
-        # row layout: (cid, name, type, notnull, dflt_value, pk)
         phone_col = next((c for c in columns if c[1] == "phone_number"), None)
 
         if phone_col is not None and phone_col[3] == 1:
@@ -52,11 +45,7 @@ def _fix_old_users_table():
 
 
 def _upgrade_appointments_table():
-    """
-    Older databases have an appointments table without event_id,
-    appointment_time and notes. CREATE TABLE IF NOT EXISTS never changes an
-    existing table, so add the missing columns once. Existing rows are kept.
-    """
+
     conn = sqlite3.connect(DB_PATH)
     try:
         cols = {c[1] for c in conn.execute("PRAGMA table_info(appointments)").fetchall()}
@@ -305,7 +294,6 @@ def _time_label(hhmm):
 
 
 def _make_slots(start, end):
-    """Start times ('HH:MM') of every slot that fits between start and end."""
     cur  = datetime.strptime(start, "%H:%M")
     last = datetime.strptime(end, "%H:%M")
     step = timedelta(minutes=SLOT_MINUTES)

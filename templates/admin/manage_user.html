@@ -1,19 +1,6 @@
 {% extends 'admin/admin_base.html' %}
 {% block content %}
 
-{# SAMPLE DATA - delete this after do the backend.#}
-{% set users = users|default([
-    {'id': 1, 'name': 'Aisyah Rahman',   'email': 'aisyah@hospitalkl.com',  'phone': '012-345 6789', 'role': 'Hospital Staff',   'org': 'Hospital Kuala Lumpur', 'status': 'Active',   'date': '2026-08-14'},
-    {'id': 2, 'name': 'Daniel Lim',      'email': 'daniel@hospitalpg.com',  'phone': '016-222 3344', 'role': 'Hospital Staff',   'org': 'Hospital Pulau Pinang', 'status': 'Active',   'date': '2026-08-20'},
-    {'id': 3, 'name': 'Nurul Huda',      'email': 'nurul@bloodbank.my',     'phone': '013-777 8899', 'role': 'Blood Bank Staff', 'org': 'National Blood Centre', 'status': 'Active',   'date': '2026-07-02'},
-    {'id': 4, 'name': 'Kevin Tan',       'email': 'kevin@bloodbank.my',     'phone': '011-5566 7788', 'role': 'Blood Bank Staff', 'org': 'Penang Blood Bank',     'status': 'Inactive', 'date': '2026-06-18'},
-    {'id': 5, 'name': 'Siti Marlina',    'email': 'siti@gmail.com',         'phone': '019-888 1122', 'role': 'Donor',            'org': 'O+',                    'status': 'Active',   'date': '2026-09-01'},
-    {'id': 6, 'name': 'Ahmad Faiz',      'email': 'faiz@gmail.com',         'phone': '017-654 3210', 'role': 'Donor',            'org': 'A+',                    'status': 'Active',   'date': '2026-09-12'},
-    {'id': 7, 'name': 'Priya Nair',      'email': 'priya@gmail.com',        'phone': '014-333 9900', 'role': 'Donor',            'org': 'B-',                    'status': 'Inactive', 'date': '2026-05-27'},
-    {'id': 8, 'name': 'Jason Wong',      'email': 'jason@gmail.com',        'phone': '018-120 4567', 'role': 'Donor',            'org': 'AB+',                   'status': 'Active',   'date': '2026-10-03'}
-]) %}
-{# ===== END SAMPLE DATA ===== #}
-
 {% set staff  = users|rejectattr('role', 'equalto', 'Donor')|list %}
 {% set donors = users|selectattr('role', 'equalto', 'Donor')|list %}
 

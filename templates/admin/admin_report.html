@@ -1,40 +1,6 @@
 {% extends 'admin/admin_base.html' %}
 {% block content %}
 
-{# SAMPLE DATA - delete this after do the backend.#}
-{% set total_units = total_units|default(342) %}
-{% set sufficient_count = sufficient_count|default(5) %}
-{% set low_count = low_count|default(2) %}
-{% set critical_count = critical_count|default(1) %}
-{% set stock_labels = stock_labels|default(['A+','A-','B+','B-','AB+','AB-','O+','O-']) %}
-{% set stock_units = stock_units|default([68, 12, 55, 9, 30, 4, 90, 18]) %}
-
-{% set alerts_triggered = alerts_triggered|default(14) %}
-{% set alerts_notified = alerts_notified|default(14) %}
-{% set most_low_type = most_low_type|default('O-') %}
-{% set alert_labels = alert_labels|default(['A-','B-','AB-','O-']) %}
-{% set alert_counts = alert_counts|default([3, 4, 2, 5]) %}
-
-{% set total_requests = total_requests|default(86) %}
-{% set approved_requests = approved_requests|default(52) %}
-{% set rejected_requests = rejected_requests|default(8) %}
-{% set pending_requests = pending_requests|default(10) %}
-{% set auto_closed_requests = auto_closed_requests|default(16) %}
-
-{% set total_donations = total_donations|default(410) %}
-{% set donations_this_month = donations_this_month|default(38) %}
-{% set top_donated_type = top_donated_type|default('O+') %}
-{% set donation_months = donation_months|default(['May','Jun','Jul','Aug','Sep','Oct']) %}
-{% set donation_counts = donation_counts|default([52, 61, 58, 70, 66, 38]) %}
-{% set donation_type_labels = donation_type_labels|default(['A+','A-','B+','B-','AB+','AB-','O+','O-']) %}
-{% set donation_type_counts = donation_type_counts|default([80, 15, 66, 12, 34, 6, 160, 37]) %}
-
-{% set total_donors = total_donors|default(230) %}
-{% set new_registrations = new_registrations|default(18) %}
-{% set active_users = active_users|default(176) %}
-{% set inactive_users = inactive_users|default(54) %}
-{# ===== END SAMPLE DATA ===== #}
-
 
 <div class="container py-4">
 

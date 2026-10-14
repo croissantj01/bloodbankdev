@@ -207,6 +207,116 @@ def login():
 
     return render_template("general/login.html", next=next_page)
 
+def _date_clause(column, from_date, to_date):
+    clause, params = "", []
+    if from_date:
+        clause += f" AND date({column}) >= date(?)"
+        params.append(from_date)
+    if to_date:
+        clause += f" AND date({column}) <= date(?)"
+        params.append(to_date)
+    return clause, params
+
+
+@app.route('/admin_report', methods=['GET', 'POST'])
+def admin_report():
+    from_date = request.args.get('from_date') or ''
+    to_date = request.args.get('to_date') or ''
+
+    d_clause, d_params = _date_clause('collection_date', from_date, to_date)
+    r_clause, r_params = _date_clause('request_date', from_date, to_date)
+
+    conn = get_db_connection()
+    try:
+        # 1. Stock (always current, not date-filtered)
+        stock_rows = conn.execute("""
+            SELECT blood_group, COUNT(*) AS units FROM donations
+            WHERE status = 'Available' AND date(expiry_date) >= date('now')
+            GROUP BY blood_group
+        """).fetchall()
+        stock = {r['blood_group']: r['units'] for r in stock_rows}
+        stock_labels = BLOOD_TYPES
+        stock_units = [stock.get(t, 0) for t in BLOOD_TYPES]
+
+        critical = [t for t in BLOOD_TYPES if stock.get(t, 0) <= MIN_THRESHOLD * 0.5]
+        low = [t for t in BLOOD_TYPES
+               if MIN_THRESHOLD * 0.5 < stock.get(t, 0) < MIN_THRESHOLD]
+        below = critical + low
+
+        # 2. Low stock alerts (based on current stock vs MIN_THRESHOLD)
+        alert_labels = below
+        alert_counts = [stock.get(t, 0) for t in below]
+        most_low_type = min(BLOOD_TYPES, key=lambda t: stock.get(t, 0)) if below else '-'
+
+        # 3. Requests
+        req = {r['status']: r['n'] for r in conn.execute(
+            f"SELECT status, COUNT(*) AS n FROM blood_requests WHERE 1=1 {r_clause} GROUP BY status",
+            r_params).fetchall()}
+
+        # 5. Donations
+        total_donations = conn.execute(
+            f"SELECT COUNT(*) FROM donations WHERE 1=1 {d_clause}", d_params).fetchone()[0]
+
+        donations_this_month = conn.execute("""
+            SELECT COUNT(*) FROM donations
+            WHERE strftime('%Y-%m', collection_date) = strftime('%Y-%m', 'now')
+        """).fetchone()[0]
+
+        month_rows = conn.execute(f"""
+            SELECT strftime('%Y-%m', collection_date) AS m, COUNT(*) AS n
+            FROM donations WHERE 1=1 {d_clause}
+            GROUP BY m ORDER BY m DESC LIMIT 6
+        """, d_params).fetchall()[::-1]
+
+        type_rows = conn.execute(f"""
+            SELECT blood_group, COUNT(*) AS n FROM donations
+            WHERE 1=1 {d_clause} GROUP BY blood_group
+        """, d_params).fetchall()
+        by_type = {r['blood_group']: r['n'] for r in type_rows}
+        donation_type_counts = [by_type.get(t, 0) for t in BLOOD_TYPES]
+        top_donated_type = max(by_type, key=by_type.get) if by_type else '-'
+
+        # 4. Users
+        total_donors = conn.execute("SELECT COUNT(*) FROM donors").fetchone()[0]
+        active_users = conn.execute("""
+            SELECT COUNT(DISTINCT donor_id) FROM donations
+            WHERE date(collection_date) >= date('now', '-365 day')
+        """).fetchone()[0]
+    finally:
+        conn.close()
+
+    return render_template(
+        "admin/admin_report.html",
+        from_date=from_date, to_date=to_date,
+        # stock
+        total_units=sum(stock_units),
+        sufficient_count=len(BLOOD_TYPES) - len(below),
+        low_count=len(low), critical_count=len(critical),
+        stock_labels=stock_labels, stock_units=stock_units,
+        # alerts
+        alerts_triggered=len(below), alerts_notified="N/A",
+        most_low_type=most_low_type,
+        alert_labels=alert_labels, alert_counts=alert_counts,
+        # requests
+        total_requests=sum(req.values()),
+        approved_requests=req.get('Approved', 0),
+        rejected_requests=req.get('Rejected', 0),
+        pending_requests=req.get('Pending', 0),
+        auto_closed_requests=req.get('Auto-Closed', 0),
+        # donations
+        total_donations=total_donations,
+        donations_this_month=donations_this_month,
+        top_donated_type=top_donated_type,
+        donation_months=[r['m'] for r in month_rows],
+        donation_counts=[r['n'] for r in month_rows],
+        donation_type_labels=BLOOD_TYPES,
+        donation_type_counts=donation_type_counts,
+        # users
+        total_donors=total_donors, new_registrations="N/A",
+        active_users=active_users,
+        inactive_users=max(total_donors - active_users, 0),
+    )
+
 @app.route("/check_email", methods=["GET", "POST"])
 def check_email():
     if request.method == "POST":
@@ -442,9 +552,102 @@ def rewards():
 def donor_faq():
     return render_template("donor/donor_faq.html")
 
-@app.route('/donation_history', methods=['GET','POST'])
+from datetime import datetime   # put with your other imports at the top
+
+
+def _parse_dt(value):
+    text = str(value or "")
+    for fmt, has_time in (("%Y-%m-%d %H:%M:%S", True), ("%Y-%m-%d", False)):
+        try:
+            return datetime.strptime(text[:19] if has_time else text[:10], fmt), has_time
+        except ValueError:
+            continue
+    return None, False
+
+
+def _format_volume(value):
+    try:
+        return f"{float(value):g} ml"
+    except (TypeError, ValueError):
+        return "—"
+
+
+@app.route('/donation_history')
 def donation_history():
-    return render_template("donor/donation_history.html")
+    if 'user_email' not in session:
+        return redirect(url_for('login', next='donation_history'))
+
+    conn = get_db_connection()
+    try:
+        donor = conn.execute("""
+            SELECT d.donor_id
+            FROM donors d JOIN users u ON d.user_id = u.id
+            WHERE u.email = ?
+        """, (session['user_email'].lower(),)).fetchone()
+
+        donations, cancelled = [], []
+        if donor:
+            donations = conn.execute("""
+                SELECT collection_date, blood_group, volume_blood
+                FROM donations WHERE donor_id = ?
+            """, (donor['donor_id'],)).fetchall()
+
+            cancelled = conn.execute("""
+                SELECT appointment_date FROM appointments
+                WHERE donor_id = ? AND lower(status) = 'cancelled'
+            """, (donor['donor_id'],)).fetchall()
+    finally:
+        conn.close()
+
+    records = []
+
+    for d in donations:
+        dt, has_time = _parse_dt(d['collection_date'])
+        if not dt:
+            continue
+        records.append({
+            "dt": dt,
+            "date_iso": dt.strftime("%Y-%m-%d"),
+            "date": dt.strftime("%d %b %Y"),
+            "time": dt.strftime("%I:%M %p") if has_time else "—",
+            "title": "Blood Donation",
+            "blood_group": d['blood_group'],
+            "volume": _format_volume(d['volume_blood']),
+            "status": "completed",
+            "notes": "Donation completed successfully.",
+        })
+
+    for a in cancelled:
+        dt, _ = _parse_dt(a['appointment_date'])
+        if not dt:
+            continue
+        records.append({
+            "dt": dt,
+            "date_iso": dt.strftime("%Y-%m-%d"),
+            "date": dt.strftime("%d %b %Y"),
+            "time": "—",
+            "title": "Donation Appointment",
+            "blood_group": "—",
+            "volume": "—",
+            "status": "cancelled",
+            "notes": "Appointment cancelled. No donation recorded.",
+        })
+
+    records.sort(key=lambda r: r["dt"], reverse=True)
+
+    completed = [r for r in records if r["status"] == "completed"]
+    current_year = datetime.now().year
+    last = completed[0] if completed else None
+
+    return render_template(
+        "donor/donation_history.html",
+        records=records,
+        total_donations=len(completed),
+        year_donations=sum(1 for r in completed if r["dt"].year == current_year),
+        current_year=current_year,
+        last_donation_day=last["dt"].strftime("%d %b") if last else "—",
+        last_donation_year=str(last["dt"].year) if last else "No donations yet",
+    )
 
 @app.route('/donor_announcements', methods=['GET','POST'])
 def donor_announcements():
@@ -562,13 +765,43 @@ def hospital_staff_dashboard():
 def manage_user():
     return render_template("admin/manage_user.html")
 
-@app.route('/view_blood_info', methods=['GET','POST'])
-def view_blood_info():
-    return render_template("admin/view_blood_info.html")
+MIN_THRESHOLD = 20
+BLOOD_TYPES = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]
 
-@app.route('/admin_report', methods=['GET','POST'])
-def admin_report():
-    return render_template("admin/admin_report.html")
+
+@app.route('/view_blood_info', methods=['GET', 'POST'])
+def view_blood_info():
+    conn = get_db_connection()
+    try:
+        rows = conn.execute("""
+            SELECT blood_group,
+                   COUNT(*) AS units,
+                   MAX(collection_date) AS last_updated
+            FROM donations
+            WHERE status = 'Available'
+              AND date(expiry_date) >= date('now')
+            GROUP BY blood_group
+        """).fetchall()
+    finally:
+        conn.close()
+
+    stock = {r['blood_group']: r for r in rows}
+
+    inventory = []
+    for blood_type in BLOOD_TYPES:
+        row = stock.get(blood_type)
+        inventory.append({
+            "type": blood_type,
+            "units": row['units'] if row else 0,
+            "updated": (row['last_updated'] or "")[:10] if row else "No stock yet",
+        })
+
+    return render_template(
+        "admin/view_blood_info.html",
+        inventory=inventory,
+        min_threshold=MIN_THRESHOLD,
+    )
+
 
 @app.route('/staff_report', methods=['GET','POST'])
 def staff_report():
@@ -870,6 +1103,81 @@ def make_appointment():
         events=get_bookable_events(donor['donor_id']),
         my_appointments=get_donor_upcoming_appointments(donor['donor_id'])
     )
+
+
+def create_appointment(donor_id, event_id, appt_time, notes):
+    conn = get_db_connection()
+
+    try:
+        event = conn.execute("""
+            SELECT event_id, event_date, start_time, end_time
+            FROM events
+            WHERE event_id = ?
+        """, (event_id,)).fetchone()
+
+        if not event:
+            return False, "Selected event was not found."
+
+        # Check that the selected time is within the event's time range.
+        if not (event['start_time'] <= appt_time < event['end_time']):
+            return False, "Please select a valid time for this event."
+
+        conn.execute("""
+            INSERT INTO appointments (
+                donor_id,
+                event_id,
+                appointment_date,
+                appointment_time,
+                status,
+                notes
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            donor_id,
+            event_id,
+            event['event_date'],
+            appt_time,
+            'booked',
+            notes
+        ))
+
+        conn.commit()
+        return True, "Appointment booked successfully."
+
+    except Exception as e:
+        conn.rollback()
+        print("Error creating appointment:", e)
+        return False, "Unable to book appointment. Please try again."
+
+    finally:
+        conn.close()
+
+
+def get_donor_upcoming_appointments(donor_id):
+    conn = get_db_connection()
+
+    try:
+        return conn.execute("""
+            SELECT
+                a.appointment_id,
+                a.donor_id,
+                a.event_id,
+                a.appointment_date,
+                a.appointment_time,
+                a.status,
+                a.notes,
+                e.title AS event_title,
+                e.place AS event_place
+            FROM appointments a
+            LEFT JOIN events e ON a.event_id = e.event_id
+            WHERE a.donor_id = ?
+              AND LOWER(a.status) != 'cancelled'
+            ORDER BY a.appointment_date ASC,
+                     a.appointment_time ASC
+        """, (donor_id,)).fetchall()
+
+    finally:
+        conn.close()
 
 
 @app.route('/book_appointment', methods=['POST'])
