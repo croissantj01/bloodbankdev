@@ -153,9 +153,6 @@ def login():
         admin_email = (os.getenv("ADMIN_EMAIL") or "").strip().lower()
         admin_password = os.getenv("ADMIN_PASSWORD") or ""
 
-        print("Admin email configured:", bool(admin_email))
-        print("Admin password configured:", bool(admin_password))
-        print("Submitted email matches:", email == admin_email)
 
         if email == admin_email and password == admin_password:
             otp = str(random.randint(100000, 999999))
