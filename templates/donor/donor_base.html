@@ -13,7 +13,6 @@
 </head>
 <body>
 
-```html
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top nav-head">
     <div class="container">
 
@@ -55,9 +54,9 @@
                     {% if not donor_registered %}
 
                         <li class="nav-item">
-                            <a href="{{ url_for('registration') }}" class="nav-link">
+                            <a href="{{ url_for('manage_profile') }}" class="nav-link">
                                 <i class="fa-solid fa-user-plus"></i>
-                                <span class="nav-text">Register</span>
+                                <span class="nav-text">Manage Profile</span>
                             </a>
                         </li>
 

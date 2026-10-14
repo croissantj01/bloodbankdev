@@ -483,13 +483,123 @@ def staff_report():
 def donor_dashboard():
     return render_template("donor/donor_dashboard.html")
 
-@app.route("/registration", methods=['GET','POST'])
+
+@app.route("/registration", methods=['GET', 'POST'])
 def registration():
+    if 'user_email' not in session:
+        return redirect(url_for('login', next='registration'))
+
+    if request.method == 'POST':
+        name = request.form.get('name')
+        ic = request.form.get('ic').strip()
+        dob = request.form.get('dob')
+        gender = request.form.get('gender')
+        blood_type = request.form.get('blood_type')
+        phone = request.form.get('phone')
+        emergency_contact = request.form.get('emergency_contact')
+        address = request.form.get('address')
+
+        weight = 0.0
+        height = 0.0
+
+        user_email = session.get('user_email')
+        conn = get_db_connection()
+        user = conn.execute("SELECT id FROM users WHERE email = ?", (user_email,)).fetchone()
+
+        if not user:
+            conn.close()
+            flash("User session not found. Please log in again.", "error")
+            return redirect(url_for('login'))
+
+        user_id = user['id']
+
+        try:
+            conn.execute('''
+                INSERT INTO donors (user_id, donor_name, ic, blood_type, dob, address, gender, emergency_contact, weight, height)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (user_id, name, ic, blood_type, dob, address, gender, emergency_contact, weight, height))
+
+            conn.execute('''
+                UPDATE users SET full_name = ?, phone_number = ? WHERE id = ?
+            ''', (name, phone, user_id))
+
+            conn.commit()
+            conn.close()
+
+            flash("Donor registration successful!", "success")
+            return redirect(url_for('donor_dashboard'))
+
+        except sqlite3.IntegrityError as e:
+            conn.close()
+            flash("This IC number is already registered to another account.", "error")
+            return render_template("donor/registration.html")
+
     return render_template("donor/registration.html")
 
-@app.route("/manage_profile", methods=["GET", "POST"])
+
+@app.route("/manage_profile", methods=['GET', 'POST'])
 def manage_profile():
-    return render_template("donor/manage_profile.html")
+    if 'user_email' not in session:
+        return redirect(url_for('login', next='manage_profile'))
+
+    user_email = session.get('user_email')
+    conn = get_db_connection()
+
+    user = conn.execute("SELECT id FROM users WHERE email = ?", (user_email,)).fetchone()
+    if not user:
+        conn.close()
+        return redirect(url_for('login'))
+
+    user_id = user['id']
+
+    donor = conn.execute('''
+        SELECT d.*, u.full_name, u.phone_number 
+        FROM donors d
+        JOIN users u ON d.user_id = u.id
+        WHERE d.user_id = ?
+    ''', (user_id,)).fetchone()
+
+    user_info = conn.execute("SELECT full_name, phone_number FROM users WHERE id = ?", (user_id,)).fetchone()
+
+    if request.method == 'POST':
+        name = request.form.get('name')
+        dob = request.form.get('dob')
+        gender = request.form.get('gender')
+        blood_type = request.form.get('blood_type')
+        phone = request.form.get('phone')
+        emergency_contact = request.form.get('emergency_contact')
+        address = request.form.get('address')
+
+        if donor:
+            conn.execute('''
+                UPDATE donors 
+                SET blood_type = ?, dob = ?, address = ?, gender = ?, emergency_contact = ?
+                WHERE user_id = ?
+            ''', (blood_type, dob, address, gender, emergency_contact, user_id))
+            flash("Profile updated successfully!", "success")
+        else:
+            ic = request.form.get('ic', '').strip()
+            try:
+                conn.execute('''
+                    INSERT INTO donors (user_id, ic, blood_type, dob, address, gender, emergency_contact, weight, height)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 0.0, 0.0)
+                ''', (user_id, ic, blood_type, dob, address, gender, emergency_contact))
+                flash("Registration completed successfully!", "success")
+            except sqlite3.IntegrityError:
+                flash("This IC number is already registered to another account.", "error")
+                conn.close()
+                return redirect(url_for('manage_profile'))
+
+        conn.execute('''
+            UPDATE users SET full_name = ?, phone_number = ? WHERE id = ?
+        ''', (name, phone, user_id))
+
+        conn.commit()
+        conn.close()
+        return redirect(url_for('manage_profile'))
+
+    conn.close()
+    return render_template("donor/manage_profile.html", donor=donor, user=user_info)
 
 @app.route("/blood_bank_staff_dashboard", methods=["GET", "POST"])
 def blood_bank_staff_dashboard():
@@ -505,6 +615,42 @@ def manage_blood_stock():
 
 @app.route("/record_donation", methods=["GET", "POST"])
 def record_donation():
+    donor = None
+
+    if request.method == "POST":
+        action = request.form.get("action")
+
+        if action == "search":
+            ic = request.form.get("ic").strip()
+            conn = get_db_connection()
+            donor = conn.execute('''
+                SELECT d.*, u.full_name, u.phone_number
+                FROM donors d
+                JOIN users u ON d.user_id = u.id
+                WHERE d.ic = ?
+            ''', (ic,)).fetchone()
+            conn.close()
+
+            if not donor:
+                return render_template("blood_bank_staff/record_donation.html", error_popup="No registered account with this IC number!")
+
+        elif action == "record":
+            donor_id = request.form.get("donor_id")
+            blood_group = request.form.get("blood_group")
+            volume_blood = request.form.get("volume_blood")
+            expiry_date = request.form.get("expiry_date")
+            status = "Available"
+
+            conn = get_db_connection()
+            conn.execute('''
+                INSERT INTO donations (donor_id, blood_group, volume_blood, expiry_date, status)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (donor_id, blood_group, volume_blood, expiry_date, status))
+            conn.commit()
+            conn.close()
+
+            return render_template("blood_bank_staff/record_donation.html", error_popup="Donation successfully recorded!")
+
     return render_template("blood_bank_staff/record_donation.html")
 
 @app.route("/view_appointment", methods=["GET", "POST"])

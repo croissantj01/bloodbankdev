@@ -5,29 +5,38 @@
 {% block content %}
 
 <h1>Record Blood Donation</h1>
+<p>Record a donation made by searching for a registered donor via their IC.</p>
 
-<p>Record a donation made by a registered donor.</p>
-
+{% if not donor %}
 <form method="POST" action="{{ url_for('record_donation') }}">
+    <input type="hidden" name="action" value="search">
 
     <div>
-        <label for="donor_id">Select Donor:</label>
-        <select id="donor_id" name="donor_id" required>
-            <option value="">Select Donor</option>
-
-            {% for donor in donors %}
-            <option value="{{ donor.id }}">{{ donor.fullname }}</option>
-            {% endfor %}
-
-        </select>
+        <label for="ic">Search Donor by IC Number:</label>
+        <input type="text" id="ic" name="ic" placeholder="Enter IC (e.g., 990101-01-1234)" required>
     </div>
+    <br>
+    <button type="submit">Search Donor</button>
+</form>
+{% endif %}
 
-        <br>
-        <div>
-        <label for="blood_type">Blood Type:</label>
+{% if donor %}
+<div style="background-color: #f8f9fa; padding: 15px; border: 1px solid #ccc; margin-bottom: 20px;">
+    <h3>Donor Verified:</h3>
+    <p><strong>Name:</strong> {{ donor.full_name }}</p>
+    <p><strong>IC:</strong> {{ donor.ic }}</p>
+    <p><strong>Phone:</strong> {{ donor.phone_number }}</p>
+</div>
 
-        <select id="blood_type" name="blood_type" required>
-            <option value="">Select Blood Type</option>
+<form method="POST" action="{{ url_for('record_donation') }}">
+    <input type="hidden" name="action" value="record">
+    <!-- Pass the donor_id securely behind the scenes -->
+    <input type="hidden" name="donor_id" value="{{ donor.donor_id }}">
+
+    <div>
+        <label for="blood_group">Blood Group:</label>
+        <select id="blood_group" name="blood_group" required>
+            <option value="{{ donor.blood_type }}" selected>{{ donor.blood_type }} (Profile Default)</option>
             <option value="A+">A+</option>
             <option value="A-">A-</option>
             <option value="B+">B+</option>
@@ -42,8 +51,15 @@
     <br>
 
     <div>
-        <label for="quantity">Quantity (Units):</label>
-        <input type="number" id="quantity" name="quantity" min="1" required>
+        <label for="volume_blood">Volume of Blood (ml):</label>
+        <input type="number" id="volume_blood" name="volume_blood" value="450" required>
+    </div>
+
+    <br>
+
+    <div>
+        <label for="expiry_date">Expiry Date:</label>
+        <input type="date" id="expiry_date" name="expiry_date" required>
     </div>
 
     <br>
@@ -57,7 +73,15 @@
     <br>
 
     <button type="submit">Record Donation</button>
+    <a href="{{ url_for('record_donation') }}" style="margin-left: 15px;">Search Different Donor</a>
 
 </form>
+{% endif %}
+
+{% if error_popup %}
+<script>
+    alert("{{ error_popup }}");
+</script>
+{% endif %}
 
 {% endblock %}
