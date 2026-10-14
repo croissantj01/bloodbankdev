@@ -2,24 +2,40 @@
 {% block title %}Dashboard{% endblock %}
 {% block content %}
 
-<div class="staff-page">
+<div class="container py-4">
 
-    <h1>Blood Bank Staff Dashboard</h1>
+    <div class="dashboard-hero shadow-sm">
+        <div class="row align-items-center">
 
-    <p class="staff-subtitle">
-        Welcome! Manage blood donations, appointments, inventory and requests from here.
-    </p>
+            <div class="col-lg-7 p-4 p-lg-5">
 
+                <span class="badge donor-badge mb-3">
+                    <i class="fa-duotone fa-solid fa-hospital-user"></i>
+                    Blood Bank Staff
+                </span>
 
-    <div class="staff-panel">
-        <h2>Welcome to the Blood Bank Management System</h2>
+                <h1 class="fw-bold mb-3">
+                    Welcome, Blood Bank Staff!
+                </h1>
 
-        <p>
-            Record blood donations, monitor donation appointments,
-            manage blood stock, process blood requests made by hospitals,
-            and review reports here.
-        </p>
+                <p class="hero-description mb-4">
+                    Manage blood donations, appointments, inventory , requests and announcements from here.
+                </p>
+
+            </div>
+
+            <div class="col-lg-5">
+                <div class="hero-image-wrapper">
+                    <img src="{{ url_for('static', filename='images/blood_bank_staff.jpg') }}"
+                         class="img-fluid hero-image"
+                         alt="Blood bank administration">
+                </div>
+            </div>
+
+        </div>
     </div>
+
+<div class="staff-page">
 
     <!-- Main Responsibilities -->
     <h2 class="dashboard-section-title">Functionalities</h2>
@@ -79,6 +95,7 @@
 
     </div>
 
+</div>
 </div>
 
 {% endblock %}
