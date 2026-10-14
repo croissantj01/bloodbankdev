@@ -1,12 +1,13 @@
-
 {% extends "donor/donor_base.html" %}
 
 {% block content %}
 <div class="appt-page">
+
     <div class="appt-card">
+
         <h1 class="appt-title">Book Appointment</h1>
 
-        <!-- Flask flash messages -->
+        <!-- FLASH MESSAGES -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% for category, message in messages %}
                 <div class="appt-alert appt-alert--{{ category }}"
@@ -16,139 +17,436 @@
             {% endfor %}
         {% endwith %}
 
-        {% if events %}
-        <form method="POST"
-              action="{{ url_for('book_appointment') }}"
-              class="appt-form"
-              id="apptForm">
 
-            <!-- STEP 1: Select an event created by the admin -->
-            <div class="appt-field">
-                <label for="appt-event">Available blood donation events</label>
+        <!-- =================================================
+             MY APPOINTMENTS
+             ================================================= -->
+        <section class="my-appointments">
 
-                <select id="appt-event" name="event_id" required>
-                    <option value="" selected disabled>
-                        Select an event
-                    </option>
-
-                    {% for event in events %}
-                    <option value="{{ event.id }}">
-                        {{ event.name }} — {{ event.location }}
-                        ({{ event.event_date.strftime('%d %b %Y')
-                            if event.event_date.strftime is defined
-                            else event.event_date }})
-                    </option>
-                    {% endfor %}
-                </select>
+            <div class="appt-section-header">
+                <div>
+                    <h2>My Appointments</h2>
+                    <p>View and manage your blood donation bookings.</p>
+                </div>
             </div>
 
-            <!-- STEP 2: Show details for the selected event -->
-            {% for event in events %}
-            <section class="appt-event-details"
-                     data-event-id="{{ event.id }}"
-                     hidden>
+            {% if my_appointments %}
 
-                <div class="appt-divider">
-                    <span>event details</span>
+            <div class="appt-grid">
+
+                {% for appt in my_appointments %}
+
+                <article class="my-appt-card">
+
+                    <!-- DATE PANEL -->
+                    <div class="appt-date">
+
+                        {% if appt.appointment_date.strftime is defined %}
+
+                            <span class="appt-day">
+                                {{ appt.appointment_date.strftime('%d') }}
+                            </span>
+
+                            <span class="appt-month">
+                                {{ appt.appointment_date.strftime('%b') }}
+                            </span>
+
+                            <span class="appt-year">
+                                {{ appt.appointment_date.strftime('%Y') }}
+                            </span>
+
+                        {% else %}
+
+                            {% set appt_date = appt.appointment_date|string %}
+                            <span class="appt-day">
+                                {{ appt_date[8:10] }}
+                            </span>
+
+                            <span class="appt-month">
+                                {{ appt_date[5:7] }}
+                            </span>
+
+                            <span class="appt-year">
+                                {{ appt_date[0:4] }}
+                            </span>
+
+                        {% endif %}
+
+                    </div>
+
+
+                    <!-- APPOINTMENT INFORMATION -->
+                    <div class="appt-body">
+
+                        <div class="appt-top">
+
+                            <h3 class="appt-card-title">
+                                {% if appt.event_name is defined and appt.event_name %}
+                                    {{ appt.event_name }}
+                                {% else %}
+                                    Blood Donation Appointment
+                                {% endif %}
+                            </h3>
+
+                            <span class="appt-status {{ appt.status|lower|replace(' ', '-') }}">
+                                {{ appt.status }}
+                            </span>
+
+                        </div>
+
+
+                        <!-- APPOINTMENT DETAILS -->
+                        <ul class="appt-meta">
+
+                            <li>
+                                <i class="fas fa-calendar-alt"></i>
+                                <span>
+                                    <strong>Date:</strong>
+                                    {% if appt.appointment_date.strftime is defined %}
+                                        {{ appt.appointment_date.strftime('%d %b %Y') }}
+                                    {% else %}
+                                        {{ appt.appointment_date }}
+                                    {% endif %}
+                                </span>
+                            </li>
+
+                            <li>
+                                <i class="fas fa-clock"></i>
+                                <span>
+                                    <strong>Time:</strong>
+                                    {{ appt.appointment_time or 'Not specified' }}
+                                </span>
+                            </li>
+
+                            {% if appt.location is defined and appt.location %}
+                            <li>
+                                <i class="fas fa-map-marker-alt"></i>
+                                <span>
+                                    <strong>Location:</strong>
+                                    {{ appt.location }}
+                                </span>
+                            </li>
+                            {% endif %}
+
+                        </ul>
+
+
+                        <!-- NOTES -->
+                        {% if appt.notes %}
+                        <p class="appt-notes">
+                            <strong>Notes:</strong>
+                            {{ appt.notes }}
+                        </p>
+                        {% endif %}
+
+
+                        <!-- CANCEL BUTTON -->
+                        {% if appt.status|lower not in ['cancelled', 'completed'] %}
+
+                        <div class="appt-actions">
+
+                            <form method="POST"
+                                  action="{{ url_for('cancel_appointment') }}"
+                                  onsubmit="return confirm('Are you sure you want to cancel this appointment?');">
+
+                                <input type="hidden"
+                                       name="appointment_id"
+                                       value="{{ appt.appointment_id }}">
+
+                                <button type="submit"
+                                        class="appt-cancel-btn">
+
+                                    <i class="fas fa-times-circle"></i>
+                                    Cancel Appointment
+
+                                </button>
+
+                            </form>
+
+                        </div>
+
+                        {% endif %}
+
+                    </div>
+
+                </article>
+
+                {% endfor %}
+
+            </div>
+
+            {% else %}
+
+            <div class="appt-empty">
+
+                <i class="fas fa-calendar-check"></i>
+
+                <h3>No upcoming appointments</h3>
+
+                <p>
+                    You have not booked any upcoming appointments yet.
+                    Book an appointment below to get started.
+                </p>
+
+            </div>
+
+            {% endif %}
+
+        </section>
+
+
+        <!-- =================================================
+             BOOK NEW APPOINTMENT
+             ================================================= -->
+        <section class="appt-booking-section">
+
+            <div class="appt-section-header">
+                <div>
+                    <h2>Book a New Appointment</h2>
+                    <p>Select an event and an available appointment time.</p>
                 </div>
+            </div>
 
-                <h3>{{ event.name }}</h3>
 
-                <p>
-                    <strong>Location:</strong>
-                    {{ event.location }}
-                </p>
+            {% if events %}
 
-                <p>
-                    <strong>Date:</strong>
-                    {{ event.event_date.strftime('%d %b %Y')
-                       if event.event_date.strftime is defined
-                       else event.event_date }}
-                </p>
+            <form method="POST"
+                  action="{{ url_for('book_appointment') }}"
+                  class="appt-form"
+                  id="apptForm">
 
-                <p>
-                    <strong>Time:</strong>
-                    {{ event.start_time }} – {{ event.end_time }}
-                </p>
 
-                {% if event.description %}
-                <p>{{ event.description }}</p>
-                {% endif %}
+                <!-- STEP 1: SELECT EVENT -->
+                <div class="appt-field">
 
-                <!-- STEP 3: Select an available time -->
-                <div class="appt-divider">
-                    <span>available appointment times</span>
-                </div>
+                    <label for="appt-event">
+                        Available Blood Donation Events
+                    </label>
 
-                <div class="appt-chips">
-                    {% for slot in event.available_times %}
-                    <label class="appt-chip">
-                        <input
-                            type="radio"
-                            name="appointment_time"
-                            value="{{ slot.time }}"
-                            data-event-id="{{ event.id }}"
-                            {% if slot.available <= 0 %}disabled{% endif %}
+                    <select id="appt-event"
+                            name="event_id"
                             required>
 
-                        <span>
-                            <strong>{{ slot.time }}</strong>
-                            {% if slot.available <= 0 %}
-                                <small>Full</small>
-                            {% else %}
-                                <small>
-                                    {{ slot.available }} slot(s) left
-                                </small>
-                            {% endif %}
-                        </span>
-                    </label>
-                    {% else %}
-                    <p>No appointment times are currently available.</p>
-                    {% endfor %}
-                </div>
-            </section>
-            {% endfor %}
+                        <option value="" selected disabled>
+                            Select an event
+                        </option>
 
-            <!-- STEP 4: Additional information -->
-            <div class="appt-field">
-                <label for="appt-notes">Notes (optional)</label>
-                <textarea id="appt-notes"
-                          name="notes"
-                          rows="3"
-                          placeholder="Anything you want staff to know"></textarea>
+                        {% for event in events %}
+
+                        <option value="{{ event.id }}">
+
+                            {{ event.name }} — {{ event.location }}
+                            (
+                            {% if event.event_date.strftime is defined %}
+                                {{ event.event_date.strftime('%d %b %Y') }}
+                            {% else %}
+                                {{ event.event_date }}
+                            {% endif %}
+                            )
+
+                        </option>
+
+                        {% endfor %}
+
+                    </select>
+
+                </div>
+
+
+                <!-- STEP 2: EVENT DETAILS AND TIME SLOTS -->
+                {% for event in events %}
+
+                <section class="appt-event-details"
+                         data-event-id="{{ event.id }}"
+                         hidden>
+
+                    <div class="appt-divider">
+                        <span>Event Details</span>
+                    </div>
+
+                    <h3>{{ event.name }}</h3>
+
+                    <ul class="appt-meta">
+
+                        <li>
+                            <i class="fas fa-map-marker-alt"></i>
+                            <span>
+                                <strong>Location:</strong>
+                                {{ event.location }}
+                            </span>
+                        </li>
+
+                        <li>
+                            <i class="fas fa-calendar-alt"></i>
+                            <span>
+                                <strong>Date:</strong>
+                                {% if event.event_date.strftime is defined %}
+                                    {{ event.event_date.strftime('%d %b %Y') }}
+                                {% else %}
+                                    {{ event.event_date }}
+                                {% endif %}
+                            </span>
+                        </li>
+
+                        <li>
+                            <i class="fas fa-clock"></i>
+                            <span>
+                                <strong>Event Time:</strong>
+                                {{ event.start_time }} – {{ event.end_time }}
+                            </span>
+                        </li>
+
+                    </ul>
+
+                    {% if event.description %}
+                    <p class="appt-notes">
+                        {{ event.description }}
+                    </p>
+                    {% endif %}
+
+
+                    <!-- AVAILABLE TIME SLOTS -->
+                    <div class="appt-divider">
+                        <span>Available Appointment Times</span>
+                    </div>
+
+                    <div class="appt-chips">
+
+                        {% for slot in event.available_times %}
+
+                        <label class="appt-chip">
+
+                            <input type="radio"
+                                   name="appointment_time"
+                                   value="{{ slot.time }}"
+                                   data-event-id="{{ event.id }}"
+                                   {% if slot.available <= 0 %}disabled{% endif %}
+                                   required>
+
+                            <span>
+
+                                <strong>{{ slot.time }}</strong>
+
+                                {% if slot.available <= 0 %}
+
+                                    <small>Full</small>
+
+                                {% else %}
+
+                                    <small>
+                                        {{ slot.available }} slot(s) left
+                                    </small>
+
+                                {% endif %}
+
+                            </span>
+
+                        </label>
+
+                        {% else %}
+
+                        <p>No appointment times are currently available.</p>
+
+                        {% endfor %}
+
+                    </div>
+
+                </section>
+
+                {% endfor %}
+
+
+                <!-- STEP 3: NOTES -->
+                <div class="appt-field">
+
+                    <label for="appt-notes">
+                        Notes (Optional)
+                    </label>
+
+                    <textarea id="appt-notes"
+                              name="notes"
+                              rows="3"
+                              maxlength="300"
+                              placeholder="Anything you want staff to know"></textarea>
+
+                </div>
+
+
+                <!-- STEP 4: SUBMIT -->
+                <button type="submit"
+                        class="appt-btn"
+                        id="apptConfirmBtn"
+                        disabled>
+
+                    <i class="fas fa-calendar-check"></i>
+                    Confirm Appointment
+
+                </button>
+
+            </form>
+
+
+            {% else %}
+
+            <div class="appt-empty">
+
+                <i class="fas fa-calendar-times"></i>
+
+                <h3>No Upcoming Blood Donation Events</h3>
+
+                <p>
+                    There are currently no available events to book.
+                    Please check again later.
+                </p>
+
             </div>
 
-            <button type="submit" class="appt-btn" id="apptConfirmBtn" disabled>
-                Confirm appointment
-            </button>
-        </form>
+            {% endif %}
 
-        {% else %}
-        <!-- Empty state when the admin has not created any events -->
-        <div class="appt-empty">
-            <h3>No upcoming blood donation events</h3>
-            <p>
-                There are currently no available events to book.
-                Please check again later.
-            </p>
-        </div>
-        {% endif %}
+        </section>
+
     </div>
+
 </div>
 
+
+<!-- =====================================================
+     JAVASCRIPT
+     ===================================================== -->
 <script>
 document.addEventListener("DOMContentLoaded", function () {
+
     const eventSelect = document.getElementById("appt-event");
-    const eventSections = document.querySelectorAll(".appt-event-details");
-    const confirmButton = document.getElementById("apptConfirmBtn");
+    const eventSections = document.querySelectorAll(
+        ".appt-event-details"
+    );
+    const confirmButton = document.getElementById(
+        "apptConfirmBtn"
+    );
     const form = document.getElementById("apptForm");
 
-    if (!eventSelect || !form) return;
+    if (!eventSelect || !form || !confirmButton) {
+        return;
+    }
+
+    function updateButton() {
+
+        const selectedTime = form.querySelector(
+            'input[name="appointment_time"]:checked:not(:disabled)'
+        );
+
+        confirmButton.disabled =
+            !eventSelect.value || !selectedTime;
+
+    }
+
 
     function updateEvent() {
+
         const selectedEventId = eventSelect.value;
 
         eventSections.forEach(function (section) {
+
             const isSelected =
                 section.dataset.eventId === selectedEventId;
 
@@ -157,46 +455,57 @@ document.addEventListener("DOMContentLoaded", function () {
             section.querySelectorAll(
                 'input[name="appointment_time"]'
             ).forEach(function (input) {
-                input.disabled = !isSelected ||
+
+                input.disabled =
+                    !isSelected ||
                     input.dataset.eventId !== selectedEventId;
 
                 if (input.disabled) {
                     input.checked = false;
                 }
+
             });
+
         });
 
         updateButton();
+
     }
 
-    function updateButton() {
-        const selectedTime = form.querySelector(
-            'input[name="appointment_time"]:checked:not(:disabled)'
-        );
-
-        confirmButton.disabled = !eventSelect.value || !selectedTime;
-    }
 
     eventSelect.addEventListener("change", updateEvent);
 
     form.querySelectorAll(
         'input[name="appointment_time"]'
     ).forEach(function (input) {
+
         input.addEventListener("change", updateButton);
+
     });
 
+
     form.addEventListener("submit", function (e) {
+
         const selectedTime = form.querySelector(
             'input[name="appointment_time"]:checked:not(:disabled)'
         );
 
         if (!eventSelect.value || !selectedTime) {
+
             e.preventDefault();
-            alert("Please select an event and an available appointment time.");
+
+            alert(
+                "Please select an event and an available appointment time."
+            );
+
         }
+
     });
 
+
     updateEvent();
+
 });
 </script>
+
 {% endblock %}

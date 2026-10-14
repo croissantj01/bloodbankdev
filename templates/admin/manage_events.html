@@ -1,15 +1,6 @@
 {% extends 'admin/admin_base.html' %}
 {% block content %}
 
-{# SAMPLE DATA - delete this after do the backend.#}
-{% set events = events|default([
-    {'id': 1, 'title': 'Community Blood Drive',      'date': '2026-10-14', 'start': '09:00', 'end': '15:00', 'place': 'Dewan Komuniti Taman Maju',  'address': 'Jalan Maju 3, Taman Maju, 50000 Kuala Lumpur', 'notes': 'Walk-ins welcome. Bring your IC.'},
-    {'id': 2, 'title': 'University Donation Day',    'date': '2026-10-22', 'start': '10:00', 'end': '16:00', 'place': 'Universiti Malaya - Main Hall', 'address': 'Lembah Pantai, 50603 Kuala Lumpur',            'notes': ''},
-    {'id': 3, 'title': 'Hospital Open Day Drive',    'date': '2026-11-05', 'start': '08:30', 'end': '13:00', 'place': 'Hospital Kuala Lumpur',      'address': 'Jalan Pahang, 50586 Kuala Lumpur',             'notes': 'Free health screening for donors.'},
-    {'id': 4, 'title': 'Shopping Mall Blood Camp',   'date': '2026-09-20', 'start': '11:00', 'end': '17:00', 'place': 'Pavilion Event Hall',        'address': 'Bukit Bintang, 55100 Kuala Lumpur',            'notes': ''},
-    {'id': 5, 'title': 'Merdeka Month Drive',        'date': '2026-08-30', 'start': '09:00', 'end': '14:00', 'place': 'Dataran Merdeka',            'address': 'Jalan Raja, 50050 Kuala Lumpur',               'notes': ''}
-]) %}
-{# ===== END SAMPLE DATA ===== #}
 
 <div class="container py-4 events-page">
 
@@ -99,7 +90,10 @@
             <button type="button" class="ev-close" data-close aria-label="Close">&times;</button>
         </div>
 
-        <form id="eventForm" method="POST" action="#" autocomplete="off">
+        <form id="eventForm" method="POST" action="{{ url_for('manage_events') }}" autocomplete="off">
+
+            <input type="hidden" name="action" id="formAction" value="add">
+            <input type="hidden" name="event_id" id="formEventId" value="">
 
             <div class="ev-form-grid">
 
@@ -175,15 +169,21 @@
 </div>
 
 
+<form id="deleteForm" method="POST" action="{{ url_for('manage_events') }}" hidden>
+    <input type="hidden" name="action" value="delete">
+    <input type="hidden" name="event_id" id="deleteEventId">
+</form>
+
+
 <div class="ev-toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 
 <script>
 (function () {
 
-    /* Events come from the template. Replace the sample block at the top with your route's `events`. */
-    let events = {{ events|tojson }};
-    let nextId = events.reduce((m, e) => Math.max(m, e.id || 0), 0) + 1;
+    /* Events are loaded from the database by the manage_events route. */
+    const events = {{ events|tojson }};
+    const flashMessages = {{ get_flashed_messages(with_categories=true)|tojson }};
 
     const grid        = document.getElementById('eventGrid');
     const emptyState  = document.getElementById('emptyState');
@@ -350,6 +350,8 @@
         editingId = ev ? ev.id : null;
         form.reset();
         formError.hidden = true;
+        document.getElementById('formAction').value  = ev ? 'edit' : 'add';
+        document.getElementById('formEventId').value = ev ? ev.id : '';
 
         if (ev) {
             document.getElementById('eventModalTitle').innerHTML = '<i class="fas fa-pen"></i> Edit Event';
@@ -371,41 +373,16 @@
 
     document.getElementById('openAddModal').addEventListener('click', () => openForm(null));
 
-    /* FRONTEND DEMO: events are added/edited in the page only.
-       When the backend exists, remove e.preventDefault() so the form POSTs to your route. */
+    /* The form posts to the manage_events route; here we only stop it if the times are wrong. */
     form.addEventListener('submit', e => {
-        e.preventDefault();
+        const start = document.getElementById('fStart').value;
+        const end   = document.getElementById('fEnd').value;
 
-        const data = {
-            title:   document.getElementById('fTitle').value.trim(),
-            date:    fDate.value,
-            start:   document.getElementById('fStart').value,
-            end:     document.getElementById('fEnd').value,
-            place:   document.getElementById('fPlace').value.trim(),
-            address: document.getElementById('fAddress').value.trim(),
-            notes:   document.getElementById('fNotes').value.trim()
-        };
-
-        if (data.end <= data.start) {
+        if (end <= start) {
+            e.preventDefault();
             formError.textContent = 'End time must be after the start time.';
             formError.hidden = false;
-            return;
         }
-
-        if (editingId !== null) {
-            const idx = events.findIndex(x => x.id === editingId);
-            events[idx] = Object.assign({ id: editingId }, data);
-            showToast('Event updated.');
-        } else {
-            events.push(Object.assign({ id: nextId++ }, data));
-            showToast('Event added.');
-            filter = 'upcoming';
-            document.querySelectorAll('.ev-tab').forEach(t =>
-                t.classList.toggle('active', t.dataset.filter === 'upcoming'));
-        }
-
-        closeModal(eventModal);
-        render();
     });
 
     /* ---------- card actions ---------- */
@@ -431,14 +408,16 @@
     });
 
     document.getElementById('confirmOk').addEventListener('click', () => {
-        events = events.filter(x => x.id !== deleteId);
-        deleteId = null;
-        closeModal(confirmModal);
-        render();
-        showToast('Event deleted.');
+        document.getElementById('deleteEventId').value = deleteId;
+        document.getElementById('deleteForm').submit();
     });
 
     render();
+
+    /* Message from the server (event added / updated / deleted / error) */
+    if (flashMessages.length) {
+        showToast(flashMessages[0][1]);
+    }
 })();
 </script>
 
