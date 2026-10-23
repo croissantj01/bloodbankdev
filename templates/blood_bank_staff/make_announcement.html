@@ -4,6 +4,35 @@
 
 <div class="staff-page">
 
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+        <div class="announcement-popup-overlay" id="announcementPopup">
+            <div class="announcement-popup">
+                {% if category == 'success' %}
+                    <div class="popup-icon success-icon">
+                        <i class="fa-solid fa-check"></i>
+                    </div>
+                    <h3>Success!</h3>
+                {% else %}
+                    <div class="popup-icon error-icon">
+                        <i class="fa-solid fa-exclamation"></i>
+                    </div>
+                    <h3>Notice</h3>
+                {% endif %}
+
+                <p>{{ message }}</p>
+
+                <button type="button"
+                        class="staff-btn"
+                        onclick="closeAnnouncementPopup()">
+                    OK
+                </button>
+            </div>
+        </div>
+    {% endfor %}
+{% endwith %}
+
+
     <h1>Make Announcement</h1>
 
     <p class="staff-subtitle">
@@ -116,6 +145,16 @@
         imagePreview.hidden = false;
         previewMessage.hidden = true;
     });
+</script>
+
+<script>
+    function closeAnnouncementPopup() {
+        const popup = document.getElementById("announcementPopup");
+
+        if (popup) {
+            popup.remove();
+        }
+    }
 </script>
 
 {% endblock %}

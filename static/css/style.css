@@ -5643,5 +5643,88 @@ h2 {
     }
 }
 
+/* ---------- Blood stock status ---------- */
+.staff-status-critical,
+.staff-status-low,
+.staff-status-sufficient {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 50px;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.2;
+    border: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
 
+.staff-status-critical {
+    background-color: #fbeeee;
+    color: #a52a2a;
+}
+
+.staff-status-low {
+    background-color: #fff6df;
+    color: #a66b00;
+}
+
+.staff-status-sufficient {
+    background-color: #eaf6ee;
+    color: #287a45;
+}
+
+/*  Announcement popup window */
+.announcement-popup-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.announcement-popup {
+    background: #ffffff;
+    width: 90%;
+    max-width: 380px;
+    padding: 30px;
+    border-radius: 16px;
+    text-align: center;
+    box-shadow: 0 10px 35px rgba(0, 0, 0, 0.15);
+}
+
+.announcement-popup h3 {
+    margin: 15px 0 10px;
+    color: #333333;
+}
+
+.announcement-popup p {
+    color: #666666;
+    margin-bottom: 22px;
+}
+
+.popup-icon {
+    width: 55px;
+    height: 55px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    font-size: 24px;
+}
+
+.success-icon {
+    background: #e4f7eb;
+    color: #269653;
+}
+
+.error-icon {
+    background: #fde8e8;
+    color: #d93636;
+}
+
+.announcement-popup .staff-btn {
+    min-width: 100px;
+}
 

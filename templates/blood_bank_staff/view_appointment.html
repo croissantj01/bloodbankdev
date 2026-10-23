@@ -32,8 +32,8 @@
                 <tbody>
                     {% for appointment in appointments %}
                     <tr>
-                        <td>{{ appointment.id }}</td>
-                        <td>{{ appointment.donor_name }}</td>
+                        <td>{{ appointment.appointment.id }}</td>
+                        <td>{{ appointment.appointment.donor_name }}</td>
                         <td>{{ appointment.appointment_date }}</td>
                         <td>{{ appointment.appointment_time }}</td>
                         <td>

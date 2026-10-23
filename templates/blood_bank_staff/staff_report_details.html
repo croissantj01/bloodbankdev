@@ -1,0 +1,276 @@
+{% extends "blood_bank_staff/blood_bank_staff_base.html" %}
+{% block title %}View Report{% endblock %}
+{% block content %}
+
+<div class="staff-page">
+
+    <h1>Blood Bank Reports</h1>
+
+    <p class="staff-subtitle">
+        View report information retrieved from the blood bank database.
+    </p>
+
+    <div class="staff-panel">
+
+        {% if report_type == 'blood_stock' %}
+            <h2><i class="fa-solid fa-droplet"></i> Blood Stock Report</h2>
+
+            <div class="staff-report-grid">
+                <div class="staff-report-card">
+                    <h3>Total Units in Stock</h3>
+                    <p class="report-value">{{ total_units }}</p>
+                </div>
+
+                <div class="staff-report-card">
+                    <h3>Sufficient Blood Types</h3>
+                    <p class="report-value">{{ sufficient_count }}</p>
+                </div>
+
+                <div class="staff-report-card">
+                    <h3>Low Stock Types</h3>
+                    <p class="report-value">{{ low_count }}</p>
+                </div>
+
+                <div class="staff-report-card">
+                    <h3>Critical Stock Types</h3>
+                    <p class="report-value">{{ critical_count }}</p>
+                </div>
+            </div>
+
+            <h3>Current Stock by Blood Type</h3>
+            <canvas id="reportChart"></canvas>
+
+        {% elif report_type == 'low_stock' %}
+            <h2><i class="fa-solid fa-bell"></i> Low Stock Alert Report</h2>
+
+            <div class="staff-report-grid">
+                <div class="staff-report-card">
+                    <h3>Blood Types Below Threshold</h3>
+                    <p class="report-value">{{ alerts_triggered }}</p>
+                </div>
+
+                <div class="staff-report-card">
+                    <h3>Staff Notified</h3>
+                    <p class="report-value">{{ alerts_notified }}</p>
+                </div>
+
+                <div class="staff-report-card">
+                    <h3>Lowest Stock Type</h3>
+                    <p class="report-value">{{ most_low_type }}</p>
+                </div>
+            </div>
+
+            <h3>Low Stock by Blood Type</h3>
+            <canvas id="reportChart"></canvas>
+
+        {% elif report_type == 'blood_request' %}
+            <h2><i class="fa-solid fa-clipboard-list"></i> Blood Request Report</h2>
+
+            <div class="staff-report-grid">
+                <div class="staff-report-card">
+                    <h3>Total Requests</h3>
+                    <p class="report-value">{{ total_requests }}</p>
+                </div>
+
+                <div class="staff-report-card">
+                    <h3>Approved</h3>
+                    <p class="report-value">{{ approved_requests }}</p>
+                </div>
+
+                <div class="staff-report-card">
+                    <h3>Rejected</h3>
+                    <p class="report-value">{{ rejected_requests }}</p>
+                </div>
+
+                <div class="staff-report-card">
+                    <h3>Pending</h3>
+                    <p class="report-value">{{ pending_requests }}</p>
+                </div>
+
+                <div class="staff-report-card">
+                    <h3>Auto-Closed</h3>
+                    <p class="report-value">{{ auto_closed_requests }}</p>
+                </div>
+            </div>
+
+            <h3>Request Status</h3>
+            <canvas id="reportChart"></canvas>
+
+        {% elif report_type == 'users' %}
+            <h2><i class="fa-solid fa-users"></i> User Report</h2>
+
+            <div class="staff-report-grid">
+                <div class="staff-report-card">
+                    <h3>Registered Donors</h3>
+                    <p class="report-value">{{ total_donors }}</p>
+                </div>
+
+                <div class="staff-report-card">
+                    <h3>New Registrations</h3>
+                    <p class="report-value">{{ new_registrations }}</p>
+                </div>
+
+                <div class="staff-report-card">
+                    <h3>Active Users</h3>
+                    <p class="report-value">{{ active_users }}</p>
+                </div>
+
+                <div class="staff-report-card">
+                    <h3>Inactive Users</h3>
+                    <p class="report-value">{{ inactive_users }}</p>
+                </div>
+            </div>
+
+            <h3>Active vs Inactive Users</h3>
+            <canvas id="reportChart"></canvas>
+
+        {% elif report_type == 'donations' %}
+            <h2><i class="fa-solid fa-hand-holding-heart"></i> Donation Report</h2>
+
+            <div class="staff-report-grid">
+                <div class="staff-report-card">
+                    <h3>Total Donations</h3>
+                    <p class="report-value">{{ total_donations }}</p>
+                </div>
+
+                <div class="staff-report-card">
+                    <h3>Donations This Month</h3>
+                    <p class="report-value">{{ donations_this_month }}</p>
+                </div>
+
+                <div class="staff-report-card">
+                    <h3>Top Donated Blood Type</h3>
+                    <p class="report-value">{{ top_donated_type }}</p>
+                </div>
+            </div>
+
+            <h3>Monthly Donations</h3>
+            <canvas id="reportChart"></canvas>
+
+            <h3>Donations by Blood Type</h3>
+            <canvas id="donationTypeChart"></canvas>
+        {% endif %}
+
+        <div style="margin-top: 25px;">
+            <a href="{{ url_for('staff_report') }}" class="staff-btn">
+                <i class="fa-solid fa-arrow-left"></i>
+                Back to Reports
+            </a>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+const reportType = {{ report_type|tojson }};
+
+const stockLabels = {{ stock_labels|tojson }};
+const stockUnits = {{ stock_units|tojson }};
+const alertLabels = {{ alert_labels|tojson }};
+const alertCounts = {{ alert_counts|tojson }};
+
+const donationMonths = {{ donation_months|tojson }};
+const donationCounts = {{ donation_counts|tojson }};
+const donationTypeLabels = {{ donation_type_labels|tojson }};
+const donationTypeCounts = {{ donation_type_counts|tojson }};
+
+const chartCanvas = document.getElementById('reportChart');
+
+if (chartCanvas) {
+    let config = null;
+
+    if (reportType === 'blood_stock') {
+        config = {
+            type: 'bar',
+            data: {
+                labels: stockLabels,
+                datasets: [{
+                    label: 'Available Units',
+                    data: stockUnits,
+                    backgroundColor: 'rgba(220, 53, 69, 0.75)'
+                }]
+            },
+            options: { responsive: true, scales: { y: { beginAtZero: true } } }
+        };
+    } else if (reportType === 'low_stock') {
+        config = {
+            type: 'bar',
+            data: {
+                labels: alertLabels,
+                datasets: [{
+                    label: 'Available Units',
+                    data: alertCounts,
+                    backgroundColor: 'rgba(255, 163, 163, 1)'
+                }]
+            },
+            options: { responsive: true, scales: { y: { beginAtZero: true } } }
+        };
+    } else if (reportType === 'blood_request') {
+        config = {
+            type: 'pie',
+            data: {
+                labels: ['Approved', 'Rejected', 'Pending', 'Auto-Closed'],
+                datasets: [{
+                    data: [
+                        {{ approved_requests }},
+                        {{ rejected_requests }},
+                        {{ pending_requests }},
+                        {{ auto_closed_requests }}
+                    ]
+                }]
+            },
+            options: { responsive: true }
+        };
+    } else if (reportType === 'users') {
+        config = {
+            type: 'pie',
+            data: {
+                labels: ['Active Users', 'Inactive Users'],
+                datasets: [{
+                    data: [{{ active_users }}, {{ inactive_users }}]
+                }]
+            },
+            options: { responsive: true }
+        };
+    } else if (reportType === 'donations') {
+        config = {
+            type: 'bar',
+            data: {
+                labels: donationMonths,
+                datasets: [{
+                    label: 'Donations',
+                    data: donationCounts,
+                    backgroundColor: 'rgba(255, 182, 193, 0.8)'
+                }]
+            },
+            options: { responsive: true, scales: { y: { beginAtZero: true } } }
+        };
+    }
+
+    if (config) {
+        new Chart(chartCanvas, config);
+    }
+}
+
+if (reportType === 'donations') {
+    const typeCanvas = document.getElementById('donationTypeChart');
+
+    if (typeCanvas) {
+        new Chart(typeCanvas, {
+            type: 'bar',
+            data: {
+                labels: donationTypeLabels,
+                datasets: [{
+                    label: 'Donations',
+                    data: donationTypeCounts,
+                    backgroundColor: 'rgba(135, 206, 235, 0.9)'
+                }]
+            },
+            options: { responsive: true, scales: { y: { beginAtZero: true } } }
+        });
+    }
+}
+</script>
+{% endblock %}

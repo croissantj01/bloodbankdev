@@ -163,6 +163,7 @@ def init_db():
             staff_id INTEGER NOT NULL,
             blood_group TEXT NOT NULL,
             units_requested INTEGER NOT NULL,
+            reason TEXT,
             status TEXT DEFAULT 'Pending',
             request_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
@@ -183,6 +184,18 @@ def init_db():
             address TEXT NOT NULL,
             notes TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS announcements (
+            announcement_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            category TEXT NOT NULL,
+            message TEXT NOT NULL,
+            image_filename TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            status TEXT NOT NULL DEFAULT 'Published'
         )
     ''')
 

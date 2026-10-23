@@ -25,7 +25,7 @@
                 and blood types with sufficient or low stock.
             </p>
 
-            <a href="{{ url_for('admin_report', report_type='blood_stock') }}"
+            <a href="{{ url_for('staff_report_details', report_type='blood_stock') }}"
                class="staff-btn">
                 <i class="fa-solid fa-eye"></i>
                 View Report
@@ -44,7 +44,7 @@
                 blood types that frequently require replenishment.
             </p>
 
-            <a href="{{ url_for('admin_report', report_type='low_stock') }}"
+            <a href="{{ url_for('staff_report_details', report_type='low_stock') }}"
                class="staff-btn">
                 <i class="fa-solid fa-eye"></i>
                 View Report
@@ -63,7 +63,7 @@
                 and automatically closed blood requests.
             </p>
 
-            <a href="{{ url_for('admin_report', report_type='blood_request') }}"
+            <a href="{{ url_for('staff_report_details', report_type='blood_request') }}"
                class="staff-btn">
                 <i class="fa-solid fa-eye"></i>
                 View Report
@@ -82,7 +82,7 @@
                 and active or inactive user statistics.
             </p>
 
-            <a href="{{ url_for('admin_report', report_type='users') }}"
+            <a href="{{ url_for('staff_report_details', report_type='users') }}"
                class="staff-btn">
                 <i class="fa-solid fa-eye"></i>
                 View Report
@@ -101,7 +101,7 @@
                 and the most frequently donated blood types.
             </p>
 
-            <a href="{{ url_for('admin_report', report_type='donations') }}"
+            <a href="{{ url_for('staff_report_details', report_type='donations') }}"
                class="staff-btn">
                 <i class="fa-solid fa-eye"></i>
                 View Report

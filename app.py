@@ -5,13 +5,14 @@ from datetime import datetime, date
 
 import bcrypt
 from email.message import EmailMessage
-from flask import Flask, render_template, url_for, redirect, session, request, flash
+from flask import Flask, render_template, url_for, redirect, session, request, flash,jsonify
 from authlib.integrations.flask_client import OAuth
 from dotenv import load_dotenv
 from database import (get_user_by_email, get_all_events,
                       add_event, update_event, delete_event, get_donor_by_email, create_appointment,
                       get_donor_upcoming_appointments, get_bookable_events, cancel_donor_appointment, get_db_connection)
 import random
+from werkzeug.utils import secure_filename
 
 load_dotenv()
 
@@ -20,7 +21,13 @@ app.secret_key = os.getenv('FLASK_SECRET_KEY', 'a-very-secure-permanent-fallback
 
 oauth = OAuth(app)
 
+UPLOAD_FOLDER = os.path.join(
+    app.root_path, "static", "uploads", "announcements"
+)
 
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 
 def register_user(email, plain_password):
@@ -653,13 +660,97 @@ def donation_history():
 def donor_announcements():
     return render_template("donor/donor_announcements.html")
 
-@app.route('/blood_request', methods=['GET','POST'])
+@app.route('/blood_request', methods=['GET'])
 def blood_request():
-    return render_template("blood_bank_staff/blood_request.html")
+    conn = get_db_connection()
 
-@app.route('/view_blood_request', methods=['GET','POST'])
+    try:
+        requests = conn.execute("""
+            SELECT
+                request_id AS id,
+                hospital_name,
+                blood_group AS blood_type,
+                units_requested AS quantity,
+                request_date AS requested_date,
+                reason,
+                status
+            FROM blood_requests
+            ORDER BY request_date DESC
+        """).fetchall()
+
+    finally:
+        conn.close()
+
+    return render_template(
+        "blood_bank_staff/blood_request.html",
+        requests=requests
+    )
+
+@app.route('/approve_blood_request/<int:request_id>', methods=['POST'])
+def approve_blood_request(request_id):
+    conn = get_db_connection()
+
+    try:
+        conn.execute("""
+            UPDATE blood_requests
+            SET status = 'Approved'
+            WHERE request_id = ?
+              AND status = 'Pending'
+        """, (request_id,))
+
+        conn.commit()
+
+    finally:
+        conn.close()
+
+    return redirect(url_for('blood_request'))
+
+
+@app.route('/reject_blood_request/<int:request_id>', methods=['POST'])
+def reject_blood_request(request_id):
+    conn = get_db_connection()
+
+    try:
+        conn.execute("""
+            UPDATE blood_requests
+            SET status = 'Rejected'
+            WHERE request_id = ?
+              AND status = 'Pending'
+        """, (request_id,))
+
+        conn.commit()
+
+    finally:
+        conn.close()
+
+    return redirect(url_for('blood_request'))
+
+
+@app.route('/view_blood_request', methods=['GET'])
 def view_blood_request():
-    return render_template("hospital_staff/view_blood_request.html")
+    conn = get_db_connection()
+
+    try:
+        requests = conn.execute("""
+            SELECT
+                request_id AS id,
+                hospital_name,
+                blood_group AS blood_type,
+                units_requested AS quantity,
+                request_date AS requested_date,
+                reason,
+                status
+            FROM blood_requests
+            ORDER BY request_date DESC
+        """).fetchall()
+    finally:
+        conn.close()
+
+    return render_template(
+        "hospital_staff/view_blood_request.html",
+        requests=requests
+    )
+
 
 def send_credentials_email(to_email, full_name, temp_password):
     message = EmailMessage()
@@ -803,13 +894,252 @@ def view_blood_info():
     )
 
 
-@app.route('/staff_report', methods=['GET','POST'])
+
+
+@app.route('/staff_report', methods=['GET'])
 def staff_report():
     return render_template("blood_bank_staff/staff_report.html")
 
+@app.route('/staff_report/<report_type>', methods=['GET'])
+def staff_report_details(report_type):
+    allowed_reports = [
+        'blood_stock',
+        'low_stock',
+        'blood_request',
+        'users',
+        'donations'
+    ]
+
+    if report_type not in allowed_reports:
+        return "Report not found", 404
+
+    # Reuse the existing Admin report calculations.
+    from_date = request.args.get('from_date') or ''
+    to_date = request.args.get('to_date') or ''
+
+    d_clause, d_params = _date_clause(
+        'collection_date', from_date, to_date
+    )
+    r_clause, r_params = _date_clause(
+        'request_date', from_date, to_date
+    )
+
+    conn = get_db_connection()
+
+    try:
+        # Current blood stock
+        stock_rows = conn.execute("""
+            SELECT blood_group, COUNT(*) AS units
+            FROM donations
+            WHERE status = 'Available'
+              AND date(expiry_date) >= date('now')
+            GROUP BY blood_group
+        """).fetchall()
+
+        stock = {
+            row['blood_group']: row['units']
+            for row in stock_rows
+        }
+
+        stock_units = [stock.get(t, 0) for t in BLOOD_TYPES]
+
+        critical = [
+            t for t in BLOOD_TYPES
+            if stock.get(t, 0) <= MIN_THRESHOLD * 0.5
+        ]
+
+        low = [
+            t for t in BLOOD_TYPES
+            if MIN_THRESHOLD * 0.5 < stock.get(t, 0) < MIN_THRESHOLD
+        ]
+
+        below = critical + low
+
+        # Blood request statistics
+        req_rows = conn.execute(
+            f"""
+            SELECT status, COUNT(*) AS n
+            FROM blood_requests
+            WHERE 1=1 {r_clause}
+            GROUP BY status
+            """,
+            r_params
+        ).fetchall()
+
+        req = {row['status']: row['n'] for row in req_rows}
+
+        # Donation statistics
+        total_donations = conn.execute(
+            f"""
+            SELECT COUNT(*)
+            FROM donations
+            WHERE 1=1 {d_clause}
+            """,
+            d_params
+        ).fetchone()[0]
+
+        donations_this_month = conn.execute("""
+            SELECT COUNT(*)
+            FROM donations
+            WHERE strftime('%Y-%m', collection_date)
+                = strftime('%Y-%m', 'now')
+        """).fetchone()[0]
+
+        month_rows = conn.execute(
+            f"""
+            SELECT strftime('%Y-%m', collection_date) AS m,
+                   COUNT(*) AS n
+            FROM donations
+            WHERE 1=1 {d_clause}
+            GROUP BY m
+            ORDER BY m DESC
+            LIMIT 6
+            """,
+            d_params
+        ).fetchall()[::-1]
+
+        type_rows = conn.execute(
+            f"""
+            SELECT blood_group, COUNT(*) AS n
+            FROM donations
+            WHERE 1=1 {d_clause}
+            GROUP BY blood_group
+            """,
+            d_params
+        ).fetchall()
+
+        by_type = {
+            row['blood_group']: row['n']
+            for row in type_rows
+        }
+
+        # Donor statistics
+        total_donors = conn.execute(
+            "SELECT COUNT(*) FROM donors"
+        ).fetchone()[0]
+
+        active_users = conn.execute("""
+            SELECT COUNT(DISTINCT donor_id)
+            FROM donations
+            WHERE date(collection_date) >= date('now', '-365 day')
+        """).fetchone()[0]
+
+    finally:
+        conn.close()
+
+    # All report data is passed to the same HTML template.
+    return render_template(
+        "blood_bank_staff/staff_report_details.html",
+        report_type=report_type,
+        from_date=from_date,
+        to_date=to_date,
+
+        total_units=sum(stock_units),
+        stock_labels=BLOOD_TYPES,
+        stock_units=stock_units,
+        sufficient_count=len(BLOOD_TYPES) - len(below),
+        low_count=len(low),
+        critical_count=len(critical),
+
+        alerts_triggered=len(below),
+        alerts_notified="N/A",
+        most_low_type=(
+            min(BLOOD_TYPES, key=lambda t: stock.get(t, 0))
+            if below else '-'
+        ),
+        alert_labels=below,
+        alert_counts=[stock.get(t, 0) for t in below],
+
+        total_requests=sum(req.values()),
+        approved_requests=req.get('Approved', 0),
+        rejected_requests=req.get('Rejected', 0),
+        pending_requests=req.get('Pending', 0),
+        auto_closed_requests=req.get('Auto-Closed', 0),
+
+        total_donors=total_donors,
+        new_registrations="N/A",
+        active_users=active_users,
+        inactive_users=max(total_donors - active_users, 0),
+
+        total_donations=total_donations,
+        donations_this_month=donations_this_month,
+        top_donated_type=(
+            max(by_type, key=by_type.get) if by_type else '-'
+        ),
+        donation_months=[row['m'] for row in month_rows],
+        donation_counts=[row['n'] for row in month_rows],
+        donation_type_labels=BLOOD_TYPES,
+        donation_type_counts=[
+            by_type.get(t, 0) for t in BLOOD_TYPES
+        ]
+    )
+
+
+
 @app.route('/make_announcement', methods=['GET', 'POST'])
 def make_announcement():
+    if request.method == 'POST':
+        title = request.form.get('title', '').strip()
+        category = request.form.get('category', '').strip()
+        message = request.form.get('message', '').strip()
+
+        image = request.files.get('announcement_image')
+        image_filename = None
+
+        # Validate required fields
+        if not title or not category or not message:
+            flash('Please fill in all required fields.', 'error')
+            return redirect(url_for('make_announcement'))
+
+        # Handle optional image upload
+        if image and image.filename:
+            if image.mimetype not in ('image/jpeg', 'image/png'):
+                flash('Please upload a JPG or PNG image.', 'error')
+                return redirect(url_for('make_announcement'))
+
+            image_filename = secure_filename(image.filename)
+
+            # Avoid overwriting an existing image with the same filename
+            name, extension = os.path.splitext(image_filename)
+            image_filename = f"{name}_{os.urandom(4).hex()}{extension}"
+
+            image.save(
+                os.path.join(app.config['UPLOAD_FOLDER'], image_filename)
+            )
+
+        # Save announcement to the existing SQLite database
+        conn = get_db_connection()
+        try:
+            conn.execute(
+                """
+                INSERT INTO announcements
+                    (title, category, message, image_filename, status)
+                VALUES (?, ?, ?, ?, 'Published')
+                """,
+                (title, category, message, image_filename)
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+
+            # Remove uploaded image if saving the announcement fails
+            if image_filename:
+                image_path = os.path.join(
+                    app.config['UPLOAD_FOLDER'], image_filename
+                )
+                if os.path.exists(image_path):
+                    os.remove(image_path)
+
+            flash('Unable to publish the announcement. Please try again.', 'error')
+            return redirect(url_for('make_announcement'))
+        finally:
+            conn.close()
+
+        flash('Announcement published successfully!', 'success')
+        return redirect(url_for('make_announcement'))
+
     return render_template('blood_bank_staff/make_announcement.html')
+
 
 @app.route("/donor_dashboard", methods=['GET','POST'])
 def donor_dashboard():
@@ -940,16 +1270,136 @@ def blood_bank_staff_dashboard():
 @app.route('/hospital_staff/blood_request', methods=['GET', 'POST'])
 def hospital_staff_blood_request():
     if request.method == 'POST':
+        hospital_name = request.form.get('hospital_name', '').strip()
+        blood_group = request.form.get('blood_type', '').strip()
+        quantity = request.form.get('quantity', '').strip()
+        reason = request.form.get('reason', '').strip()
 
-        #The existing code to save the blood request to the database goes here.
+        # Validate the submitted information
+        if not hospital_name or not blood_group or not quantity or not reason:
+            return render_template(
+                'hospital_staff/hospital_staff_blood_request.html',
+                error="Please fill in all fields."
+            )
+
+        try:
+            quantity = int(quantity)
+            if quantity < 1:
+                raise ValueError
+        except ValueError:
+            return render_template(
+                'hospital_staff/hospital_staff_blood_request.html',
+                error="Quantity must be at least 1 unit."
+            )
+
+        conn = get_db_connection()
+
+        try:
+            conn.execute("""
+                INSERT INTO blood_requests (
+                    hospital_name,
+                    blood_group,
+                    units_requested,
+                    reason,
+                    status
+                )
+                VALUES (?, ?, ?, ?, 'Pending')
+            """, (hospital_name, blood_group, quantity, reason))
+
+            conn.commit()
+
+        finally:
+            conn.close()
 
         return redirect(url_for('view_blood_request'))
 
-    return render_template('hospital_staff/hospital_staff_blood_request.html')
+    return render_template(
+        'hospital_staff/hospital_staff_blood_request.html'
+    )
+
 
 @app.route("/manage_blood_stock", methods=["GET", "POST"])
 def manage_blood_stock():
-    return render_template("blood_bank_staff/manage_blood_stock.html")
+    conn = get_db_connection()
+
+    try:
+        rows = conn.execute("""
+            SELECT
+                blood_group,
+                COUNT(*) AS quantity,
+                MAX(collection_date) AS last_updated
+            FROM donations
+            WHERE status = 'Available'
+              AND date(expiry_date) >= date('now')
+            GROUP BY blood_group
+        """).fetchall()
+
+    finally:
+        conn.close()
+
+    stock = {row["blood_group"]: row for row in rows}
+
+    blood_stocks = []
+
+    for blood_type in BLOOD_TYPES:
+        row = stock.get(blood_type)
+        quantity = row["quantity"] if row else 0
+
+        if quantity <= MIN_THRESHOLD * 0.5:
+            status = "Critical"
+        elif quantity < MIN_THRESHOLD:
+            status = "Low"
+        else:
+            status = "Sufficient"
+
+        blood_stocks.append({
+            "blood_type": blood_type,
+            "quantity": quantity,
+            "last_updated": (
+                row["last_updated"][:10]
+                if row and row["last_updated"]
+                else "No donations yet"
+            ),
+            "status": status
+        })
+
+    return render_template(
+        "blood_bank_staff/manage_blood_stock.html",
+        blood_stocks=blood_stocks
+    )
+
+
+
+@app.route("/get_donor_by_ic", methods=["GET"])
+def get_donor_by_ic():
+    ic = request.args.get("ic", "").strip()
+
+    if not ic:
+        return jsonify({"success": False})
+
+    conn = get_db_connection()
+
+    try:
+        donor = conn.execute("""
+            SELECT d.donor_id, d.blood_type, u.full_name
+            FROM donors d
+            JOIN users u ON d.user_id = u.id
+            WHERE d.ic = ?
+        """, (ic,)).fetchone()
+
+        if donor:
+            return jsonify({
+                "success": True,
+                "donor_id": donor["donor_id"],
+                "full_name": donor["full_name"],
+                "blood_type": donor["blood_type"]
+            })
+
+        return jsonify({"success": False})
+
+    finally:
+        conn.close()
+
 
 @app.route("/record_donation", methods=["GET", "POST"])
 def record_donation():
@@ -991,9 +1441,33 @@ def record_donation():
 
     return render_template("blood_bank_staff/record_donation.html")
 
-@app.route("/view_appointment", methods=["GET", "POST"])
+
+@app.route("/view_appointment")
 def view_appointment():
-    return render_template("blood_bank_staff/view_appointment.html")
+    conn = get_db_connection()
+
+    try:
+        appointments = conn.execute("""
+            SELECT
+                a.appointment_id,
+                u.full_name AS donor_name,
+                a.appointment_date,
+                a.appointment_time,
+                a.status
+            FROM appointments a
+            JOIN donors d ON a.donor_id = d.donor_id
+            JOIN users u ON d.user_id = u.id
+            ORDER BY a.appointment_date DESC, a.appointment_time DESC
+        """).fetchall()
+
+    finally:
+        conn.close()
+
+    return render_template(
+        "blood_bank_staff/view_appointment.html",
+        appointments=appointments
+    )
+
 
 @app.route("/admin_dashboard")
 def admin_dashboard():
