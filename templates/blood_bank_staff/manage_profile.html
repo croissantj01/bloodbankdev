@@ -1,0 +1,60 @@
+{% extends 'blood_bank_staff/blood_bank_staff_base.html' %}
+{% block content %}
+<div class="profile-wrap">
+    <h1>{% if donor %}Manage profile{% else %}Blood Bank Staff Profile{% endif %}</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+            <div class="profile-alert profile-alert--{{ category }}" role="status">{{ message }}</div>
+        {% endfor %}
+    {% endwith %}
+
+    <form method="POST" class="profile-form" novalidate>
+
+        <!-- NAME -->
+        <div class="profile-field">
+            <label for="name">Name</label>
+            <input type="text" id="name" name="name" placeholder="Full name"
+                   value="{{ donor.full_name if donor else (user.full_name if user else '') }}" required>
+        </div>
+
+        <!-- EDITABLE FIELDS -->
+
+        <div class="profile-field">
+            <label for="phone">Phone number</label>
+            <input type="tel" id="phone" name="phone" placeholder="e.g. 012-3456789"
+                   value="{{ donor.phone_number if donor else (user.phone_number if user else '') }}" autocomplete="tel" required>
+        </div>
+
+        <div class="profile-field">
+            <label for="address">Home address</label>
+            <textarea id="address" name="address" placeholder="Full address"
+                      rows="3" required>{{ donor.address if donor else '' }}</textarea>
+        </div>
+
+        <h1>Change Password</h1>
+
+        <div class="profile-field">
+            <label for="current_password">Current Password</label>
+            <input type="password" id="current_password" name="current_password" placeholder="Enter current password">
+        </div>
+
+        <div class="profile-field">
+            <label for="new_password">New Password</label>
+            <input type="password" id="new_password" name="new_password" placeholder="Enter new password">
+        </div>
+
+        <div class="profile-field">
+            <label for="confirm_password">Confirm New Password</label>
+            <input type="password" id="confirm_password" name="confirm_password" placeholder="Re-enter new password">
+        </div>
+
+
+        <div class="profile-actions">
+            <button type="submit" class="profile-btn-save">Save changes</button>
+        </div>
+
+
+    </form>
+</div>
+{% endblock %}

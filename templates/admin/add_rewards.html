@@ -81,7 +81,7 @@
                 {% for r in rewards %}
                     <tr data-id="{{ r.id }}"
                         data-name="{{ r.name }}"
-                        data-description="{{ r.description }}"
+                        data-description="{{ r.description or '' }}"
                         data-points="{{ r.points }}"
                         data-stock="{{ '' if r.stock is none else r.stock }}"
                         data-status="{{ r.status }}"
@@ -130,7 +130,7 @@
                                     <i class="fas {{ 'fa-eye-slash' if r.status == 'Active' else 'fa-eye' }}"></i>
                                 </button>
 
-                                <button type="button" class="mu-icon-btn danger" title="Delete" data-action="delete">
+                                <button type="button" class="mu-icon-btn danger" data-action="delete" title="Delete">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>
@@ -205,7 +205,7 @@
             <button type="button" class="mu-close" data-close aria-label="Close">&times;</button>
         </div>
 
-        <form id="rewardForm" autocomplete="off">
+        <form id="rewardForm" method="POST" autocomplete="off">
 
             <div class="mu-form-grid">
 
@@ -301,46 +301,25 @@
     const emptyText    = document.getElementById('emptyText');
     const toast        = document.getElementById('toast');
 
-    const URL_BASE = "{{ url_for('add_rewards') }}";           // /add_rewards
+    const URL_BASE = "{{ url_for('add_rewards') }}";
     const URL_ADD  = URL_BASE + '/add';
     const rewardUrl = (id, action) => URL_BASE + '/' + id + '/' + action;
 
     const rows = () => Array.from(body.querySelectorAll('tr'));
 
-    /* ---------- toast (also survives the page reload after a save) ---------- */
+    /* ---------- toast with fallback display style ---------- */
     function showToast(msg, ms) {
+        if (!toast) return;
         toast.textContent = msg;
         toast.hidden = false;
+        toast.style.display = 'block';
         clearTimeout(showToast.t);
-        showToast.t = setTimeout(() => { toast.hidden = true; }, ms || 2800);
+        showToast.t = setTimeout(() => {
+            toast.hidden = true;
+            toast.style.display = 'none';
+        }, ms || 3500);
     }
-
-    function finish(message) {
-        try { sessionStorage.setItem('rewardToast', message); } catch (e) {}
-        location.reload();
-    }
-
-    try {
-        const pending = sessionStorage.getItem('rewardToast');
-        if (pending) {
-            sessionStorage.removeItem('rewardToast');
-            showToast(pending);
-        }
-    } catch (e) {}
-
-    /* ---------- server call ---------- */
-    async function postJSON(url, formData) {
-        try {
-            const res = await fetch(url, {
-                method: 'POST',
-                body: formData || new FormData(),
-                headers: { 'X-Requested-With': 'fetch' }
-            });
-            return await res.json();
-        } catch (err) {
-            return { ok: false, error: 'Could not reach the server. Please try again.' };
-        }
-    }
+    window.showToast = showToast;
 
     /* ---------- modals ---------- */
     function openModal(el)  { el.hidden = false; document.body.classList.add('mu-no-scroll'); }
@@ -380,11 +359,10 @@
     const rewardModal = document.getElementById('rewardModal');
     const rewardForm  = document.getElementById('rewardForm');
     const submitBtn   = document.getElementById('rewardSubmit');
-    let editingRow    = null;
 
     document.getElementById('openAddModal').addEventListener('click', () => {
-        editingRow = null;
         rewardForm.reset();
+        rewardForm.action = URL_ADD;
         document.getElementById('rewardModalTitle').innerHTML = '<i class="fas fa-plus"></i> Add Reward';
         submitBtn.innerHTML = '<i class="fas fa-check"></i> Add Reward';
         openModal(rewardModal);
@@ -392,34 +370,18 @@
     });
 
     function openEdit(r) {
-        editingRow = r;
         rewardForm.reset();
-        document.getElementById('fName').value        = r.dataset.name;
-        document.getElementById('fDescription').value = r.dataset.description;
-        document.getElementById('fPoints').value      = r.dataset.points;
-        document.getElementById('fStock').value       = r.dataset.stock;   // '' = unlimited
-        document.getElementById('fStatus').value      = r.dataset.status;
+        rewardForm.action = rewardUrl(r.dataset.id, 'edit');
+        document.getElementById('fName').value         = r.dataset.name;
+        document.getElementById('fDescription').value  = r.dataset.description;
+        document.getElementById('fPoints').value       = r.dataset.points;
+        document.getElementById('fStock').value        = r.dataset.stock;
+        document.getElementById('fStatus').value       = r.dataset.status;
         document.getElementById('fNeedsPhone').checked = r.dataset.needsPhone === '1';
         document.getElementById('rewardModalTitle').innerHTML = '<i class="fas fa-pen"></i> Edit Reward';
         submitBtn.innerHTML = '<i class="fas fa-check"></i> Save Changes';
         openModal(rewardModal);
     }
-
-    rewardForm.addEventListener('submit', async e => {
-        e.preventDefault();
-
-        submitBtn.disabled = true;
-        const result = await postJSON(
-            editingRow ? rewardUrl(editingRow.dataset.id, 'edit') : URL_ADD,
-            new FormData(rewardForm));
-        submitBtn.disabled = false;
-
-        if (!result.ok) {
-            showToast(result.error || 'Something went wrong.', 5000);
-            return;                              // keep the form open
-        }
-        finish(result.message);
-    });
 
     /* ---------- confirm modal ---------- */
     const confirmModal = document.getElementById('confirmModal');
@@ -439,53 +401,68 @@
         confirmCb = null;
     });
 
-    /* ---------- row actions ---------- */
+    /* ---------- unified event delegation for row actions ---------- */
     body.addEventListener('click', e => {
         const btn = e.target.closest('[data-action]');
         if (!btn) return;
 
-        const r    = btn.closest('tr');
-        const name = r.dataset.name;
+        const r      = btn.closest('tr');
+        const id     = r.dataset.id;
+        const name   = r.dataset.name;
+        const action = btn.dataset.action;
 
-        switch (btn.dataset.action) {
-
-            case 'edit':
-                openEdit(r);
-                break;
-
-            case 'toggle': {
-                const hiding = r.dataset.status === 'Active';
-                confirmAction(
-                    hiding ? 'Hide this reward?' : 'Show this reward?',
-                    hiding
-                        ? '"' + name + '" will be hidden from donors. Claims already made are kept.'
-                        : '"' + name + '" will be visible to donors again.',
-                    hiding ? 'Hide' : 'Show',
-                    async () => {
-                        const res = await postJSON(rewardUrl(r.dataset.id, 'toggle'));
-                        if (!res.ok) { showToast(res.error || 'Could not update the reward.', 5000); return; }
-                        finish(res.message);
-                    });
-                break;
-            }
-
-            case 'delete':
-                confirmAction(
-                    'Delete reward?',
-                    'This removes "' + name + '" from the list. Claims already made are kept in the history. ' +
-                    'Consider hiding it instead.',
-                    'Delete',
-                    async () => {
-                        const res = await postJSON(rewardUrl(r.dataset.id, 'delete'));
-                        if (!res.ok) { showToast(res.error || 'Could not delete the reward.', 5000); return; }
-                        finish(res.message);
-                    });
-                break;
+        if (action === 'edit') {
+            openEdit(r);
+        }
+        else if (action === 'toggle') {
+            const hiding = r.dataset.status === 'Active';
+            confirmAction(
+                hiding ? 'Hide this reward?' : 'Show this reward?',
+                hiding
+                    ? '"' + name + '" will be hidden from donors. Claims already made are kept.'
+                    : '"' + name + '" will be visible to donors again.',
+                hiding ? 'Hide' : 'Show',
+                () => {
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = rewardUrl(id, 'toggle');
+                    document.body.appendChild(form);
+                    form.submit();
+                }
+            );
+        }
+        else if (action === 'delete') {
+            confirmAction(
+                'Delete reward?',
+                'This removes "' + name + '" from the list. Claims already made are kept in the history. Consider hiding it instead.',
+                'Delete',
+                () => {
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = rewardUrl(id, 'delete');
+                    document.body.appendChild(form);
+                    form.submit();
+                }
+            );
         }
     });
 
     applyFilters();
 })();
 </script>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <script>
+      window.addEventListener('DOMContentLoaded', () => {
+        {% for category, message in messages %}
+          if (window.showToast) {
+              window.showToast({{ message | tojson }}, 5000);
+          }
+        {% endfor %}
+      });
+    </script>
+  {% endif %}
+{% endwith %}
 
 {% endblock %}

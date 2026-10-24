@@ -267,9 +267,37 @@ def init_db():
         )
     ''')
 
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS rewards (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            desc TEXT,
+            points INTEGER NOT NULL,
+            stock INTEGER NOT NULL,
+            status TEXT DEFAULT 'Active',
+            needs_phone INTEGER DEFAULT 0,
+            created_at TEXT
+        )
+    ''')
+
+    conn.execute('''
+            CREATE TABLE IF NOT EXISTS reward_claims (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                reward_id INTEGER,
+                reward TEXT,
+                phone TEXT,
+                points INTEGER,
+                created_at TEXT,
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                FOREIGN KEY (reward_id) REFERENCES rewards(id)
+            )
+        ''')
+
     conn.commit()
     conn.close()
     add_image_column()
+
 
     # Repair a leftover old users table, if there is one
     _fix_old_users_table()

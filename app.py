@@ -2,16 +2,16 @@ import os
 import smtplib
 import sqlite3
 from datetime import datetime, date
-
 import bcrypt
 from email.message import EmailMessage
-from flask import Flask, render_template, url_for, redirect, session, request, flash
+from flask import Flask, render_template, url_for, redirect, session, request, flash, jsonify
 from authlib.integrations.flask_client import OAuth
 from dotenv import load_dotenv
 from database import (get_user_by_email, get_all_events,
                       add_event, update_event, delete_event, get_donor_by_email, create_appointment,
                       get_donor_upcoming_appointments, get_bookable_events, cancel_donor_appointment, get_db_connection)
 import random
+import secrets
 
 load_dotenv()
 
@@ -19,9 +19,6 @@ app = Flask(__name__)
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'a-very-secure-permanent-fallback-key')
 
 oauth = OAuth(app)
-
-
-
 
 def register_user(email, plain_password):
     email = email.strip().lower()
@@ -207,6 +204,94 @@ def login():
 
     return render_template("general/login.html", next=next_page)
 
+@app.route('/manage_users/add', methods=['POST'])
+def add_staff():
+    if session.get('role') != 'admin':
+        return redirect(url_for('login', next="manage_users"))
+
+    name = request.form.get('name','').strip()
+    email = request.form.get('email', '').strip()
+    role = request.form.get('role', '').strip()
+    org = request.form.get('organisation', '').strip()
+    phone = request.form.get('phone_number', '').strip()
+
+    if not name or not email or not role:
+        flash("Please fill in all required fields!", "error")
+        return redirect(url_for("manage_users"))
+
+    temporary_password = secrets.token_urlsafe(9)
+
+    success = register_staff_user(name, email, phone,role, temporary_password)
+
+    if not success:
+        flash("Email is already registered!", "error")
+        return redirect(url_for("manage_users"))
+
+    email_sent = send_credentials_email(email, name, temporary_password)
+
+    if email_sent:
+        flash("Staff account created successfully!", "success")
+    else:
+        flash("Accounted created, failed to send credentials. Please contact IT department!", "error")
+
+    return redirect(url_for("manage_users"))
+
+@app.route('/manage_users/<int:user_id>/edit', methods=['POST'])
+def edit_staff(user_id):
+    if session.get('role') != 'admin':
+        return redirect(url_for('login', next='manage_users'))
+
+    name = request.form.get('name', '').strip()
+    email = request.form.get('email', '').strip().lower()
+    role = request.form.get('role', '').strip()
+    org = request.form.get('organisation', '').strip()
+    phone_number = request.form.get('phone_number', '').strip()
+
+    if not name or not email or not role:
+        flash("Please fill in all required fields.", "error")
+        return redirect(url_for('manage_users'))
+
+    db_role = 'hospital_staff' if role == 'Hospital Staff' else 'blood_bank_staff'
+
+    conn = get_db_connection()
+    try:
+        conn.execute("""
+            UPDATE users 
+            SET full_name = ?, email = ?, phone_number = ?, role = ?, organisation = ?
+            WHERE id = ?
+        """, (name, email, phone_number, db_role, org, user_id))
+        conn.commit()
+        session['success_toast'] = f"Staff account for {name} updated successfully!"
+    except Exception as e:
+        flash(f"Error updating user: {str(e)}", "error")
+    finally:
+        conn.close()
+
+    return redirect(url_for('manage_users'))
+
+
+@app.route('/manage_users/<int:user_id>/toggle', methods=['POST'])
+def toggle_user_status(user_id):
+    if session.get('role') != 'admin':
+        return redirect(url_for('login', next='manage_users'))
+
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+    user = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+
+    if user:
+        current_status = user['status'] if user['status'] else 'Active'
+        new_status = 'Inactive' if current_status == 'Active' else 'Active'
+
+        conn.execute("UPDATE users SET status = ? WHERE id = ?", (new_status, user_id))
+        conn.commit()
+
+        name = user['full_name'] or user['email']
+        session['success_toast'] = f"User {name} has been {new_status.lower()}."
+
+    conn.close()
+    return redirect(url_for('manage_users'))
+
 @app.route("/check_email", methods=["GET", "POST"])
 def check_email():
     if request.method == "POST":
@@ -346,9 +431,6 @@ def signup():
 
     return render_template("general/signup.html", next=next_page)
 
-
-
-
 @app.route("/verification", methods=["POST"])
 def verification():
     entered_otp = (request.form.get("otp") or "").strip()
@@ -433,9 +515,152 @@ def quiz():
 def donor_quiz():
     return render_template("donor/donor_quiz.html")
 
-@app.route('/add_rewards', methods=['GET','POST'])
+
+@app.route('/add_rewards', methods=['GET'])
 def add_rewards():
-    return render_template("admin/add_rewards.html")
+    if session.get('role') != 'admin':
+        return redirect(url_for('login', next='add_rewards'))
+
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+
+    rewards = conn.execute("SELECT * FROM rewards ORDER BY id DESC").fetchall()
+    claims = conn.execute("""
+        SELECT rc.*, u.full_name as donor, u.email as email 
+        FROM reward_claims rc 
+        LEFT JOIN users u ON rc.user_id = u.id 
+        ORDER BY rc.id DESC LIMIT 100
+    """).fetchall()
+
+    active_count = conn.execute("SELECT COUNT(*) FROM rewards WHERE status = 'Active'").fetchone()[0]
+    inactive_count = conn.execute("SELECT COUNT(*) FROM rewards WHERE status = 'Inactive'").fetchone()[0]
+    total_claims = conn.execute("SELECT COUNT(*) FROM reward_claims").fetchone()[0]
+
+    conn.close()
+
+    success_toast = session.pop('success_toast', None)
+
+    return render_template(
+        "admin/add_rewards.html",
+        rewards=rewards,
+        claims=claims,
+        active_count=active_count,
+        inactive_count=inactive_count,
+        total_claims=total_claims,
+        points_per_donation=50,
+        success_toast=success_toast
+    )
+
+
+@app.route('/add_rewards/add', methods=['POST'])
+def add_reward():
+    if session.get('role') != 'admin':
+        return redirect(url_for('login', next='add_rewards'))
+
+    name = request.form.get('name', '').strip()
+    description = request.form.get('description', '').strip()
+    points_cost = request.form.get('points_cost')
+    stock = request.form.get('stock')
+    status = request.form.get('status', 'Active')
+    needs_phone = 1 if request.form.get('needs_phone') == '1' else 0
+
+    if not name or not points_cost:
+        flash("Reward name and points cost are required.", "error")
+        return redirect(url_for('add_rewards'))
+
+    stock_val = int(stock) if stock and stock.strip() != '' else None
+
+    conn = get_db_connection()
+    try:
+        conn.execute("""
+            INSERT INTO rewards (name, desc, points, stock, status, needs_phone, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+        """, (name, description, int(points_cost), stock_val, status, needs_phone))
+        conn.commit()
+        flash(f"Reward '{name}' added successfully!", "success")
+    except Exception as e:
+        flash(f"Error adding reward: {str(e)}", "error")
+    finally:
+        conn.close()
+
+    return redirect(url_for('add_rewards'))
+
+
+@app.route('/add_rewards/<int:reward_id>/edit', methods=['POST'])
+def edit_reward(reward_id):
+    if session.get('role') != 'admin':
+        return redirect(url_for('login', next='add_rewards'))
+
+    name = request.form.get('name', '').strip()
+    description = request.form.get('description', '').strip()
+    points_cost = request.form.get('points_cost')
+    stock = request.form.get('stock')
+    status = request.form.get('status', 'Active')
+    needs_phone = 1 if request.form.get('needs_phone') == '1' else 0
+
+    if not name or not points_cost:
+        flash("Reward name and points cost are required.", "error")
+        return redirect(url_for('add_rewards'))
+
+    stock_val = int(stock) if stock and stock.strip() != '' else None
+
+    conn = get_db_connection()
+    try:
+        conn.execute("""
+            UPDATE rewards 
+            SET name = ?, desc = ?, points = ?, stock = ?, status = ?, needs_phone = ?
+            WHERE id = ?
+        """, (name, description, int(points_cost), stock_val, status, needs_phone, reward_id))
+        conn.commit()
+        flash(f"Reward '{name}' updated successfully!", "success")
+    except Exception as e:
+        flash(f"Error updating reward: {str(e)}", "error")
+    finally:
+        conn.close()
+
+    return redirect(url_for('add_rewards'))
+
+
+@app.route('/add_rewards/<int:reward_id>/toggle', methods=['POST'])
+def toggle_reward_status(reward_id):
+    if session.get('role') != 'admin':
+        return redirect(url_for('login', next='add_rewards'))
+
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+    reward = conn.execute("SELECT * FROM rewards WHERE id = ?", (reward_id,)).fetchone()
+
+    if reward:
+        current_status = reward['status']
+        new_status = 'Inactive' if current_status == 'Active' else 'Active'
+        conn.execute("UPDATE rewards SET status = ? WHERE id = ?", (new_status, reward_id))
+        conn.commit()
+        flash(f"Reward '{reward['name']}' status updated to {new_status}.", "success")
+    else:
+        flash("Reward not found.", "error")
+
+    conn.close()
+    return redirect(url_for('add_rewards'))
+
+
+@app.route('/add_rewards/<int:reward_id>/delete', methods=['POST'])
+def delete_reward(reward_id):
+    if session.get('role') != 'admin':
+        return redirect(url_for('login', next='add_rewards'))
+
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+    reward = conn.execute("SELECT * FROM rewards WHERE id = ?", (reward_id,)).fetchone()
+
+    if reward:
+        conn.execute("DELETE FROM rewards WHERE id = ?", (reward_id,))
+        conn.commit()
+        flash(f"Reward '{reward['name']}' deleted successfully.", "success")
+    else:
+        flash("Reward not found.", "error")
+
+    conn.close()
+    return redirect(url_for('add_rewards'))
 
 @app.route('/rewards', methods=['GET','POST'])
 def rewards():
@@ -561,9 +786,44 @@ def faq():
 def hospital_staff_dashboard():
     return render_template("hospital_staff/hospital_staff_dashboard.html")
 
-@app.route('/manage_users', methods=['GET','POST'])
+
+@app.route('/manage_users', methods=['GET', 'POST'])
 def manage_users():
-    return render_template("admin/manage_users.html")
+    if session.get('role') != 'admin':
+        return redirect(url_for('login', next='manage_users'))
+
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+
+    db_users = conn.execute("SELECT * FROM users").fetchall()
+    conn.close()
+
+    users = []
+    for u in db_users:
+        if str(u['role']).strip().lower() == 'admin':
+            continue
+
+        raw_role = str(u['role']).strip().lower()
+        if 'hospital' in raw_role:
+            role_display = 'Hospital Staff'
+        elif 'bank' in raw_role or 'blood' in raw_role:
+            role_display = 'Blood Bank Staff'
+        else:
+            role_display = 'Donor'
+
+        users.append({
+            'id': u['id'],
+            'name': u['full_name'] or u['email'],
+            'email': u['email'],
+            'phone': u['phone_number'] if u['phone_number'] else '—',
+            'role': role_display,
+            'org': u['organisation'] if u['organisation'] else '—',
+            'status': u['status'] if u['status'] else 'Active',
+            'date': u['created_at'] if u['created_at'] else datetime.now().strftime('%Y-%m-%d')
+        })
+
+    success_toast = session.pop('success_toast', None)
+    return render_template("admin/manage_users.html", users=users, success_toast=success_toast)
 
 @app.route('/view_blood_info', methods=['GET','POST'])
 def view_blood_info():
