@@ -90,7 +90,11 @@
             <button type="button" class="ev-close" data-close aria-label="Close">&times;</button>
         </div>
 
-        <form id="eventForm" method="POST" action="{{ url_for('manage_events') }}" autocomplete="off">
+        <form id="eventForm"
+              method="POST"
+              action="{{ url_for('manage_events') }}"
+              enctype="multipart/form-data"
+              autocomplete="off">
 
             <input type="hidden" name="action" id="formAction" value="add">
             <input type="hidden" name="event_id" id="formEventId" value="">
@@ -99,7 +103,7 @@
 
                 <div class="ev-field ev-span-2">
                     <label for="fTitle">Event name</label>
-                    <input type="text" id="fTitle" name="title" required
+                    <input type="text" id="fTitle" name="title" required maxlength="120"
                            placeholder="e.g. Community Blood Drive">
                 </div>
 
@@ -120,19 +124,42 @@
 
                 <div class="ev-field ev-span-2">
                     <label for="fPlace">Place / venue</label>
-                    <input type="text" id="fPlace" name="place" required
+                    <input type="text" id="fPlace" name="place" required maxlength="120"
                            placeholder="e.g. Dewan Komuniti Taman Maju">
                 </div>
 
                 <div class="ev-field ev-span-2">
                     <label for="fAddress">Address</label>
-                    <input type="text" id="fAddress" name="address" required
+                    <input type="text" id="fAddress" name="address" required maxlength="200"
                            placeholder="Street, city, postcode">
                 </div>
 
+                <!-- Event image upload -->
                 <div class="ev-field ev-span-2">
-                    <label for="fNotes">Notes <span class="ev-optional">(optional)</span></label>
-                    <textarea id="fNotes" name="notes" rows="3"
+                    <label for="fImage">
+                        Event image <span class="ev-optional">(optional)</span>
+                    </label>
+                    <input type="file" id="fImage" name="image"
+                           accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+
+                    <small>Supported formats: JPG, JPEG, PNG and WebP. Maximum size: 5 MB.</small>
+
+                    <div id="imagePreviewContainer" hidden>
+                        <img id="imagePreview" src="" alt="Event image preview"
+                             style="display:block;max-width:100%;max-height:220px;
+                                    margin-top:12px;object-fit:contain;border-radius:10px;">
+
+                        <button type="button" class="ev-btn-ghost" id="removeImageBtn">
+                            Remove Image
+                        </button>
+                    </div>
+                </div>
+
+                <div class="ev-field ev-span-2">
+                    <label for="fNotes">
+                        Notes <span class="ev-optional">(optional)</span>
+                    </label>
+                    <textarea id="fNotes" name="notes" rows="3" maxlength="500"
                               placeholder="Anything donors should know before coming"></textarea>
                 </div>
 
@@ -181,24 +208,79 @@
 <script>
 (function () {
 
-    /* Events are loaded from the database by the manage_events route. */
-    const events = {{ events|tojson }};
+    /* ---------- data from the server ---------- */
+    const events        = {{ events|tojson }};
     const flashMessages = {{ get_flashed_messages(with_categories=true)|tojson }};
+    const IMAGE_BASE    = {{ url_for('static', filename='uploads/events/')|tojson }};
 
+    /* ---------- elements ---------- */
     const grid        = document.getElementById('eventGrid');
     const emptyState  = document.getElementById('emptyState');
     const emptyText   = document.getElementById('emptyText');
     const searchInput = document.getElementById('searchInput');
     const toast       = document.getElementById('toast');
 
-    let filter    = 'upcoming';
-    let editingId = null;
-    let deleteId  = null;
+    const eventModal   = document.getElementById('eventModal');
+    const confirmModal = document.getElementById('confirmModal');
+    const form         = document.getElementById('eventForm');
+    const formError    = document.getElementById('formError');
+    const fDate        = document.getElementById('fDate');
+
+    const imageInput            = document.getElementById('fImage');
+    const imagePreview          = document.getElementById('imagePreview');
+    const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+    const removeImageBtn        = document.getElementById('removeImageBtn');
+
+    let filter          = 'upcoming';
+    let editingId       = null;
+    let deleteId        = null;
+    let imagePreviewUrl = null;
+
+
+    /* ---------- image preview ---------- */
+    function clearImagePreview() {
+        imageInput.value = '';
+        imagePreview.removeAttribute('src');
+        imagePreviewContainer.hidden = true;
+
+        if (imagePreviewUrl) {
+            URL.revokeObjectURL(imagePreviewUrl);
+            imagePreviewUrl = null;
+        }
+    }
+
+    imageInput.addEventListener('change', function () {
+        const file = this.files[0];
+        if (!file) return;
+
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+
+        if (!allowedTypes.includes(file.type)) {
+            alert('Please select a JPG, PNG, or WebP image.');
+            clearImagePreview();
+            return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            alert('Image size must not exceed 5 MB.');
+            clearImagePreview();
+            return;
+        }
+
+        if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+
+        imagePreviewUrl = URL.createObjectURL(file);
+        imagePreview.src = imagePreviewUrl;
+        imagePreviewContainer.hidden = false;
+    });
+
+    removeImageBtn.addEventListener('click', clearImagePreview);
+
 
     /* ---------- helpers ---------- */
     function todayStr() {
-        const d = new Date();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const d   = new Date();
+        const m   = String(d.getMonth() + 1).padStart(2, '0');
         const day = String(d.getDate()).padStart(2, '0');
         return d.getFullYear() + '-' + m + '-' + day;
     }
@@ -212,9 +294,9 @@
     function parts(dateStr) {
         const d = new Date(dateStr + 'T00:00:00');
         return {
-            day:   d.getDate(),
-            month: d.toLocaleDateString('en-GB', { month: 'short' }),
-            year:  d.getFullYear(),
+            day:     d.getDate(),
+            month:   d.toLocaleDateString('en-GB', { month: 'short' }),
+            year:    d.getFullYear(),
             weekday: d.toLocaleDateString('en-GB', { weekday: 'long' })
         };
     }
@@ -246,9 +328,11 @@
             if (e.target.closest('[data-close]')) closeModal(modal);
         });
     });
+
     document.addEventListener('keydown', e => {
         if (e.key === 'Escape') document.querySelectorAll('.ev-modal').forEach(closeModal);
     });
+
 
     /* ---------- render ---------- */
     function renderStats() {
@@ -263,7 +347,7 @@
 
         const q = searchInput.value.trim().toLowerCase();
 
-        let list = events.filter(e => {
+        const list = events.filter(e => {
             const s = statusOf(e);
             const inTab =
                 filter === 'all' ||
@@ -283,6 +367,15 @@
             const s = statusOf(e);
             const label = s === 'today' ? 'Today' : (s === 'upcoming' ? 'Upcoming' : 'Past');
 
+            /* The image lives INSIDE .ev-body so the flex row
+               (date block | body) is not broken. */
+            const imageHtml = e.image
+                ? `<img class="event-image"
+                        src="${IMAGE_BASE}${encodeURIComponent(e.image)}"
+                        alt="${esc(e.title)}"
+                        loading="lazy">`
+                : '';
+
             return `
             <article class="ev-card ${s}" data-id="${e.id}">
 
@@ -293,6 +386,9 @@
                 </div>
 
                 <div class="ev-body">
+
+                    ${imageHtml}
+
                     <div class="ev-top">
                         <h4 class="ev-title">${esc(e.title)}</h4>
                         <span class="ev-badge ${s}">${label}</span>
@@ -329,6 +425,7 @@
         }
     }
 
+
     /* ---------- tabs + search ---------- */
     document.querySelectorAll('.ev-tab').forEach(tab => {
         tab.addEventListener('click', () => {
@@ -338,17 +435,15 @@
             render();
         });
     });
+
     searchInput.addEventListener('input', render);
 
-    /* ---------- add / edit ---------- */
-    const eventModal = document.getElementById('eventModal');
-    const form       = document.getElementById('eventForm');
-    const formError  = document.getElementById('formError');
-    const fDate      = document.getElementById('fDate');
 
+    /* ---------- add / edit ---------- */
     function openForm(ev) {
         editingId = ev ? ev.id : null;
         form.reset();
+        clearImagePreview();
         formError.hidden = true;
         document.getElementById('formAction').value  = ev ? 'edit' : 'add';
         document.getElementById('formEventId').value = ev ? ev.id : '';
@@ -368,6 +463,18 @@
             fDate.min = todayStr();      // new events cannot be set in the past
         }
 
+        /* Lock date / time / location once donors have booked.
+           readOnly (not disabled) so the values are still submitted. */
+        const locked = !!(ev && ev.booked_count > 0);
+        ['fDate', 'fStart', 'fEnd', 'fPlace', 'fAddress'].forEach(id => {
+            document.getElementById(id).readOnly = locked;
+        });
+        if (locked) {
+            formError.textContent = ev.booked_count + ' donor(s) have booked this event, ' +
+                'so date, time and location are locked. To change them, delete the event and create a new one.';
+            formError.hidden = false;
+        }
+
         openModal(eventModal);
     }
 
@@ -385,9 +492,8 @@
         }
     });
 
-    /* ---------- card actions ---------- */
-    const confirmModal = document.getElementById('confirmModal');
 
+    /* ---------- card actions ---------- */
     grid.addEventListener('click', e => {
         const btn = e.target.closest('[data-action]');
         if (!btn) return;
@@ -400,9 +506,13 @@
             openForm(ev);
         } else {
             deleteId = id;
+            const d = parts(ev.date);
             document.getElementById('confirmText').textContent =
-                '"' + ev.title + '" on ' + parts(ev.date).day + ' ' + parts(ev.date).month + ' ' +
-                parts(ev.date).year + ' will be removed.';
+                '"' + ev.title + '" on ' + d.day + ' ' + d.month + ' ' + d.year +
+                ' will be removed.' +
+                (ev.booked_count > 0
+                    ? ' ' + ev.booked_count + ' donor booking(s) will be cancelled.'
+                    : '');
             openModal(confirmModal);
         }
     });
@@ -412,6 +522,8 @@
         document.getElementById('deleteForm').submit();
     });
 
+
+    /* ---------- start ---------- */
     render();
 
     /* Message from the server (event added / updated / deleted / error) */

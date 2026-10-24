@@ -114,7 +114,8 @@
 
                 {% for u in users %}
                     {% set is_donor = u.role == 'Donor' %}
-                    <tr data-group="{{ 'donor' if is_donor else 'staff' }}"
+                    <tr data-id="{{ u.id }}"
+                        data-group="{{ 'donor' if is_donor else 'staff' }}"
                         data-role="{{ u.role }}"
                         data-status="{{ u.status }}">
 
@@ -292,6 +293,23 @@
     </div>
 </div>
 
+<!-- ================= VIEW DETAILS MODAL ================= -->
+<div class="mu-modal" id="viewModal" hidden>
+    <div class="mu-modal-backdrop" data-close></div>
+
+    <div class="mu-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="viewModalTitle">
+        <div class="mu-modal-head">
+            <h3 id="viewModalTitle"><i class="fas fa-id-card"></i> User Details</h3>
+            <button type="button" class="mu-close" data-close aria-label="Close">&times;</button>
+        </div>
+
+        <div id="viewBody"></div>
+
+        <div class="mu-modal-foot">
+            <button type="button" class="mu-btn-ghost" data-close>Close</button>
+        </div>
+    </div>
+</div>
 
 <!-- ================= TOAST ================= -->
 <div class="mu-toast" id="toast" role="status" aria-live="polite" hidden></div>
@@ -314,11 +332,29 @@
     /* ---------- helpers ---------- */
     const rows = () => Array.from(body.querySelectorAll('tr'));
 
-    function showToast(msg) {
+    function showToast(msg, ms) {
         toast.textContent = msg;
         toast.hidden = false;
         clearTimeout(showToast.t);
-        showToast.t = setTimeout(() => { toast.hidden = true; }, 2800);
+        showToast.t = setTimeout(() => { toast.hidden = true; }, ms || 2800);
+    }
+
+    /* ---------- server calls ---------- */
+    const URL_BASE = "{{ url_for('manage_users') }}";        // /manage_users
+    const URL_ADD  = URL_BASE + '/add';
+    const userUrl  = (id, action) => URL_BASE + '/' + id + '/' + action;
+
+    async function postJSON(url, formData) {
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                body: formData || new FormData(),
+                headers: { 'X-Requested-With': 'fetch' }
+            });
+            return await res.json();
+        } catch (err) {
+            return { ok: false, error: 'Could not reach the server. Please try again.' };
+        }
     }
 
     function openModal(el)  { el.hidden = false; document.body.classList.add('mu-no-scroll'); }
@@ -466,10 +502,20 @@
         t.querySelector('i').className = 'fas ' + (status === 'Active' ? 'fa-user-slash' : 'fa-user-check');
     }
 
-    /* FRONTEND DEMO: the row is added/edited in the page only.
-       When the backend exists, remove e.preventDefault() so the form POSTs to your route. */
-    staffForm.addEventListener('submit', e => {
+    staffForm.addEventListener('submit', async e => {
         e.preventDefault();
+
+        const submitBtn = document.getElementById('staffSubmit');
+        submitBtn.disabled = true;
+        const result = await postJSON(
+            editingRow ? userUrl(editingRow.dataset.id, 'edit') : URL_ADD,
+            new FormData(staffForm));
+        submitBtn.disabled = false;
+
+        if (!result.ok) {
+            showToast(result.error || 'Something went wrong.', 5000);
+            return;                       // keep the modal open so nothing is lost
+        }
 
         const d = {
             name:   document.getElementById('fName').value.trim(),
@@ -484,8 +530,9 @@
             applyRowData(editingRow, d);
             showToast('Staff account updated.');
         } else {
-            const today = new Date().toISOString().slice(0, 10);
+            const today = result.created;
             const tr = document.createElement('tr');
+            tr.dataset.id = result.id;
             tr.dataset.group = 'staff';
             tr.dataset.role = d.role;
             tr.dataset.status = d.status;
@@ -504,7 +551,9 @@
                     <button type="button" class="mu-icon-btn danger" title="Delete" data-action="delete"><i class="fas fa-trash"></i></button>
                 </div></td>`;
             body.prepend(tr);
-            showToast('Staff account created.');
+                        showToast(result.email_sent
+                ? 'Staff account created. Login details were emailed.'
+                : 'Staff account created, but the email could not be sent. Give them the temporary password yourself.', 6000);
         }
 
         closeModal(staffModal);
@@ -530,6 +579,124 @@
         confirmCb = null;
     });
 
+        /* ---------- view details ---------- */
+    const viewModal = document.getElementById('viewModal');
+    const viewBody  = document.getElementById('viewBody');
+
+    async function getJSON(url) {
+        try {
+            const res = await fetch(url, { headers: { 'X-Requested-With': 'fetch' } });
+            return await res.json();
+        } catch (err) {
+            return { ok: false, error: 'Could not reach the server. Please try again.' };
+        }
+    }
+
+    function viewSection(title, items) {
+        const section = document.createElement('div');
+        section.className = 'mu-view-section';
+
+        const h = document.createElement('h4');
+        h.textContent = title;
+        section.appendChild(h);
+
+        const dl = document.createElement('dl');
+        dl.className = 'mu-view-list';
+        items.forEach(([label, value]) => {
+            const dt = document.createElement('dt');
+            const dd = document.createElement('dd');
+            dt.textContent = label;
+            dd.textContent = (value === '' || value == null) ? '—' : value;
+            dl.append(dt, dd);
+        });
+        section.appendChild(dl);
+        return section;
+    }
+
+    function renderUserDetails(u) {
+        viewBody.replaceChildren();
+
+        const head   = document.createElement('div');
+        head.className = 'mu-vh';
+
+        const avatar = document.createElement('div');
+        avatar.className = 'mu-vh-avatar';
+        avatar.textContent = (u.name || '?').charAt(0).toUpperCase();
+
+        const info   = document.createElement('div');
+        const nameEl = document.createElement('div');
+        nameEl.className = 'mu-vh-name';
+        nameEl.textContent = u.name || 'Unnamed user';
+        const metaEl = document.createElement('div');
+        metaEl.className = 'mu-vh-meta';
+        metaEl.textContent = u.role + ' · ' + u.status;
+
+        info.append(nameEl, metaEl);
+        head.append(avatar, info);
+        viewBody.appendChild(head);
+
+        if (u.is_donor && !u.registered) {
+            const note = document.createElement('p');
+            note.className = 'mu-donor-note';
+            note.textContent = 'This donor has created an account but has not completed the donor registration form yet.';
+            viewBody.appendChild(note);
+            viewBody.appendChild(viewSection('Account', [
+                ['Email', u.email], ['Phone', u.phone], ['Account created', u.created]
+            ]));
+            return;
+        }
+
+        if (u.is_donor) {
+            viewBody.appendChild(viewSection('Personal information', [
+                ['Full name', u.name],
+                ['IC number', u.ic],
+                ['Date of birth', u.dob ? u.dob + (u.age !== '' ? ' (' + u.age + ' years old)' : '') : ''],
+                ['Gender', u.gender],
+                ['Blood type', u.blood_type]
+            ]));
+            viewBody.appendChild(viewSection('Contact', [
+                ['Email', u.email],
+                ['Phone', u.phone],
+                ['Address', u.address],
+                ['Emergency contact', u.emergency_contact]
+            ]));
+            viewBody.appendChild(viewSection('Health details', [
+                ['Weight', u.weight || 'Not provided'],
+                ['Height', u.height || 'Not provided']
+            ]));
+            viewBody.appendChild(viewSection('Donation activity', [
+                ['Total donations', String(u.donation_count)],
+                ['Last donation', u.last_donation || 'No donations yet'],
+                ['Upcoming appointments', String(u.upcoming)]
+            ]));
+            viewBody.appendChild(viewSection('Account', [
+                ['Status', u.status], ['Account created', u.created]
+            ]));
+        } else {
+            viewBody.appendChild(viewSection('Staff account', [
+                ['Full name', u.name],
+                ['Email', u.email],
+                ['Phone', u.phone],
+                ['Role', u.role],
+                ['Hospital / Branch', u.organisation],
+                ['Status', u.status],
+                ['Account created', u.created]
+            ]));
+        }
+    }
+
+    async function openView(r) {
+        viewBody.textContent = 'Loading…';
+        openModal(viewModal);
+
+        const res = await getJSON(userUrl(r.dataset.id, 'view'));
+        if (!res.ok) {
+            viewBody.textContent = res.error || 'Could not load the details.';
+            return;
+        }
+        renderUserDetails(res.user);
+    }
+
     /* ---------- row actions ---------- */
     body.addEventListener('click', e => {
         const btn = e.target.closest('[data-action]');
@@ -541,7 +708,7 @@
         switch (btn.dataset.action) {
 
             case 'view':
-                showToast('Viewing ' + name + ' (profile page goes here).');
+                openView(r);
                 break;
 
             case 'edit':
@@ -551,7 +718,12 @@
             case 'reset':
                 confirmAction('Reset password?',
                     'A temporary password will be generated for ' + name + '.',
-                    'Reset', () => showToast('Password reset for ' + name + '.'));
+                    'Reset', async () => {
+                        const res = await postJSON(userUrl(r.dataset.id, 'reset-password'));
+                        if (!res.ok) { showToast(res.error || 'Could not reset password.', 5000); return; }
+                        showToast('Temporary password for ' + name + ': ' + res.temp_password +
+                                  '  (copy it now - it is not shown again)', 20000);
+                    });
                 break;
 
             case 'toggle': {
@@ -562,11 +734,13 @@
                         ? name + ' will no longer be able to log in. Their history is kept.'
                         : name + ' will be able to log in again.',
                     goingInactive ? 'Deactivate' : 'Activate',
-                    () => {
-                        setStatus(r, goingInactive ? 'Inactive' : 'Active');
+                    async () => {
+                        const res = await postJSON(userUrl(r.dataset.id, 'toggle'));
+                        if (!res.ok) { showToast(res.error || 'Could not update status.', 5000); return; }
+                        setStatus(r, res.status);
                         updateStats();
                         applyFilters();
-                        showToast(name + (goingInactive ? ' deactivated.' : ' activated.'));
+                        showToast(name + (res.status === 'Inactive' ? ' deactivated.' : ' activated.'));
                     });
                 break;
             }
@@ -574,7 +748,9 @@
             case 'delete':
                 confirmAction('Delete account?',
                     'This permanently removes ' + name + '. Consider deactivating instead to keep their history.',
-                    'Delete', () => {
+                    'Delete', async () => {
+                        const res = await postJSON(userUrl(r.dataset.id, 'delete'));
+                        if (!res.ok) { showToast(res.error || 'Could not delete account.', 6000); return; }
                         r.remove();
                         updateStats();
                         applyFilters();

@@ -1,511 +1,570 @@
 {% extends "donor/donor_base.html" %}
 
 {% block content %}
-<div class="appt-page">
 
-    <div class="appt-card">
+<style>
+/* =========================================================
+   Donor appointment page – same look as admin "Manage Events"
+   (colours fall back to the red theme if your site has no variables)
+   ========================================================= */
+.ev-page {
+    --ev-primary:      var(--primary, #c62828);
+    --ev-primary-dark: var(--primary-dark, #8e0000);
+    --ev-primary-soft: var(--primary-soft, #fdecea);
+    --ev-border:       var(--border, #e3e6ea);
+    --ev-text:         var(--text, #2b2b2b);
+    --ev-muted:        var(--muted, #6b7280);
+    --ev-card-bg:      var(--card-bg, #ffffff);
+    --ev-radius:       var(--radius, 16px);
+    --ev-shadow:       var(--shadow, 0 .25rem 1rem rgba(0, 0, 0, .08));
+}
 
-        <h1 class="appt-title">Book Appointment</h1>
+/* ---------- Header ---------- */
+.ev-header { margin-bottom: 1.5rem; }
+.ev-heading { margin: 0; font-size: 1.8rem; font-weight: 700; color: var(--ev-text); }
+.ev-subtitle { margin: .25rem 0 0; color: var(--ev-muted); }
 
-        <!-- FLASH MESSAGES -->
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% for category, message in messages %}
-                <div class="appt-alert appt-alert--{{ category }}"
-                     role="status">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        {% endwith %}
+.ev-section-title { margin: 2rem 0 .25rem; font-size: 1.3rem; font-weight: 700; color: var(--ev-text); }
+.ev-section-sub   { margin: 0 0 1.1rem; color: var(--ev-muted); font-size: .92rem; }
+
+/* ---------- Flash ---------- */
+.ev-flash {
+    border-radius: 12px;
+    padding: .7rem 1rem;
+    margin-bottom: 1rem;
+    font-size: .92rem;
+    font-weight: 600;
+}
+.ev-flash.success { background: #e8f5e9; color: #1b5e20; }
+.ev-flash.error,
+.ev-flash.danger  { background: var(--ev-primary-soft); color: var(--ev-primary-dark); }
+.ev-flash.info,
+.ev-flash.warning { background: #e3f2fd; color: #1565c0; }
+
+/* ---------- Search ---------- */
+.ev-toolbar { display: flex; justify-content: flex-end; margin: 0 0 1.25rem; }
+.ev-search { position: relative; flex: 0 1 300px; width: 100%; }
+.ev-search i {
+    position: absolute; left: 1rem; top: 50%;
+    transform: translateY(-50%); color: var(--ev-muted);
+}
+.ev-search input {
+    width: 100%;
+    border: 1px solid var(--ev-border);
+    border-radius: 50px;
+    padding: .55rem 1rem .55rem 2.6rem;
+    color: var(--ev-text);
+    background: #fff;
+    font-size: .95rem;
+}
+.ev-search input:focus,
+.ev-field textarea:focus {
+    outline: none;
+    border-color: var(--ev-primary);
+    box-shadow: 0 0 0 .2rem rgba(198, 40, 40, .15);
+}
+
+/* ---------- Event cards ---------- */
+.ev-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1.25rem;
+}
+
+.ev-card {
+    display: flex;
+    background: var(--ev-card-bg);
+    border-radius: var(--ev-radius);
+    box-shadow: var(--ev-shadow);
+    overflow: hidden;
+}
+
+.ev-date {
+    flex: 0 0 92px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--ev-primary);
+    color: #fff;
+    padding: 1rem .5rem;
+    text-align: center;
+}
+.ev-day   { font-size: 2.2rem; font-weight: 700; line-height: 1; }
+.ev-month { font-size: .95rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; margin-top: .25rem; }
+.ev-year  { font-size: .8rem; opacity: .85; }
+
+.ev-body { flex: 1; min-width: 0; padding: 1.1rem 1.25rem; }
+
+.event-image {
+    display: block;
+    width: 100%;
+    height: 160px;
+    object-fit: cover;
+    border-radius: 10px;
+    margin-bottom: .75rem;
+}
+
+.ev-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: .75rem;
+    margin-bottom: .6rem;
+}
+.ev-title { margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--ev-text); overflow-wrap: anywhere; }
+
+.ev-badge {
+    flex-shrink: 0;
+    border-radius: 50px;
+    padding: .2rem .7rem;
+    font-size: .75rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.ev-badge.upcoming { background: #e3f2fd; color: #1565c0; }
+.ev-badge.booked   { background: #e8f5e9; color: #1b5e20; }
+
+.ev-meta {
+    list-style: none; margin: 0; padding: 0;
+    display: flex; flex-direction: column; gap: .45rem;
+    color: var(--ev-text); font-size: .92rem;
+}
+.ev-meta li { display: flex; gap: .6rem; align-items: flex-start; }
+.ev-meta li > i { width: 1.1rem; text-align: center; margin-top: .2rem; color: var(--ev-primary); }
+.ev-meta small { color: var(--ev-muted); font-size: .82rem; }
+.ev-notes { color: var(--ev-muted); font-size: .86rem; }
+
+.ev-actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: .9rem; }
+
+/* ---------- Buttons ---------- */
+.ev-btn {
+    display: inline-flex; align-items: center; gap: .5rem;
+    background: var(--ev-primary);
+    border: 2px solid var(--ev-primary);
+    color: #fff;
+    border-radius: 50px;
+    padding: .5rem 1.3rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s ease;
+}
+.ev-btn:hover { background: var(--ev-primary-dark); border-color: var(--ev-primary-dark); }
+.ev-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+.ev-btn-ghost {
+    display: inline-flex; align-items: center; gap: .5rem;
+    background: #fff;
+    border: 2px solid var(--ev-border);
+    color: var(--ev-muted);
+    border-radius: 50px;
+    padding: .5rem 1.2rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.ev-btn-ghost:hover { border-color: var(--ev-primary); color: var(--ev-primary); }
+
+/* ---------- Empty state ---------- */
+.ev-empty {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--ev-muted);
+    background: var(--ev-card-bg);
+    border-radius: var(--ev-radius);
+    box-shadow: var(--ev-shadow);
+}
+.ev-empty[hidden] { display: none; }
+.ev-empty i { font-size: 2.2rem; color: var(--ev-primary); opacity: .5; margin-bottom: .6rem; }
+.ev-empty h3 { font-size: 1.1rem; margin: 0 0 .3rem; color: var(--ev-text); }
+.ev-empty p { margin: 0; }
+
+/* ---------- Modal ---------- */
+.ev-no-scroll { overflow: hidden; }
+
+.ev-modal {
+    position: fixed; inset: 0; z-index: 2000;
+    display: flex; align-items: center; justify-content: center;
+    padding: 1rem;
+}
+.ev-modal[hidden] { display: none; }
+.ev-modal-backdrop { position: absolute; inset: 0; background: rgba(20, 10, 10, .5); }
+
+.ev-modal-dialog {
+    position: relative;
+    width: 100%;
+    max-width: 580px;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    background: #fff;
+    border-radius: var(--ev-radius);
+    box-shadow: 0 1rem 3rem rgba(0, 0, 0, .25);
+    padding: 1.75rem;
+}
+
+.ev-modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: .4rem; }
+.ev-modal-head h3 { margin: 0; font-size: 1.3rem; font-weight: 700; color: var(--ev-text); }
+.ev-modal-head h3 i { color: var(--ev-primary); margin-right: .4rem; }
+.ev-close { background: none; border: none; font-size: 1.8rem; line-height: 1; color: var(--ev-muted); cursor: pointer; }
+.ev-close:hover { color: var(--ev-primary); }
+
+.ev-modal-event { margin: 0 0 1.1rem; color: var(--ev-muted); font-size: .92rem; }
+
+.ev-field { margin-top: 1.1rem; }
+.ev-field > label { display: block; font-weight: 600; font-size: .88rem; color: var(--ev-text); margin-bottom: .45rem; }
+.ev-optional { font-weight: 400; color: var(--ev-muted); }
+.ev-field textarea {
+    width: 100%;
+    border: 1px solid var(--ev-border);
+    border-radius: 12px;
+    padding: .6rem .9rem;
+    color: var(--ev-text);
+    background: #fff;
+    font-family: inherit;
+    font-size: .95rem;
+    resize: vertical;
+}
+
+/* Time slots */
+.ev-chips { display: flex; flex-wrap: wrap; gap: .6rem; }
+.ev-chip { position: relative; margin: 0; cursor: pointer; }
+.ev-chip input { position: absolute; opacity: 0; pointer-events: none; }
+.ev-chip span {
+    display: flex; flex-direction: column; align-items: center;
+    min-width: 104px;
+    border: 2px solid var(--ev-border);
+    border-radius: 12px;
+    padding: .5rem .8rem;
+    background: #fff;
+    color: var(--ev-text);
+    transition: all .15s ease;
+}
+.ev-chip strong { font-size: .95rem; }
+.ev-chip small  { color: var(--ev-muted); font-size: .75rem; }
+.ev-chip:hover span { border-color: var(--ev-primary); }
+.ev-chip input:checked + span { background: var(--ev-primary); border-color: var(--ev-primary); color: #fff; }
+.ev-chip input:checked + span small { color: rgba(255, 255, 255, .85); }
+.ev-chip input:focus-visible + span { box-shadow: 0 0 0 .2rem rgba(198, 40, 40, .25); }
+.ev-chip input:disabled + span { opacity: .45; background: #f3f4f6; cursor: not-allowed; }
+.ev-chip input:disabled:hover + span { border-color: var(--ev-border); }
+
+.ev-modal-foot { display: flex; justify-content: flex-end; gap: .75rem; margin-top: 1.5rem; }
+
+/* ---------- Mobile ---------- */
+@media (max-width: 576px) {
+    .ev-grid { grid-template-columns: 1fr; }
+    .ev-modal-dialog { padding: 1.25rem; }
+    .ev-date { flex-basis: 76px; }
+    .ev-search { flex-basis: 100%; }
+}
+</style>
 
 
-        <!-- =================================================
-             MY APPOINTMENTS
-             ================================================= -->
-        <section class="my-appointments">
+<div class="container py-4 ev-page">
 
-            <div class="appt-section-header">
-                <div>
-                    <h2>My Appointments</h2>
-                    <p>View and manage your blood donation bookings.</p>
-                </div>
+    <!-- ================= HEADER ================= -->
+    <div class="ev-header">
+        <h1 class="ev-heading">Book Appointment</h1>
+        <p class="ev-subtitle">Choose a blood donation event, then pick an appointment time.</p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+            <div class="ev-flash {{ category }}" role="status">{{ message }}</div>
+        {% endfor %}
+    {% endwith %}
+
+
+    <!-- =================================================
+         MY APPOINTMENTS
+         ================================================= -->
+    <h2 class="ev-section-title">My Appointments</h2>
+    <p class="ev-section-sub">View and manage your upcoming blood donation bookings.</p>
+
+    {% if my_appointments %}
+    <div class="ev-grid">
+
+        {% for appt in my_appointments %}
+        {% set d = appt.appointment_date %}
+        <article class="ev-card">
+
+            <div class="ev-date">
+                <span class="ev-day">{{ d.strftime('%d') }}</span>
+                <span class="ev-month">{{ d.strftime('%b') }}</span>
+                <span class="ev-year">{{ d.strftime('%Y') }}</span>
             </div>
 
-            {% if my_appointments %}
-
-            <div class="appt-grid">
-
-                {% for appt in my_appointments %}
-
-                <article class="my-appt-card">
-
-                    <!-- DATE PANEL -->
-                    <div class="appt-date">
-
-                        {% if appt.appointment_date.strftime is defined %}
-
-                            <span class="appt-day">
-                                {{ appt.appointment_date.strftime('%d') }}
-                            </span>
-
-                            <span class="appt-month">
-                                {{ appt.appointment_date.strftime('%b') }}
-                            </span>
-
-                            <span class="appt-year">
-                                {{ appt.appointment_date.strftime('%Y') }}
-                            </span>
-
-                        {% else %}
-
-                            {% set appt_date = appt.appointment_date|string %}
-                            <span class="appt-day">
-                                {{ appt_date[8:10] }}
-                            </span>
-
-                            <span class="appt-month">
-                                {{ appt_date[5:7] }}
-                            </span>
-
-                            <span class="appt-year">
-                                {{ appt_date[0:4] }}
-                            </span>
-
-                        {% endif %}
-
-                    </div>
-
-
-                    <!-- APPOINTMENT INFORMATION -->
-                    <div class="appt-body">
-
-                        <div class="appt-top">
-
-                            <h3 class="appt-card-title">
-                                {% if appt.event_name is defined and appt.event_name %}
-                                    {{ appt.event_name }}
-                                {% else %}
-                                    Blood Donation Appointment
-                                {% endif %}
-                            </h3>
-
-                            <span class="appt-status {{ appt.status|lower|replace(' ', '-') }}">
-                                {{ appt.status }}
-                            </span>
-
-                        </div>
-
-
-                        <!-- APPOINTMENT DETAILS -->
-                        <ul class="appt-meta">
-
-                            <li>
-                                <i class="fas fa-calendar-alt"></i>
-                                <span>
-                                    <strong>Date:</strong>
-                                    {% if appt.appointment_date.strftime is defined %}
-                                        {{ appt.appointment_date.strftime('%d %b %Y') }}
-                                    {% else %}
-                                        {{ appt.appointment_date }}
-                                    {% endif %}
-                                </span>
-                            </li>
-
-                            <li>
-                                <i class="fas fa-clock"></i>
-                                <span>
-                                    <strong>Time:</strong>
-                                    {{ appt.appointment_time or 'Not specified' }}
-                                </span>
-                            </li>
-
-                            {% if appt.location is defined and appt.location %}
-                            <li>
-                                <i class="fas fa-map-marker-alt"></i>
-                                <span>
-                                    <strong>Location:</strong>
-                                    {{ appt.location }}
-                                </span>
-                            </li>
-                            {% endif %}
-
-                        </ul>
-
-
-                        <!-- NOTES -->
-                        {% if appt.notes %}
-                        <p class="appt-notes">
-                            <strong>Notes:</strong>
-                            {{ appt.notes }}
-                        </p>
-                        {% endif %}
-
-
-                        <!-- CANCEL BUTTON -->
-                        {% if appt.status|lower not in ['cancelled', 'completed'] %}
-
-                        <div class="appt-actions">
-
-                            <form method="POST"
-                                  action="{{ url_for('cancel_appointment') }}"
-                                  onsubmit="return confirm('Are you sure you want to cancel this appointment?');">
-
-                                <input type="hidden"
-                                       name="appointment_id"
-                                       value="{{ appt.appointment_id }}">
-
-                                <button type="submit"
-                                        class="appt-cancel-btn">
-
-                                    <i class="fas fa-times-circle"></i>
-                                    Cancel Appointment
-
-                                </button>
-
-                            </form>
-
-                        </div>
-
-                        {% endif %}
-
-                    </div>
-
-                </article>
-
-                {% endfor %}
-
-            </div>
-
-            {% else %}
-
-            <div class="appt-empty">
-
-                <i class="fas fa-calendar-check"></i>
-
-                <h3>No upcoming appointments</h3>
-
-                <p>
-                    You have not booked any upcoming appointments yet.
-                    Book an appointment below to get started.
-                </p>
-
-            </div>
-
-            {% endif %}
-
-        </section>
-
-
-        <!-- =================================================
-             BOOK NEW APPOINTMENT
-             ================================================= -->
-        <section class="appt-booking-section">
-
-            <div class="appt-section-header">
-                <div>
-                    <h2>Book a New Appointment</h2>
-                    <p>Select an event and an available appointment time.</p>
-                </div>
-            </div>
-
-
-            {% if events %}
-
-            <form method="POST"
-                  action="{{ url_for('book_appointment') }}"
-                  class="appt-form"
-                  id="apptForm">
-
-
-                <!-- STEP 1: SELECT EVENT -->
-                <div class="appt-field">
-
-                    <label for="appt-event">
-                        Available Blood Donation Events
-                    </label>
-
-                    <select id="appt-event"
-                            name="event_id"
-                            required>
-
-                        <option value="" selected disabled>
-                            Select an event
-                        </option>
-
-                        {% for event in events %}
-
-                        <option value="{{ event.id }}">
-
-                            {{ event.name }} — {{ event.location }}
-                            (
-                            {% if event.event_date.strftime is defined %}
-                                {{ event.event_date.strftime('%d %b %Y') }}
-                            {% else %}
-                                {{ event.event_date }}
-                            {% endif %}
-                            )
-
-                        </option>
-
-                        {% endfor %}
-
-                    </select>
-
+            <div class="ev-body">
+
+                <div class="ev-top">
+                    <h4 class="ev-title">{{ appt.title or appt.event_name or 'Blood Donation Appointment' }}</h4>
+                    <span class="ev-badge booked">Booked</span>
                 </div>
 
-
-                <!-- STEP 2: EVENT DETAILS AND TIME SLOTS -->
-                {% for event in events %}
-
-                <section class="appt-event-details"
-                         data-event-id="{{ event.id }}"
-                         hidden>
-
-                    <div class="appt-divider">
-                        <span>Event Details</span>
-                    </div>
-
-                    <h3>{{ event.name }}</h3>
-
-                    <ul class="appt-meta">
-
-                        <li>
-                            <i class="fas fa-map-marker-alt"></i>
-                            <span>
-                                <strong>Location:</strong>
-                                {{ event.location }}
-                            </span>
-                        </li>
-
-                        <li>
-                            <i class="fas fa-calendar-alt"></i>
-                            <span>
-                                <strong>Date:</strong>
-                                {% if event.event_date.strftime is defined %}
-                                    {{ event.event_date.strftime('%d %b %Y') }}
-                                {% else %}
-                                    {{ event.event_date }}
-                                {% endif %}
-                            </span>
-                        </li>
-
-                        <li>
-                            <i class="fas fa-clock"></i>
-                            <span>
-                                <strong>Event Time:</strong>
-                                {{ event.start_time }} – {{ event.end_time }}
-                            </span>
-                        </li>
-
-                    </ul>
-
-                    {% if event.description %}
-                    <p class="appt-notes">
-                        {{ event.description }}
-                    </p>
+                <ul class="ev-meta">
+                    <li><i class="far fa-calendar"></i> {{ d.strftime('%A, %d %b %Y') }}</li>
+                    <li>
+                        <i class="far fa-clock"></i>
+                        {{ appt.time_label or appt.appointment_time or 'Time not specified' }}
+                    </li>
+                    {% if appt.place or appt.location %}
+                    <li>
+                        <i class="fas fa-location-dot"></i>
+                        <span><strong>{{ appt.place or appt.location }}</strong></span>
+                    </li>
                     {% endif %}
+                </ul>
 
-
-                    <!-- AVAILABLE TIME SLOTS -->
-                    <div class="appt-divider">
-                        <span>Available Appointment Times</span>
-                    </div>
-
-                    <div class="appt-chips">
-
-                        {% for slot in event.available_times %}
-
-                        <label class="appt-chip">
-
-                            <input type="radio"
-                                   name="appointment_time"
-                                   value="{{ slot.time }}"
-                                   data-event-id="{{ event.id }}"
-                                   {% if slot.available <= 0 %}disabled{% endif %}
-                                   required>
-
-                            <span>
-
-                                <strong>{{ slot.time }}</strong>
-
-                                {% if slot.available <= 0 %}
-
-                                    <small>Full</small>
-
-                                {% else %}
-
-                                    <small>
-                                        {{ slot.available }} slot(s) left
-                                    </small>
-
-                                {% endif %}
-
-                            </span>
-
-                        </label>
-
-                        {% else %}
-
-                        <p>No appointment times are currently available.</p>
-
-                        {% endfor %}
-
-                    </div>
-
-                </section>
-
-                {% endfor %}
-
-
-                <!-- STEP 3: NOTES -->
-                <div class="appt-field">
-
-                    <label for="appt-notes">
-                        Notes (Optional)
-                    </label>
-
-                    <textarea id="appt-notes"
-                              name="notes"
-                              rows="3"
-                              maxlength="300"
-                              placeholder="Anything you want staff to know"></textarea>
-
+                <div class="ev-actions">
+                    <form method="POST"
+                          action="{{ url_for('cancel_appointment') }}"
+                          onsubmit="return confirm('Are you sure you want to cancel this appointment?');">
+                        <input type="hidden" name="appointment_id" value="{{ appt.appointment_id }}">
+                        <button type="submit" class="ev-btn-ghost">
+                            <i class="fas fa-times-circle"></i> Cancel Appointment
+                        </button>
+                    </form>
                 </div>
 
-
-                <!-- STEP 4: SUBMIT -->
-                <button type="submit"
-                        class="appt-btn"
-                        id="apptConfirmBtn"
-                        disabled>
-
-                    <i class="fas fa-calendar-check"></i>
-                    Confirm Appointment
-
-                </button>
-
-            </form>
-
-
-            {% else %}
-
-            <div class="appt-empty">
-
-                <i class="fas fa-calendar-times"></i>
-
-                <h3>No Upcoming Blood Donation Events</h3>
-
-                <p>
-                    There are currently no available events to book.
-                    Please check again later.
-                </p>
-
             </div>
-
-            {% endif %}
-
-        </section>
+        </article>
+        {% endfor %}
 
     </div>
+    {% else %}
+    <div class="ev-empty">
+        <i class="fas fa-calendar-check"></i>
+        <h3>No upcoming appointments</h3>
+        <p>You have not booked any appointments yet. Pick an event below to get started.</p>
+    </div>
+    {% endif %}
+
+
+    <!-- =================================================
+         AVAILABLE EVENTS
+         ================================================= -->
+    <h2 class="ev-section-title">Available Events</h2>
+    <p class="ev-section-sub">Select an event to choose your appointment time.</p>
+
+    {% if events %}
+
+    <div class="ev-toolbar">
+        <div class="ev-search">
+            <i class="fas fa-search"></i>
+            <input type="text" id="searchInput" placeholder="Search event or place">
+        </div>
+    </div>
+
+    <div class="ev-grid" id="eventGrid">
+
+        {% for event in events %}
+        {% set spots = event.available_times|sum(attribute='available') %}
+        <article class="ev-card"
+                 data-id="{{ event.id }}"
+                 data-title="{{ event.name }}"
+                 data-when="{{ event.event_date.strftime('%A, %d %b %Y') }} · {{ event.start_time }} - {{ event.end_time }}"
+                 data-search="{{ (event.name ~ ' ' ~ event.location ~ ' ' ~ event.address)|lower }}">
+
+            <div class="ev-date">
+                <span class="ev-day">{{ event.event_date.strftime('%d') }}</span>
+                <span class="ev-month">{{ event.event_date.strftime('%b') }}</span>
+                <span class="ev-year">{{ event.event_date.strftime('%Y') }}</span>
+            </div>
+
+            <div class="ev-body">
+
+                {% if event.image %}
+                <img class="event-image"
+                     src="{{ url_for('static', filename='uploads/events/' ~ event.image) }}"
+                     alt="{{ event.name }}"
+                     loading="lazy">
+                {% endif %}
+
+                <div class="ev-top">
+                    <h4 class="ev-title">{{ event.name }}</h4>
+                    <span class="ev-badge upcoming">{{ spots }} place{{ '' if spots == 1 else 's' }} left</span>
+                </div>
+
+                <ul class="ev-meta">
+                    <li><i class="far fa-calendar"></i> {{ event.event_date.strftime('%A') }}</li>
+                    <li><i class="far fa-clock"></i> {{ event.start_time }} - {{ event.end_time }}</li>
+                    <li>
+                        <i class="fas fa-location-dot"></i>
+                        <span><strong>{{ event.location }}</strong><br><small>{{ event.address }}</small></span>
+                    </li>
+                    {% if event.description %}
+                    <li class="ev-notes"><i class="far fa-note-sticky"></i> {{ event.description }}</li>
+                    {% endif %}
+                </ul>
+
+                <div class="ev-actions">
+                    <button type="button" class="ev-btn" data-action="book">
+                        <i class="fas fa-calendar-check"></i> Book
+                    </button>
+                </div>
+
+            </div>
+        </article>
+        {% endfor %}
+
+    </div>
+
+    <div class="ev-empty" id="emptyState" hidden>
+        <i class="fas fa-calendar-xmark"></i>
+        <p>No events match your search.</p>
+    </div>
+
+    {% else %}
+    <div class="ev-empty">
+        <i class="fas fa-calendar-xmark"></i>
+        <h3>No upcoming blood donation events</h3>
+        <p>There are no events available to book right now. Please check again later.</p>
+    </div>
+    {% endif %}
 
 </div>
 
 
-<!-- =====================================================
-     JAVASCRIPT
-     ===================================================== -->
+{% if events %}
+<!-- ================= BOOKING MODAL ================= -->
+<div class="ev-modal" id="bookModal" hidden>
+    <div class="ev-modal-backdrop" data-close></div>
+
+    <div class="ev-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="bookTitle">
+
+        <div class="ev-modal-head">
+            <h3 id="bookTitle"><i class="fas fa-calendar-check"></i> <span id="bookEventName">Book Appointment</span></h3>
+            <button type="button" class="ev-close" data-close aria-label="Close">&times;</button>
+        </div>
+        <p class="ev-modal-event" id="bookEventWhen"></p>
+
+        <form method="POST" action="{{ url_for('book_appointment') }}" id="bookForm" autocomplete="off">
+
+            <input type="hidden" name="event_id" id="bookEventId" value="">
+
+            <div class="ev-field">
+                <label>Choose an appointment time</label>
+
+                {% for event in events %}
+                <div class="ev-chips" data-event-id="{{ event.id }}" hidden>
+                    {% for slot in event.available_times %}
+                    <label class="ev-chip">
+                        <input type="radio"
+                               name="appointment_time"
+                               value="{{ slot.time }}"
+                               {% if slot.available <= 0 %}data-full="1"{% endif %}
+                               disabled>
+                        <span>
+                            <strong>{{ slot.label }}</strong>
+                            <small>{% if slot.available <= 0 %}Full{% else %}{{ slot.available }} left{% endif %}</small>
+                        </span>
+                    </label>
+                    {% else %}
+                    <p>No appointment times are currently available.</p>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="ev-field">
+                <label for="bookNotes">Notes <span class="ev-optional">(optional)</span></label>
+                <textarea id="bookNotes" name="notes" rows="3" maxlength="300"
+                          placeholder="Anything you want staff to know"></textarea>
+            </div>
+
+            <div class="ev-modal-foot">
+                <button type="button" class="ev-btn-ghost" data-close>Cancel</button>
+                <button type="submit" class="ev-btn" id="bookConfirm" disabled>
+                    <i class="fas fa-check"></i> Confirm Appointment
+                </button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+
 <script>
-document.addEventListener("DOMContentLoaded", function () {
+(function () {
 
-    const eventSelect = document.getElementById("appt-event");
-    const eventSections = document.querySelectorAll(
-        ".appt-event-details"
-    );
-    const confirmButton = document.getElementById(
-        "apptConfirmBtn"
-    );
-    const form = document.getElementById("apptForm");
+    const grid        = document.getElementById('eventGrid');
+    const emptyState  = document.getElementById('emptyState');
+    const searchInput = document.getElementById('searchInput');
 
-    if (!eventSelect || !form || !confirmButton) {
-        return;
-    }
+    const modal     = document.getElementById('bookModal');
+    const form      = document.getElementById('bookForm');
+    const confirmBt = document.getElementById('bookConfirm');
+    const groups    = modal.querySelectorAll('.ev-chips');
 
-    function updateButton() {
+    function openModal()  { modal.hidden = false; document.body.classList.add('ev-no-scroll'); }
+    function closeModal() { modal.hidden = true;  document.body.classList.remove('ev-no-scroll'); }
 
-        const selectedTime = form.querySelector(
-            'input[name="appointment_time"]:checked:not(:disabled)'
-        );
-
-        confirmButton.disabled =
-            !eventSelect.value || !selectedTime;
-
-    }
+    modal.addEventListener('click', e => {
+        if (e.target.closest('[data-close]')) closeModal();
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && !modal.hidden) closeModal();
+    });
 
 
-    function updateEvent() {
+    /* ---------- search ---------- */
+    searchInput.addEventListener('input', () => {
+        const q = searchInput.value.trim().toLowerCase();
+        let shown = 0;
 
-        const selectedEventId = eventSelect.value;
-
-        eventSections.forEach(function (section) {
-
-            const isSelected =
-                section.dataset.eventId === selectedEventId;
-
-            section.hidden = !isSelected;
-
-            section.querySelectorAll(
-                'input[name="appointment_time"]'
-            ).forEach(function (input) {
-
-                input.disabled =
-                    !isSelected ||
-                    input.dataset.eventId !== selectedEventId;
-
-                if (input.disabled) {
-                    input.checked = false;
-                }
-
-            });
-
+        grid.querySelectorAll('.ev-card').forEach(card => {
+            const match = !q || card.dataset.search.includes(q);
+            card.hidden = !match;
+            card.style.display = match ? '' : 'none';
+            if (match) shown++;
         });
 
-        updateButton();
-
-    }
-
-
-    eventSelect.addEventListener("change", updateEvent);
-
-    form.querySelectorAll(
-        'input[name="appointment_time"]'
-    ).forEach(function (input) {
-
-        input.addEventListener("change", updateButton);
-
+        emptyState.hidden = shown > 0;
     });
 
 
-    form.addEventListener("submit", function (e) {
+    /* ---------- open booking modal for one event ---------- */
+    grid.addEventListener('click', e => {
+        const btn = e.target.closest('[data-action="book"]');
+        if (!btn) return;
 
-        const selectedTime = form.querySelector(
-            'input[name="appointment_time"]:checked:not(:disabled)'
-        );
+        const card = btn.closest('.ev-card');
+        const id   = card.dataset.id;
 
-        if (!eventSelect.value || !selectedTime) {
+        document.getElementById('bookEventId').value        = id;
+        document.getElementById('bookEventName').textContent = card.dataset.title;
+        document.getElementById('bookEventWhen').textContent = card.dataset.when;
+        document.getElementById('bookNotes').value           = '';
 
+        // Show only this event's times; disable every other radio so
+        // exactly one appointment_time can be submitted.
+        groups.forEach(group => {
+            const isThis = group.dataset.eventId === id;
+            group.hidden = !isThis;
+
+            group.querySelectorAll('input[type="radio"]').forEach(input => {
+                input.checked  = false;
+                input.disabled = !isThis || input.dataset.full === '1';
+            });
+        });
+
+        confirmBt.disabled = true;
+        openModal();
+    });
+
+    form.addEventListener('change', e => {
+        if (e.target.name === 'appointment_time') confirmBt.disabled = false;
+    });
+
+    form.addEventListener('submit', e => {
+        const chosen = form.querySelector('input[name="appointment_time"]:checked:not(:disabled)');
+        if (!document.getElementById('bookEventId').value || !chosen) {
             e.preventDefault();
-
-            alert(
-                "Please select an event and an available appointment time."
-            );
-
+            alert('Please choose an available appointment time.');
         }
-
     });
 
-
-    updateEvent();
-
-});
+})();
 </script>
+{% endif %}
 
 {% endblock %}

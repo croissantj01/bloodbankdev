@@ -1,6 +1,16 @@
 {% extends "donor/donor_base.html" %}
 
 {% block content %}
+<style>
+    .rw-phone-field { margin-top: 0.9rem; }
+    .rw-phone-field label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.3rem; }
+    .rw-phone-input {
+        width: 100%; padding: 0.6rem 0.8rem; font: inherit; font-size: 0.9rem;
+        border: 1.5px solid var(--rw-border); border-radius: 10px; background: #FFFFFF;
+    }
+    .rw-phone-input:focus-visible { outline: 2px solid var(--rw-accent); outline-offset: 1px; }
+</style>
+
 <div class="rw-page">
     <div class="rw-wrap">
         <h1>Rewards</h1>
@@ -15,87 +25,94 @@
         <div class="rw-stats">
             <div class="rw-stat rw-stat--main">
                 <span class="rw-stat-label">Merit points</span>
-                <strong class="rw-stat-value">450</strong>
-                <small>Earn 100 points for every successful blood donation.</small>
+                <strong class="rw-stat-value">{{ points }}</strong>
+                <small>Earn {{ points_per_donation }} points for every successful blood donation.</small>
             </div>
             <div class="rw-stat">
                 <span class="rw-stat-label">Total donations</span>
-                <strong class="rw-stat-value">5</strong>
+                <strong class="rw-stat-value">{{ total_donations }}</strong>
             </div>
             <div class="rw-stat">
                 <span class="rw-stat-label">Points claimed</span>
-                <strong class="rw-stat-value">300</strong>
+                <strong class="rw-stat-value">{{ points_claimed }}</strong>
             </div>
         </div>
 
-        <!-- REWARDS LIST (demo data, later replace with a Jinja loop) -->
+        <!-- REWARDS LIST -->
         <h2 class="rw-heading">Available rewards</h2>
 
         <div class="rw-grid">
 
-            <!-- Can claim -->
-            <div class="rw-card">
-                <div class="rw-card-body">
-                    <h3>Health screening voucher</h3>
-                    <p>Free basic health check at partner clinics.</p>
-                </div>
-                <div class="rw-card-foot">
-                    <span class="rw-cost">200 pts</span>
-                    <form method="POST" class="rw-claim-form"
-                          data-name="Health screening voucher" data-cost="200">
-                        <input type="hidden" name="reward_id" value="1">
-                        <button type="submit" class="rw-btn">Claim</button>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Can claim -->
-            <div class="rw-card">
-                <div class="rw-card-body">
-                    <h3>Donor T-shirt</h3>
-                    <p>Limited edition blood donor campaign T-shirt.</p>
-                </div>
-                <div class="rw-card-foot">
-                    <span class="rw-cost">300 pts</span>
-                    <form method="POST" class="rw-claim-form"
-                          data-name="Donor T-shirt" data-cost="300">
-                        <input type="hidden" name="reward_id" value="2">
-                        <button type="submit" class="rw-btn">Claim</button>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Not enough points -->
-            <div class="rw-card rw-card--locked">
-                <div class="rw-card-body">
-                    <h3>RM20 tng voucher</h3>
-                    <p>Redeemable using your tng account.</p>
-                    <div class="rw-progress" aria-hidden="true">
-                        <div class="rw-progress-bar" style="width: 90%;"></div>
+            {% for r in rewards %}
+                {% if r.can_claim %}
+                <!-- Can claim -->
+                <div class="rw-card">
+                    <div class="rw-card-body">
+                        <h3>{{ r.name }}</h3>
+                        {% if r.description %}<p>{{ r.description }}</p>{% endif %}
+                        {% if r.stock is not none and r.stock <= 5 %}
+                            <small class="rw-progress-text">Only {{ r.stock }} left</small>
+                        {% endif %}
+                        {% if r.needs_phone %}
+                        <div class="rw-phone-field">
+                            <label for="phone-{{ r.id }}">TNG phone number</label>
+                            <input type="tel" id="phone-{{ r.id }}" class="rw-phone-input"
+                                   name="phone" form="claim-{{ r.id }}"
+                                   value="{{ phone_prefill }}" placeholder="012-345 6789"
+                                   inputmode="tel" autocomplete="tel" required
+                                   pattern="[0-9+ \-]{9,17}"
+                                   title="Enter your Malaysian mobile number, for example 012-345 6789">
+                            <small class="rw-progress-text">The admin will transfer the money to this TNG eWallet number.</small>
+                        </div>
+                        {% endif %}
                     </div>
-                    <small class="rw-progress-text">50 more points needed</small>
-                </div>
-                <div class="rw-card-foot">
-                    <span class="rw-cost">500 pts</span>
-                    <button type="button" class="rw-btn" disabled>Claim</button>
-                </div>
-            </div>
-
-            <!-- Not enough points -->
-            <div class="rw-card rw-card--locked">
-                <div class="rw-card-body">
-                    <h3>Movie ticket pair</h3>
-                    <p>Two cinema tickets, valid for 3 months.</p>
-                    <div class="rw-progress" aria-hidden="true">
-                        <div class="rw-progress-bar" style="width: 56%;"></div>
+                    <div class="rw-card-foot">
+                        <span class="rw-cost">{{ r.cost }} pts</span>
+                        <form method="POST" class="rw-claim-form" id="claim-{{ r.id }}"
+                              data-name="{{ r.name }}" data-cost="{{ r.cost }}">
+                            <input type="hidden" name="reward_id" value="{{ r.id }}">
+                            <button type="submit" class="rw-btn">Claim</button>
+                        </form>
                     </div>
-                    <small class="rw-progress-text">350 more points needed</small>
                 </div>
-                <div class="rw-card-foot">
-                    <span class="rw-cost">800 pts</span>
-                    <button type="button" class="rw-btn" disabled>Claim</button>
+
+                {% elif r.out_of_stock %}
+                <!-- Out of stock -->
+                <div class="rw-card rw-card--locked">
+                    <div class="rw-card-body">
+                        <h3>{{ r.name }}</h3>
+                        {% if r.description %}<p>{{ r.description }}</p>{% endif %}
+                        <small class="rw-progress-text">Out of stock</small>
+                    </div>
+                    <div class="rw-card-foot">
+                        <span class="rw-cost">{{ r.cost }} pts</span>
+                        <button type="button" class="rw-btn" disabled>Out of stock</button>
+                    </div>
                 </div>
-            </div>
+
+                {% else %}
+                <!-- Not enough points -->
+                <div class="rw-card rw-card--locked">
+                    <div class="rw-card-body">
+                        <h3>{{ r.name }}</h3>
+                        {% if r.description %}<p>{{ r.description }}</p>{% endif %}
+                        <div class="rw-progress" aria-hidden="true">
+                            <div class="rw-progress-bar" style="width: {{ r.percent }}%;"></div>
+                        </div>
+                        <small class="rw-progress-text">{{ r.needed }} more points needed</small>
+                        {% if r.needs_phone %}
+                            <small class="rw-progress-text">You will enter your TNG phone number when you claim.</small>
+                        {% endif %}
+                    </div>
+                    <div class="rw-card-foot">
+                        <span class="rw-cost">{{ r.cost }} pts</span>
+                        <button type="button" class="rw-btn" disabled>Claim</button>
+                    </div>
+                </div>
+                {% endif %}
+            {% else %}
+                <p class="rw-empty">No rewards are available yet. Please check back soon.</p>
+            {% endfor %}
 
         </div>
 
@@ -112,24 +129,15 @@
                     </tr>
                 </thead>
                 <tbody>
+                    {% for h in history %}
                     <tr>
-                        <td>2026-09-12</td>
-                        <td>Blood donation (Whole blood)</td>
-                        <td class="rw-num rw-plus">+100</td>
+                        <td>{{ h.date }}</td>
+                        <td>{{ h.activity }}</td>
+                        <td class="rw-num {{ 'rw-plus' if h.points > 0 else 'rw-minus' }}">{{ '%+d' % h.points }}</td>
                     </tr>
-                    <tr>
-                        <td>2026-08-20</td>
-                        <td>Claimed: Donor cap</td>
-                        <td class="rw-num rw-minus">-300</td>
-                    </tr>
-                    <tr>
-                        <td>2026-06-05</td>
-                        <td>Blood donation (Platelets)</td>
-                        <td class="rw-num rw-plus">+100</td>
-                    </tr>
-                    <!-- Empty state: show this row when there is no history
+                    {% else %}
                     <tr><td colspan="3" class="rw-empty">No points activity yet.</td></tr>
-                    -->
+                    {% endfor %}
                 </tbody>
             </table>
         </div>
@@ -141,6 +149,10 @@
 document.querySelectorAll('.rw-claim-form').forEach(function (form) {
     form.addEventListener('submit', function (e) {
         var msg = 'Claim "' + form.dataset.name + '" for ' + form.dataset.cost + ' points?';
+        var phone = form.elements['phone'];   // the box that is linked to this form
+        if (phone && phone.value.trim()) {
+            msg += '\n\nThe admin will transfer it to your TNG number: ' + phone.value.trim();
+        }
         if (!confirm(msg)) {
             e.preventDefault();
         }

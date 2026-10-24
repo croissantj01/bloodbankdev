@@ -231,31 +231,31 @@
 
         <div class="export-group">
             <p>Stock Reports</p>
-            <a href="#" class="export-btn">
+            <a href="{{ url_for('download_stock_report') }}" class="export-btn">
                 <i class="fas fa-file-pdf"></i> Blood Stock Report
             </a>
-            <a href="#" class="export-btn">
+            <a href="{{ url_for('download_alert_report', from_date=from_date, to_date=to_date) }}" class="export-btn">
                 <i class="fas fa-file-pdf"></i> Low Stock Alert Report
             </a>
         </div>
 
         <div class="export-group">
             <p>Request Reports</p>
-            <a href="#" class="export-btn">
+            <a href="{{ url_for('download_request_report', from_date=from_date, to_date=to_date) }}" class="export-btn">
                 <i class="fas fa-file-pdf"></i> Blood Request Report
             </a>
         </div>
 
         <div class="export-group">
             <p>Donation Reports</p>
-            <a href="#" class="export-btn">
+            <a href="{{ url_for('download_donation_report', from_date=from_date, to_date=to_date) }}" class="export-btn">
                 <i class="fas fa-file-pdf"></i> Donation Report
             </a>
         </div>
 
         <div class="export-group">
             <p>User Reports</p>
-            <a href="#" class="export-btn">
+            <a href="{{ url_for('download_user_report', from_date=from_date, to_date=to_date) }}" class="export-btn">
                 <i class="fas fa-file-pdf"></i> User Report
             </a>
         </div>

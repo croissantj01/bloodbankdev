@@ -1,0 +1,491 @@
+{% extends 'admin/admin_base.html' %}
+{% block content %}
+
+<div class="container py-4">
+
+    <!-- ================= HEADER ================= -->
+    <div class="mu-header">
+        <div>
+            <h1 class="report-heading">Add Rewards</h1>
+            <p class="report-subtitle mb-0">
+                Create rewards that donors can claim with their merit points.
+                Donors earn {{ points_per_donation }} points for every blood donation.
+            </p>
+        </div>
+
+        <button type="button" class="export-btn mu-add-btn" id="openAddModal">
+            <i class="fas fa-plus"></i> Add Reward
+        </button>
+    </div>
+
+
+    <!-- ================= SUMMARY ================= -->
+    <div class="report-summary mu-summary">
+
+        <div class="report-card">
+            <h4>Total Rewards</h4>
+            <div class="report-value">{{ rewards|length }}</div>
+        </div>
+
+        <div class="report-card">
+            <h4>Active</h4>
+            <div class="report-value">{{ active_count }}</div>
+        </div>
+
+        <div class="report-card">
+            <h4>Hidden (Inactive)</h4>
+            <div class="report-value">{{ inactive_count }}</div>
+        </div>
+
+        <div class="report-card">
+            <h4>Times Claimed</h4>
+            <div class="report-value">{{ total_claims }}</div>
+        </div>
+
+    </div>
+
+
+    <!-- ================= REWARDS TABLE ================= -->
+    <div class="mu-card">
+
+        <div class="mu-toolbar">
+
+            <div class="mu-search">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search rewards">
+            </div>
+
+            <select id="statusFilter" class="mu-select" aria-label="Filter by status">
+                <option value="">All status</option>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+            </select>
+
+        </div>
+
+        <div class="mu-table-wrap">
+            <table class="mu-table">
+                <thead>
+                    <tr>
+                        <th>Reward</th>
+                        <th>Points</th>
+                        <th>Stock</th>
+                        <th>Claimed</th>
+                        <th>Status</th>
+                        <th>Added</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody id="rewardBody">
+                {% for r in rewards %}
+                    <tr data-id="{{ r.id }}"
+                        data-name="{{ r.name }}"
+                        data-description="{{ r.description }}"
+                        data-points="{{ r.points }}"
+                        data-stock="{{ '' if r.stock is none else r.stock }}"
+                        data-status="{{ r.status }}"
+                        data-needs-phone="{{ 1 if r.needs_phone else 0 }}">
+
+                        <td>
+                            <div class="mu-name">{{ r.name }}</div>
+                            {% if r.description %}
+                                <div class="mu-phone">{{ r.description }}</div>
+                            {% endif %}
+                            {% if r.needs_phone %}
+                                <div class="mu-phone"><i class="fas fa-mobile-screen"></i> Asks donor for TNG phone number</div>
+                            {% endif %}
+                        </td>
+
+                        <td><strong>{{ r.points }}</strong> pts</td>
+
+                        <td>
+                            {% if r.stock is none %}
+                                Unlimited
+                            {% elif r.stock == 0 %}
+                                <span class="mu-badge status inactive">Out of stock</span>
+                            {% else %}
+                                {{ r.stock }} left
+                            {% endif %}
+                        </td>
+
+                        <td>{{ r.claimed }}</td>
+
+                        <td>
+                            <span class="mu-badge status {{ 'active' if r.status == 'Active' else 'inactive' }}">
+                                {{ r.status }}
+                            </span>
+                        </td>
+
+                        <td>{{ r.date }}</td>
+
+                        <td class="text-end">
+                            <div class="mu-actions">
+                                <button type="button" class="mu-icon-btn" title="Edit" data-action="edit">
+                                    <i class="fas fa-pen"></i>
+                                </button>
+
+                                <button type="button" class="mu-icon-btn" data-action="toggle"
+                                        title="{{ 'Hide from donors' if r.status == 'Active' else 'Show to donors' }}">
+                                    <i class="fas {{ 'fa-eye-slash' if r.status == 'Active' else 'fa-eye' }}"></i>
+                                </button>
+
+                                <button type="button" class="mu-icon-btn danger" title="Delete" data-action="delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+
+            <div class="mu-empty" id="emptyState" {% if rewards %}hidden{% endif %}>
+                <i class="fas fa-gift"></i>
+                <p id="emptyText">
+                    {% if rewards %}No rewards match your search.{% else %}No rewards yet. Click "Add Reward" to create the first one.{% endif %}
+                </p>
+            </div>
+        </div>
+
+    </div>
+
+
+    <!-- ================= RECENT CLAIMS ================= -->
+    <h2 class="report-title" style="margin-top: 2rem;">
+        <i class="fas fa-clipboard-check"></i> Claims
+    </h2>
+    <p class="report-subtitle">Latest 100 claims. For TNG rewards, transfer the money to the phone number shown.</p>
+
+    <div class="mu-card">
+        <div class="mu-table-wrap">
+            <table class="mu-table">
+                <thead>
+                    <tr>
+                        <th>Donor</th>
+                        <th>Reward</th>
+                        <th>TNG phone number</th>
+                        <th>Points</th>
+                        <th>Claimed on</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for c in claims %}
+                    <tr>
+                        <td>
+                            <div class="mu-name">{{ c.donor }}</div>
+                            {% if c.email %}<div class="mu-phone">{{ c.email }}</div>{% endif %}
+                        </td>
+                        <td>{{ c.reward }}</td>
+                        <td>{% if c.phone %}<strong>{{ c.phone }}</strong>{% else %}-{% endif %}</td>
+                        <td>-{{ c.points }}</td>
+                        <td>{{ c.date }}</td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center">No rewards have been claimed yet.</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+
+<!-- ================= ADD / EDIT REWARD MODAL ================= -->
+<div class="mu-modal" id="rewardModal" hidden>
+    <div class="mu-modal-backdrop" data-close></div>
+
+    <div class="mu-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="rewardModalTitle">
+
+        <div class="mu-modal-head">
+            <h3 id="rewardModalTitle"><i class="fas fa-plus"></i> Add Reward</h3>
+            <button type="button" class="mu-close" data-close aria-label="Close">&times;</button>
+        </div>
+
+        <form id="rewardForm" autocomplete="off">
+
+            <div class="mu-form-grid">
+
+                <div class="mu-field mu-span-2">
+                    <label for="fName">Reward name</label>
+                    <input type="text" id="fName" name="name" required maxlength="80"
+                           placeholder="e.g. Health screening voucher">
+                </div>
+
+                <div class="mu-field mu-span-2">
+                    <label for="fDescription">Description</label>
+                    <input type="text" id="fDescription" name="description" maxlength="200"
+                           placeholder="e.g. Free basic health check at partner clinics">
+                </div>
+
+                <div class="mu-field">
+                    <label for="fPoints">Points needed</label>
+                    <input type="number" id="fPoints" name="points_cost" required
+                           min="1" max="100000" step="1" placeholder="e.g. 200">
+                </div>
+
+                <div class="mu-field">
+                    <label for="fStock">Quantity available</label>
+                    <input type="number" id="fStock" name="stock"
+                           min="0" max="100000" step="1" placeholder="Blank = unlimited">
+                </div>
+
+                <div class="mu-field">
+                    <label for="fStatus">Status</label>
+                    <select id="fStatus" name="status">
+                        <option value="Active" selected>Active (donors can claim)</option>
+                        <option value="Inactive">Inactive (hidden from donors)</option>
+                    </select>
+                </div>
+
+                <div class="mu-field mu-span-2">
+                    <label for="fNeedsPhone" style="display:flex; gap:.6rem; align-items:flex-start; font-weight:500;">
+                        <input type="checkbox" id="fNeedsPhone" name="needs_phone" value="1"
+                               style="width:auto; margin-top:.25rem;">
+                        <span>Donor must enter a TNG phone number to claim this reward<br>
+                            <small>For TNG vouchers: the donor types their number when claiming and you transfer the money to it manually.</small>
+                        </span>
+                    </label>
+                </div>
+
+            </div>
+
+            <p class="mu-hint">
+                <i class="fas fa-info-circle"></i>
+                Each claim uses one from the quantity. When it reaches 0, donors see "Out of stock".
+            </p>
+
+            <div class="mu-modal-foot">
+                <button type="button" class="mu-btn-ghost" data-close>Cancel</button>
+                <button type="submit" class="export-btn" id="rewardSubmit">
+                    <i class="fas fa-check"></i> Add Reward
+                </button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+
+<!-- ================= CONFIRM MODAL ================= -->
+<div class="mu-modal" id="confirmModal" hidden>
+    <div class="mu-modal-backdrop" data-close></div>
+
+    <div class="mu-modal-dialog mu-modal-sm" role="alertdialog" aria-modal="true">
+        <div class="mu-confirm-icon"><i class="fas fa-triangle-exclamation"></i></div>
+        <h3 id="confirmTitle">Are you sure?</h3>
+        <p id="confirmText" class="mu-confirm-text"></p>
+
+        <div class="mu-modal-foot center">
+            <button type="button" class="mu-btn-ghost" data-close>Cancel</button>
+            <button type="button" class="export-btn" id="confirmOk">Confirm</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- ================= TOAST ================= -->
+<div class="mu-toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+
+<script>
+(function () {
+
+    const body         = document.getElementById('rewardBody');
+    const searchInput  = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
+    const emptyState   = document.getElementById('emptyState');
+    const emptyText    = document.getElementById('emptyText');
+    const toast        = document.getElementById('toast');
+
+    const URL_BASE = "{{ url_for('add_rewards') }}";           // /add_rewards
+    const URL_ADD  = URL_BASE + '/add';
+    const rewardUrl = (id, action) => URL_BASE + '/' + id + '/' + action;
+
+    const rows = () => Array.from(body.querySelectorAll('tr'));
+
+    /* ---------- toast (also survives the page reload after a save) ---------- */
+    function showToast(msg, ms) {
+        toast.textContent = msg;
+        toast.hidden = false;
+        clearTimeout(showToast.t);
+        showToast.t = setTimeout(() => { toast.hidden = true; }, ms || 2800);
+    }
+
+    function finish(message) {
+        try { sessionStorage.setItem('rewardToast', message); } catch (e) {}
+        location.reload();
+    }
+
+    try {
+        const pending = sessionStorage.getItem('rewardToast');
+        if (pending) {
+            sessionStorage.removeItem('rewardToast');
+            showToast(pending);
+        }
+    } catch (e) {}
+
+    /* ---------- server call ---------- */
+    async function postJSON(url, formData) {
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                body: formData || new FormData(),
+                headers: { 'X-Requested-With': 'fetch' }
+            });
+            return await res.json();
+        } catch (err) {
+            return { ok: false, error: 'Could not reach the server. Please try again.' };
+        }
+    }
+
+    /* ---------- modals ---------- */
+    function openModal(el)  { el.hidden = false; document.body.classList.add('mu-no-scroll'); }
+    function closeModal(el) { el.hidden = true;  document.body.classList.remove('mu-no-scroll'); }
+
+    document.querySelectorAll('.mu-modal').forEach(modal => {
+        modal.addEventListener('click', e => {
+            if (e.target.closest('[data-close]')) closeModal(modal);
+        });
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') document.querySelectorAll('.mu-modal').forEach(m => closeModal(m));
+    });
+
+    /* ---------- search + status filter ---------- */
+    function applyFilters() {
+        const q      = searchInput.value.trim().toLowerCase();
+        const status = statusFilter.value;
+        let visible  = 0;
+
+        rows().forEach(r => {
+            const match =
+                (!status || r.dataset.status === status) &&
+                (!q || r.textContent.toLowerCase().includes(q));
+            r.hidden = !match;
+            if (match) visible++;
+        });
+
+        if (rows().length) {
+            emptyText.textContent = 'No rewards match your search.';
+        }
+        emptyState.hidden = visible > 0;
+    }
+    [searchInput, statusFilter].forEach(el => el.addEventListener('input', applyFilters));
+
+    /* ---------- add / edit ---------- */
+    const rewardModal = document.getElementById('rewardModal');
+    const rewardForm  = document.getElementById('rewardForm');
+    const submitBtn   = document.getElementById('rewardSubmit');
+    let editingRow    = null;
+
+    document.getElementById('openAddModal').addEventListener('click', () => {
+        editingRow = null;
+        rewardForm.reset();
+        document.getElementById('rewardModalTitle').innerHTML = '<i class="fas fa-plus"></i> Add Reward';
+        submitBtn.innerHTML = '<i class="fas fa-check"></i> Add Reward';
+        openModal(rewardModal);
+        document.getElementById('fName').focus();
+    });
+
+    function openEdit(r) {
+        editingRow = r;
+        rewardForm.reset();
+        document.getElementById('fName').value        = r.dataset.name;
+        document.getElementById('fDescription').value = r.dataset.description;
+        document.getElementById('fPoints').value      = r.dataset.points;
+        document.getElementById('fStock').value       = r.dataset.stock;   // '' = unlimited
+        document.getElementById('fStatus').value      = r.dataset.status;
+        document.getElementById('fNeedsPhone').checked = r.dataset.needsPhone === '1';
+        document.getElementById('rewardModalTitle').innerHTML = '<i class="fas fa-pen"></i> Edit Reward';
+        submitBtn.innerHTML = '<i class="fas fa-check"></i> Save Changes';
+        openModal(rewardModal);
+    }
+
+    rewardForm.addEventListener('submit', async e => {
+        e.preventDefault();
+
+        submitBtn.disabled = true;
+        const result = await postJSON(
+            editingRow ? rewardUrl(editingRow.dataset.id, 'edit') : URL_ADD,
+            new FormData(rewardForm));
+        submitBtn.disabled = false;
+
+        if (!result.ok) {
+            showToast(result.error || 'Something went wrong.', 5000);
+            return;                              // keep the form open
+        }
+        finish(result.message);
+    });
+
+    /* ---------- confirm modal ---------- */
+    const confirmModal = document.getElementById('confirmModal');
+    let confirmCb = null;
+
+    function confirmAction(title, text, okLabel, cb) {
+        document.getElementById('confirmTitle').textContent = title;
+        document.getElementById('confirmText').textContent  = text;
+        document.getElementById('confirmOk').textContent    = okLabel;
+        confirmCb = cb;
+        openModal(confirmModal);
+    }
+
+    document.getElementById('confirmOk').addEventListener('click', () => {
+        closeModal(confirmModal);
+        if (confirmCb) confirmCb();
+        confirmCb = null;
+    });
+
+    /* ---------- row actions ---------- */
+    body.addEventListener('click', e => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+
+        const r    = btn.closest('tr');
+        const name = r.dataset.name;
+
+        switch (btn.dataset.action) {
+
+            case 'edit':
+                openEdit(r);
+                break;
+
+            case 'toggle': {
+                const hiding = r.dataset.status === 'Active';
+                confirmAction(
+                    hiding ? 'Hide this reward?' : 'Show this reward?',
+                    hiding
+                        ? '"' + name + '" will be hidden from donors. Claims already made are kept.'
+                        : '"' + name + '" will be visible to donors again.',
+                    hiding ? 'Hide' : 'Show',
+                    async () => {
+                        const res = await postJSON(rewardUrl(r.dataset.id, 'toggle'));
+                        if (!res.ok) { showToast(res.error || 'Could not update the reward.', 5000); return; }
+                        finish(res.message);
+                    });
+                break;
+            }
+
+            case 'delete':
+                confirmAction(
+                    'Delete reward?',
+                    'This removes "' + name + '" from the list. Claims already made are kept in the history. ' +
+                    'Consider hiding it instead.',
+                    'Delete',
+                    async () => {
+                        const res = await postJSON(rewardUrl(r.dataset.id, 'delete'));
+                        if (!res.ok) { showToast(res.error || 'Could not delete the reward.', 5000); return; }
+                        finish(res.message);
+                    });
+                break;
+        }
+    });
+
+    applyFilters();
+})();
+</script>
+
+{% endblock %}

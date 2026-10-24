@@ -67,10 +67,10 @@
                     <h4 class="fw-bold mt-3">Manage Users</h4>
 
                     <p class="text-muted">
-                        Add, edit, or remove donors and other user accounts.
+                        Add, edit, or remove donors and staffs accounts.
                     </p>
 
-                    <a href="{{ url_for('manage_user') }}"
+                    <a href="{{ url_for('manage_users') }}"
                        class="btn btn-outline-primary-custom mt-2">
                         Manage Users
                         <i class="fas fa-arrow-right ms-2"></i>
@@ -107,6 +107,30 @@
             </div>
         </div>
 
+        <div class="col-md-4">
+            <div class="card dashboard-card h-100 shadow-sm">
+                <div class="card-body p-4">
+
+                    <div class="icon-circle">
+                        <i class="fa-solid fa-gift"></i>
+                    </div>
+
+                    <h4 class="fw-bold mt-3">Rewards</h4>
+
+                    <p class="text-muted">
+                        Add rewards for donors to claim.
+                    </p>
+
+                    <a href="{{ url_for('add_rewards') }}"
+                       class="btn btn-outline-primary-custom mt-2">
+                        Rewards
+                        <i class="fas fa-arrow-right ms-2"></i>
+                    </a>
+
+                </div>
+            </div>
+        </div>
+
 
         <!-- View Reports -->
 
@@ -121,7 +145,7 @@
                     <h4 class="fw-bold mt-3">Reports</h4>
 
                     <p class="text-muted">
-                        Review donation statistics and system reports.
+                        View and export blood bank reports .
                     </p>
 
                     <a href="{{ url_for('admin_report') }}"

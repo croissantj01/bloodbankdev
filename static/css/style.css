@@ -3146,7 +3146,7 @@ h2 {
     .chart-row { grid-template-columns: 1fr; }
 }
 
-/* ---------- Header ---------- */
+/* ---------- Manage users page ---------- */
 .mu-header {
     display: flex;
     flex-wrap: wrap;
@@ -3209,6 +3209,57 @@ h2 {
 }
 
 .mu-tab.active .mu-count { background: rgba(255, 255, 255, .25); }
+
+#viewBody .mu-vh {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: .9rem;
+    margin-bottom: 1rem;
+}
+#viewBody .mu-vh-avatar {
+    flex: 0 0 48px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fdecea;
+    color: #c62828;
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+#viewBody .mu-vh-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #2b2b2b;
+}
+#viewBody .mu-vh-meta {
+    font-size: .88rem;
+    font-weight: 400;
+    color: #6b7280;
+}
+
+.mu-view-section { margin-top: 1.1rem; }
+.mu-view-section h4 {
+    font-size: .8rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .06em; color: var(--primary, #c62828);
+    margin: 0 0 .5rem;
+}
+.mu-view-list {
+    display: grid; grid-template-columns: 150px 1fr;
+    gap: .45rem 1rem; margin: 0;
+    padding: .9rem 1rem; border-radius: 12px;
+    background: #f8f9fb; font-size: .92rem;
+}
+.mu-view-list dt { color: var(--muted, #6b7280); font-weight: 500; }
+.mu-view-list dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+
+@media (max-width: 576px) {
+    .mu-view-list { grid-template-columns: 1fr; }
+    .mu-view-list dd { margin-bottom: .4rem; }
+}
 
 /* ---------- Card + toolbar ---------- */
 .mu-card {
@@ -4130,6 +4181,15 @@ h2 {
 }
 
 .ev-toast[hidden] { display: none; }
+
+.event-image {
+    display: block;
+    width: 100%;
+    height: 160px;
+    object-fit: cover;
+    border-radius: 10px;
+    margin-bottom: .75rem;
+}
 
 /* ---------- Mobile ---------- */
 @media (max-width: 576px) {

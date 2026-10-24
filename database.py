@@ -15,6 +15,22 @@ def get_db_connection():
     return conn
 
 
+def add_image_column():
+    conn = get_db_connection()
+    try:
+        columns = conn.execute(
+            "PRAGMA table_info(events)"
+        ).fetchall()
+
+        if not any(column["name"] == "image" for column in columns):
+            conn.execute("ALTER TABLE events ADD COLUMN image TEXT")
+            conn.commit()
+            print("Added image column to events table.")
+        else:
+            print("The image column already exists.")
+    finally:
+        conn.close()
+
 def _fix_old_users_table():
 
     conn = sqlite3.connect(DB_PATH)
@@ -68,6 +84,47 @@ def _upgrade_appointments_table():
         conn.close()
 
 
+def _migrate_announcements(conn):
+    """
+    SQLite table names are case-insensitive, so an old 'Announcements' table
+    (details / date / user_id) silently blocked the real 'announcements' table
+    (category / message / image_filename / status) from ever being created.
+    An empty old table is dropped; one holding rows is renamed, not lost.
+    """
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(announcements)").fetchall()}
+    if cols and "category" not in cols:
+        rows = conn.execute("SELECT COUNT(*) FROM announcements").fetchone()[0]
+        if rows == 0:
+            conn.execute("DROP TABLE announcements")
+        else:
+            conn.execute("ALTER TABLE announcements RENAME TO announcements_old")
+            print("Old announcements table kept as announcements_old")
+
+
+def _add_missing_columns():
+    """CREATE TABLE IF NOT EXISTS never adds columns to an existing table."""
+    wanted = {
+        "users": {
+            "status": "TEXT NOT NULL DEFAULT 'Active'",
+            "organisation": "TEXT",
+            "created_at": "TEXT",
+            "must_change_password": "INTEGER NOT NULL DEFAULT 0",
+        },
+        "blood_requests": {"reason": "TEXT"},
+    }
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        for table, columns in wanted.items():
+            have = {c[1] for c in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+            for name, definition in columns.items():
+                if name not in have:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
+                    print(f"Added missing column: {table}.{name}")
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def init_db():
     conn = get_db_connection()
 
@@ -81,6 +138,14 @@ def init_db():
             role TEXT NOT NULL
         )
     ''')
+
+    conn.execute("""
+                CREATE TABLE IF NOT EXISTS Admin (
+                    admin_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL UNIQUE,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+            """)
 
     conn.execute('''
         CREATE TABLE IF NOT EXISTS donors (
@@ -156,6 +221,7 @@ def init_db():
         )
     ''')
 
+
     conn.execute('''
         CREATE TABLE IF NOT EXISTS blood_requests (
             request_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -187,6 +253,8 @@ def init_db():
         )
     ''')
 
+    _migrate_announcements(conn)
+
     conn.execute('''
         CREATE TABLE IF NOT EXISTS announcements (
             announcement_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -201,10 +269,12 @@ def init_db():
 
     conn.commit()
     conn.close()
+    add_image_column()
 
     # Repair a leftover old users table, if there is one
     _fix_old_users_table()
     _upgrade_appointments_table()
+    _add_missing_columns()
 
     print("Database ready:", DB_PATH)
 
@@ -227,55 +297,103 @@ def get_all_events():
     """Every event as a dict shaped for the Manage Events page."""
     conn = get_db_connection()
     try:
-        rows = conn.execute("""
-            SELECT event_id           AS id,
-                   title,
-                   event_date         AS "date",
-                   start_time         AS "start",
-                   end_time           AS "end",
-                   place,
-                   address,
-                   COALESCE(notes, '') AS notes
+        rows = conn.execute(
+            """
+            SELECT
+                event_id AS id,
+                title,
+                event_date AS "date",
+                start_time AS "start",
+                end_time AS "end",
+                place,
+                address,
+                COALESCE(notes, '') AS notes,
+                image,
+                (SELECT COUNT(*) FROM appointments a
+                  WHERE a.event_id = events.event_id
+                    AND a.status = 'Booked') AS booked_count
             FROM events
             ORDER BY event_date, start_time
-        """).fetchall()
+            """
+        ).fetchall()
+
         return [dict(r) for r in rows]
     finally:
         conn.close()
 
 
-def add_event(title, event_date, start_time, end_time, place, address, notes):
+def add_event(title, event_date, start_time, end_time,
+              place, address, notes, image=None):
     conn = get_db_connection()
     try:
         conn.execute(
             """INSERT INTO events
-                   (title, event_date, start_time, end_time, place, address, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (title, event_date, start_time, end_time, place, address, notes or None),
+                   (title, event_date, start_time, end_time,
+                    place, address, notes, image)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (title, event_date, start_time, end_time,
+             place, address, notes or None, image),
         )
         conn.commit()
     finally:
         conn.close()
 
-
-def update_event(event_id, title, event_date, start_time, end_time, place, address, notes):
-    """Returns True if an event was updated, False if the id does not exist."""
+def update_event(
+    event_id, title, event_date, start_time, end_time,
+    place, address, notes, image=None
+):
+    """
+    Returns True if updated, False if the event doesn't exist.
+    Raises ValueError if donors have booked and the date, time or
+    location would change.
+    """
     conn = get_db_connection()
     try:
-        cur = conn.execute(
-            """UPDATE events
-                  SET title = ?, event_date = ?, start_time = ?, end_time = ?,
-                      place = ?, address = ?, notes = ?
-                WHERE event_id = ?""",
-            (title, event_date, start_time, end_time, place, address, notes or None, event_id),
-        )
-        changed = cur.rowcount > 0
-        if changed:
-            # keep donors' appointment dates in step with the event
-            conn.execute("UPDATE appointments SET appointment_date = ? WHERE event_id = ?",
-                         (event_date, event_id))
+        old = conn.execute(
+            "SELECT * FROM events WHERE event_id = ?", (event_id,)
+        ).fetchone()
+        if old is None:
+            return False
+
+        booked = conn.execute(
+            """SELECT COUNT(*) FROM appointments
+                WHERE event_id = ? AND status = 'Booked'""",
+            (event_id,),
+        ).fetchone()[0]
+
+        if booked:
+            before = (old["event_date"], old["start_time"], old["end_time"],
+                      old["place"], old["address"])
+            after = (event_date, start_time, end_time, place, address)
+            if before != after:
+                raise ValueError(
+                    f"{booked} donor(s) have booked this event, so the date, "
+                    "time and location can't be changed. You can still edit "
+                    "the name, notes and image."
+                )
+
+        if image:
+            conn.execute(
+                """UPDATE events
+                      SET title = ?, event_date = ?, start_time = ?,
+                          end_time = ?, place = ?, address = ?, notes = ?,
+                          image = ?
+                    WHERE event_id = ?""",
+                (title, event_date, start_time, end_time,
+                 place, address, notes or None, image, event_id),
+            )
+        else:
+            conn.execute(
+                """UPDATE events
+                      SET title = ?, event_date = ?, start_time = ?,
+                          end_time = ?, place = ?, address = ?, notes = ?
+                    WHERE event_id = ?""",
+                (title, event_date, start_time, end_time,
+                 place, address, notes or None, event_id),
+            )
+
         conn.commit()
-        return changed
+        return True
     finally:
         conn.close()
 
@@ -385,12 +503,207 @@ def get_bookable_events(donor_id=None):
                 "start_time": _time_label(e["start_time"]),
                 "end_time": _time_label(e["end_time"]),
                 "description": e["notes"] or "",
+                "image": e["image"],
                 "available_times": slots,
             })
         return result
     finally:
         conn.close()
 
+def _parse_dt(value):
+    """'2026-10-24 09:30:00' or '2026-10-24' -> (datetime or None, has_time)"""
+    if not value:
+        return None, False
+    text = str(value).strip()
+    for fmt, has_time in (("%Y-%m-%d %H:%M:%S", True),
+                          ("%Y-%m-%d %H:%M", True),
+                          ("%Y-%m-%d", False)):
+        try:
+            return datetime.strptime(text, fmt), has_time
+        except ValueError:
+            continue
+    return None, False
+
+
+def get_donation_history(donor_id):
+    """Everything the donation_history.html page needs for one donor."""
+    conn = get_db_connection()
+    try:
+        donor = conn.execute(
+            "SELECT blood_type FROM donors WHERE donor_id = ?", (donor_id,)
+        ).fetchone()
+        donor_group = donor["blood_type"] if donor else "—"
+
+        donation_rows = conn.execute(
+            """SELECT donation_id, collection_date, blood_group, volume_blood
+                 FROM donations
+                WHERE donor_id = ?""",
+            (donor_id,),
+        ).fetchall()
+
+        cancelled_rows = conn.execute(
+            """SELECT a.appointment_id, a.appointment_date,
+                      a.appointment_time, a.notes, e.title
+                 FROM appointments a
+                 LEFT JOIN events e ON a.event_id = e.event_id
+                WHERE a.donor_id = ? AND a.status = 'Cancelled'""",
+            (donor_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    entries = []          # (sort_key, record)
+    donation_dates = []
+
+    # ---- completed donations ----
+    for r in donation_rows:
+        dt, has_time = _parse_dt(r["collection_date"])
+        if dt is None:
+            continue
+        donation_dates.append(dt)
+
+        volume = r["volume_blood"]
+        volume_text = f"{volume:g} ml" if volume is not None else "—"
+
+        entries.append((dt, {
+            "status": "completed",
+            "date": dt.strftime("%d %b %Y"),
+            "date_iso": dt.strftime("%Y-%m-%d"),
+            "time": dt.strftime("%I:%M %p").lstrip("0") if has_time else "",
+            "title": "Blood Donation",
+            "blood_group": r["blood_group"],
+            "volume": volume_text,
+            "notes": "",
+        }))
+
+    # ---- cancelled appointments ----
+    for r in cancelled_rows:
+        dt, _ = _parse_dt(r["appointment_date"])
+        if dt is None:
+            continue
+
+        time_label = ""
+        if r["appointment_time"]:
+            try:
+                time_label = _time_label(r["appointment_time"])
+                dt = datetime.strptime(
+                    f'{r["appointment_date"]} {r["appointment_time"]}',
+                    "%Y-%m-%d %H:%M",
+                )
+            except ValueError:
+                pass
+
+        entries.append((dt, {
+            "status": "cancelled",
+            "date": dt.strftime("%d %b %Y"),
+            "date_iso": dt.strftime("%Y-%m-%d"),
+            "time": time_label,
+            "title": r["title"] or "Blood donation event",
+            "blood_group": donor_group,
+            "volume": "—",
+            "notes": r["notes"] or "",
+        }))
+
+    entries.sort(key=lambda item: item[0], reverse=True)   # newest first
+    records = [rec for _, rec in entries]
+
+    donation_dates.sort(reverse=True)
+    this_year = date.today().year
+    last = donation_dates[0] if donation_dates else None
+
+    return {
+        "records": records,
+        "total_donations": len(donation_dates),
+        "year_donations": sum(1 for d in donation_dates if d.year == this_year),
+        "current_year": this_year,
+        "last_donation_day": last.strftime("%d %b") if last else "—",
+        "last_donation_year": str(last.year) if last else "No donations yet",
+    }
+
+def get_user_details(user_id):
+    """Full profile for the Manage Users 'View' popup (donor or staff)."""
+    conn = get_db_connection()
+    try:
+        u = conn.execute(
+            """SELECT u.id, u.full_name, u.email, u.phone_number, u.role,
+                      u.status, u.organisation, u.created_at,
+                      d.donor_id, d.donor_name, d.ic, d.blood_type, d.dob,
+                      d.address, d.gender, d.emergency_contact,
+                      d.weight, d.height
+                 FROM users u
+                 LEFT JOIN donors d ON d.user_id = u.id
+                WHERE u.id = ?""",
+            (user_id,),
+        ).fetchone()
+        if u is None:
+            return None
+
+        donation_count, last_donation, upcoming = 0, None, 0
+        if u["donor_id"]:
+            donation_count = conn.execute(
+                "SELECT COUNT(*) FROM donations WHERE donor_id = ?",
+                (u["donor_id"],),
+            ).fetchone()[0]
+            last_donation = conn.execute(
+                "SELECT MAX(collection_date) FROM donations WHERE donor_id = ?",
+                (u["donor_id"],),
+            ).fetchone()[0]
+            upcoming = conn.execute(
+                """SELECT COUNT(*) FROM appointments
+                    WHERE donor_id = ? AND status = 'Booked'
+                      AND appointment_date >= ?""",
+                (u["donor_id"], date.today().isoformat()),
+            ).fetchone()[0]
+    finally:
+        conn.close()
+
+    def fmt(value):
+        if not value:
+            return ""
+        text = str(value)[:10]
+        try:
+            return datetime.strptime(text, "%Y-%m-%d").strftime("%d %b %Y")
+        except ValueError:
+            return str(value)
+
+    age = ""
+    if u["dob"]:
+        try:
+            born = datetime.strptime(u["dob"], "%Y-%m-%d").date()
+            today = date.today()
+            age = today.year - born.year - (
+                (today.month, today.day) < (born.month, born.day))
+        except ValueError:
+            pass
+
+    is_donor = (u["role"] or "").strip().lower() == "donor"
+    weight = u["weight"] if u["weight"] else None
+    height = u["height"] if u["height"] else None
+
+    return {
+        "id": u["id"],
+        "is_donor": is_donor,
+        "registered": bool(u["donor_id"]),
+        "name": u["donor_name"] or u["full_name"] or "",
+        "email": u["email"] or "",
+        "phone": u["phone_number"] or "",
+                "role": (u["role"] or "").title(),
+        "status": u["status"],
+        "organisation": u["organisation"] or "",
+        "created": fmt(u["created_at"]),
+        "ic": u["ic"] or "",
+        "dob": fmt(u["dob"]),
+        "age": age,
+        "gender": u["gender"] or "",
+        "blood_type": u["blood_type"] or "",
+        "address": u["address"] or "",
+        "emergency_contact": u["emergency_contact"] or "",
+        "weight": f"{weight:g} kg" if weight else "",
+        "height": f"{height:g} cm" if height else "",
+        "donation_count": donation_count,
+        "last_donation": fmt(last_donation),
+        "upcoming": upcoming,
+    }
 
 def create_appointment(donor_id, event_id, appt_time, notes=""):
     """
