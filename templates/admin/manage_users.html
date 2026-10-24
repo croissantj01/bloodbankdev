@@ -45,10 +45,7 @@
             <div class="report-value" id="statDonors">{{ donors|length }}</div>
         </div>
 
-        <div class="report-card">
-            <h4>Inactive Accounts</h4>
-            <div class="report-value" id="statInactive">{{ users|selectattr('status', 'equalto', 'Inactive')|list|length }}</div>
-        </div>
+
 
     </div>
 

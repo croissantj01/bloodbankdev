@@ -5788,3 +5788,343 @@ h2 {
     min-width: 100px;
 }
 
+.ev-heading {
+    font-size: 2rem;
+    font-weight: 500;
+    color: var(--text);
+    margin: .5rem 0 0;
+}
+
+.ev-subtitle {
+    color: var(--muted);
+    margin: .25rem 0 0;
+}
+
+/* the template leaves these empty, so don't reserve space for them */
+.ev-subtitle:empty,
+.ev-section-sub:empty {
+    display: none;
+}
+
+/* ---------- Section titles ---------- */
+.ev-section-title {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--text);
+    text-align: left;          /* beats the global centred red h2 */
+    margin: 2.25rem 0 1rem;
+}
+
+.ev-section-sub {
+    color: var(--muted);
+    margin: -.6rem 0 1.1rem;
+}
+
+/* ---------- Flash messages ---------- */
+.ev-flash {
+    border-radius: 12px;
+    padding: .8rem 1.1rem;
+    margin-bottom: 1.25rem;
+    font-size: .92rem;
+    background: #e3f2fd;
+    color: #1565c0;
+}
+
+.ev-flash.success { background: #e6f4ea; color: #1e7e34; }
+.ev-flash.warning { background: #fff4d6; color: #8a5a00; }
+.ev-flash.error,
+.ev-flash.danger  { background: var(--primary-soft); color: var(--primary-dark); }
+
+/* ---------- Buttons ---------- */
+.ev-btn,
+.ev-btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    font-size: .92rem;
+}
+
+.ev-btn {
+    background: var(--primary);
+    color: #fff;
+    border: 2px solid var(--primary);
+    border-radius: 50px;
+    padding: .55rem 1.3rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .2s ease, border-color .2s ease, transform .2s ease;
+}
+
+.ev-btn:hover:not(:disabled) {
+    background: var(--primary-dark);
+    border-color: var(--primary-dark);
+    transform: translateY(-2px);
+}
+
+.ev-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 .2rem rgba(198, 40, 40, .25);
+}
+
+.ev-btn:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+/* ---------- "Booked" status badge ---------- */
+.ev-badge.booked { background: #e6f4ea; color: #1e7e34; }
+
+/* ---------- Booking modal ---------- */
+.ev-modal-event {
+    margin: -.6rem 0 1.25rem;
+    color: var(--muted);
+    font-size: .92rem;
+}
+
+.ev-field + .ev-field { margin-top: 1.25rem; }
+
+/* ---------- Time slot chips ---------- */
+.ev-chips {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: .75rem;
+    margin-top: .25rem;
+}
+
+.ev-chips[hidden] { display: none; }
+
+/* .ev-field label / .ev-field input would otherwise restyle the chips,
+   so these selectors are deliberately a bit more specific */
+.ev-field .ev-chip {
+    position: relative;
+    display: block;
+    margin: 0;
+    font-weight: 400;
+    cursor: pointer;
+}
+
+.ev-field .ev-chip input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    opacity: 0;
+    box-shadow: none;
+    cursor: pointer;
+}
+
+.ev-chip > span {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .15rem;
+    min-height: 3.5rem;
+    padding: .6rem .5rem;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    background: #fff;
+    color: var(--text);
+    text-align: center;
+    transition: border-color .15s ease, background .15s ease;
+}
+
+.ev-chip strong { font-size: .95rem; font-weight: 600; }
+.ev-chip small  { font-size: .75rem; color: var(--muted); }
+
+.ev-chip:hover > span { border-color: var(--primary); }
+
+.ev-chip input:checked + span {
+    background: var(--primary-soft);
+    border-color: var(--primary);
+    color: var(--primary-dark);
+}
+
+.ev-chip input:checked + span small { color: var(--primary); }
+
+.ev-chip input:focus-visible + span {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 .2rem rgba(198, 40, 40, .15);
+}
+
+/* full or unavailable slots */
+.ev-chip input:disabled { cursor: not-allowed; }
+
+.ev-chip input:disabled + span {
+    background: #f5f5f5;
+    border-color: #eee;
+    color: #b5b5b5;
+    cursor: not-allowed;
+}
+
+.ev-chip input:disabled + span small { color: #b5b5b5; }
+
+.ev-chip:has(input:disabled):hover > span { border-color: #eee; }
+
+.ev-field select {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: .6rem .9rem;
+    color: var(--text);
+    background: #fff;
+    font-family: inherit;
+    font-size: .95rem;
+}
+
+.ev-field select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 .2rem rgba(198, 40, 40, .15);
+}
+
+.ev-field select:disabled { background: #f5f5f5; color: var(--muted); }
+
+/* =========================================================
+   Make Appointment page: search + date filter bar
+   ========================================================= */
+
+.ev-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: .75rem 1rem;
+    margin: 1rem 0 1.25rem;
+}
+
+.ev-filter-bar .ev-search {
+    flex: 1 1 260px;
+    max-width: 360px;
+    width: auto;
+}
+
+.ev-filter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem;
+}
+
+.ev-filter label {
+    margin: 0;
+    font-weight: 600;
+    font-size: .88rem;
+    color: var(--text);
+}
+
+.ev-filter input[type="date"] {
+    border: 1px solid var(--border);
+    border-radius: 50px;
+    padding: .5rem 1rem;
+    color: var(--text);
+    background: #fff;
+    font-size: .95rem;
+}
+
+.ev-filter input[type="date"]:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 .2rem rgba(198, 40, 40, .15);
+}
+
+.ev-filter-actions {
+    display: flex;
+    gap: .5rem;
+}
+
+@media (max-width: 576px) {
+    .ev-filter-bar .ev-search { max-width: none; flex-basis: 100%; }
+    .ev-filter { width: 100%; }
+    .ev-filter input[type="date"] { flex: 1 1 120px; }
+    .ev-filter-actions { width: 100%; }
+    .ev-filter-actions .ev-btn { flex: 1; }
+}
+#eventGrid {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 560px), 1fr));
+}
+
+/* card is a 2 x 2 grid: picture spans both rows on the left */
+.ev-card--event {
+    display: grid;
+    grid-template-columns: 36% minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+}
+
+/* ---------- picture panel (left) ---------- */
+.ev-card--event .ev-photo {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    position: relative;
+    min-height: 230px;
+    background: #f3e7e7;
+    overflow: hidden;
+}
+
+/* not using the .event-image class on purpose:
+   the homepage rule forces it to height: 250px !important */
+.ev-card--event .ev-photo-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* placeholder when an event has no picture */
+.ev-card--event .ev-photo--empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+    font-size: 2.6rem;
+    opacity: .45;
+}
+
+/* ---------- horizontal date bar (top right) ---------- */
+.ev-card--event .ev-date {
+    grid-column: 2;
+    grid-row: 1;
+    flex: none;
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: flex-start;
+    gap: .5rem;
+    padding: .6rem 1.25rem;
+    text-align: left;
+}
+
+.ev-card--event .ev-day   { font-size: 1.6rem; }
+.ev-card--event .ev-month { font-size: 1rem; margin-top: 0; }
+.ev-card--event .ev-year  { font-size: .9rem; }
+
+/* ---------- details (bottom right) ---------- */
+.ev-card--event .ev-body {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+/* ---------- phones: picture, then date bar, then details ---------- */
+@media (max-width: 640px) {
+    #eventGrid { grid-template-columns: 1fr; }
+
+    .ev-card--event {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto 1fr;
+    }
+
+    .ev-card--event .ev-photo {
+        grid-column: 1;
+        grid-row: 1;
+        min-height: 0;
+        height: 180px;
+    }
+
+    .ev-card--event .ev-date { grid-column: 1; grid-row: 2; }
+    .ev-card--event .ev-body { grid-column: 1; grid-row: 3; }
+}

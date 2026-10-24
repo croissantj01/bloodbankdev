@@ -46,26 +46,52 @@
 
 
     <!-- ================= TABS + SEARCH ================= -->
-    <div class="ev-toolbar">
 
-        <div class="ev-tabs" role="tablist">
-            <button type="button" class="ev-tab active" data-filter="upcoming">
-                <i class="fas fa-calendar-day"></i> Upcoming
-            </button>
-            <button type="button" class="ev-tab" data-filter="past">
-                <i class="fas fa-clock-rotate-left"></i> Past
-            </button>
-            <button type="button" class="ev-tab" data-filter="all">
-                <i class="fas fa-list"></i> All
-            </button>
-        </div>
+<!-- ================= TABS + SEARCH + DATE FILTER ================= -->
+<div class="ev-toolbar">
 
-        <div class="ev-search">
-            <i class="fas fa-search"></i>
-            <input type="text" id="searchInput" placeholder="Search event or place">
-        </div>
-
+    <div class="ev-tabs" role="tablist">
+        <button type="button" class="ev-tab active" data-filter="upcoming">
+            <i class="fas fa-calendar-day"></i> Upcoming
+        </button>
+        <button type="button" class="ev-tab" data-filter="past">
+            <i class="fas fa-clock-rotate-left"></i> Past
+        </button>
+        <button type="button" class="ev-tab" data-filter="all">
+            <i class="fas fa-list"></i> All
+        </button>
     </div>
+
+</div>
+
+<!-- Search and date range -->
+<form class="ev-toolbar ev-filter-bar" id="filterForm" autocomplete="off">
+
+    <div class="ev-search">
+        <i class="fas fa-search"></i>
+        <input type="text" id="searchInput"
+               placeholder="Search event or place">
+    </div>
+
+    <div class="ev-filter">
+        <label for="dateFrom">From</label>
+        <input type="date" id="dateFrom">
+
+        <label for="dateTo">To</label>
+        <input type="date" id="dateTo">
+    </div>
+
+    <div class="ev-filter-actions">
+        <button type="submit" class="ev-btn">
+            <i class="fas fa-search"></i> Search
+        </button>
+
+        <button type="button" class="ev-btn-ghost" id="clearFilters">
+            Clear
+        </button>
+    </div>
+
+</form>
 
 
     <!-- ================= EVENT LIST ================= -->
@@ -112,14 +138,23 @@
                     <input type="date" id="fDate" name="date" required>
                 </div>
 
+                <!-- Start / end time: dropdowns (minutes are 00, 15, 30 or 45 only).
+                     The hidden inputs carry the real "HH:MM" value to the server,
+                     so the form fields keep the same names (start / end). -->
                 <div class="ev-field">
-                    <label for="fStart">Start time</label>
-                    <input type="time" id="fStart" name="start" required>
+                    <label for="fStartSel">Start time</label>
+                    <select id="fStartSel" required data-target="fStart">
+                        <option value="">Select time</option>
+                    </select>
+                    <input type="hidden" name="start" id="fStart" value="">
                 </div>
 
                 <div class="ev-field">
-                    <label for="fEnd">End time</label>
-                    <input type="time" id="fEnd" name="end" required>
+                    <label for="fEndSel">End time</label>
+                    <select id="fEndSel" required data-target="fEnd">
+                        <option value="">Select time</option>
+                    </select>
+                    <input type="hidden" name="end" id="fEnd" value="">
                 </div>
 
                 <div class="ev-field ev-span-2">
@@ -213,6 +248,11 @@
     const flashMessages = {{ get_flashed_messages(with_categories=true)|tojson }};
     const IMAGE_BASE    = {{ url_for('static', filename='uploads/events/')|tojson }};
 
+    /* ---------- time dropdown settings (change these if needed) ---------- */
+    const TIME_FIRST_HOUR = 6;                    // earliest start: 6:00 AM
+    const TIME_LAST_HOUR  = 22;                   // latest: 10:45 PM
+    const TIME_MINUTES    = ['00', '15', '30', '45'];
+
     /* ---------- elements ---------- */
     const grid        = document.getElementById('eventGrid');
     const emptyState  = document.getElementById('emptyState');
@@ -225,6 +265,16 @@
     const form         = document.getElementById('eventForm');
     const formError    = document.getElementById('formError');
     const fDate        = document.getElementById('fDate');
+
+
+const filterForm  = document.getElementById('filterForm');
+const dateFrom    = document.getElementById('dateFrom');
+const dateTo      = document.getElementById('dateTo');
+const clearBtn    = document.getElementById('clearFilters');
+
+
+    const startSel     = document.getElementById('fStartSel');
+    const endSel       = document.getElementById('fEndSel');
 
     const imageInput            = document.getElementById('fImage');
     const imagePreview          = document.getElementById('imagePreview');
@@ -334,6 +384,39 @@
     });
 
 
+    /* ---------- time dropdowns (00 / 15 / 30 / 45 only) ---------- */
+    function buildTimeOptions(sel) {
+        for (let h = TIME_FIRST_HOUR; h <= TIME_LAST_HOUR; h++) {
+            TIME_MINUTES.forEach(m => {
+                const value = String(h).padStart(2, '0') + ':' + m;      // e.g. "09:15"
+                sel.add(new Option(fmtTime(value), value));              // label "9:15 AM"
+            });
+        }
+        // keep the hidden input (the one that is submitted) in sync
+        sel.addEventListener('change', () => {
+            document.getElementById(sel.dataset.target).value = sel.value;
+        });
+    }
+
+    buildTimeOptions(startSel);
+    buildTimeOptions(endSel);
+
+    /* Select a time. If an older event has a time that is not in the list
+       (e.g. 09:10), it is added so editing does not wipe it. */
+    function setTime(sel, value) {
+        const val    = (value || '').slice(0, 5);                        // "09:00:00" -> "09:00"
+        const hidden = document.getElementById(sel.dataset.target);
+
+        if (val && !Array.from(sel.options).some(o => o.value === val)) {
+            const next = Array.from(sel.options).find(o => o.value && o.value > val);
+            sel.add(new Option(fmtTime(val), val), next || null);
+        }
+
+        sel.value    = val;
+        hidden.value = val;
+    }
+
+
     /* ---------- render ---------- */
     function renderStats() {
         document.getElementById('statTotal').textContent    = events.length;
@@ -346,16 +429,41 @@
         renderStats();
 
         const q = searchInput.value.trim().toLowerCase();
+const from = dateFrom.value;
+const to = dateTo.value;
 
-        const list = events.filter(e => {
-            const s = statusOf(e);
-            const inTab =
-                filter === 'all' ||
-                (filter === 'upcoming' && (s === 'upcoming' || s === 'today')) ||
-                (filter === 'past' && s === 'past');
-            const hay = (e.title + ' ' + e.place + ' ' + e.address).toLowerCase();
-            return inTab && (!q || hay.includes(q));
-        });
+
+const list = events.filter(e => {
+    const s = statusOf(e);
+
+    // Existing Upcoming / Past / All tabs
+    const inTab =
+        filter === 'all' ||
+        (filter === 'upcoming' &&
+            (s === 'upcoming' || s === 'today')) ||
+        (filter === 'past' && s === 'past');
+
+    // Search event name, venue and address
+    const hay = (
+        (e.title || '') + ' ' +
+        (e.place || '') + ' ' +
+        (e.address || '')
+    ).toLowerCase();
+
+    const matchesSearch = !q || hay.includes(q);
+
+    // Filter by event date (ISO format: YYYY-MM-DD)
+    const date = (e.date || '').slice(0, 10);
+
+    const matchesFrom = !from || (date && date >= from);
+    const matchesTo   = !to || (date && date <= to);
+
+    return inTab &&
+           matchesSearch &&
+           matchesFrom &&
+           matchesTo;
+});
+
 
         list.sort((a, b) => {
             const byDate = a.date.localeCompare(b.date) || (a.start || '').localeCompare(b.start || '');
@@ -436,7 +544,29 @@
         });
     });
 
-    searchInput.addEventListener('input', render);
+
+/* ---------- search + date filters ---------- */
+
+filterForm.addEventListener('submit', e => {
+    e.preventDefault();
+
+    if (dateFrom.value && dateTo.value &&
+        dateFrom.value > dateTo.value) {
+        alert('The "From" date must be on or before the "To" date.');
+        return;
+    }
+
+    render();
+});
+
+clearBtn.addEventListener('click', () => {
+    searchInput.value = '';
+    dateFrom.value = '';
+    dateTo.value = '';
+
+    render();
+});
+
 
 
     /* ---------- add / edit ---------- */
@@ -452,23 +582,29 @@
             document.getElementById('eventModalTitle').innerHTML = '<i class="fas fa-pen"></i> Edit Event';
             document.getElementById('fTitle').value   = ev.title;
             fDate.value                               = ev.date;
-            document.getElementById('fStart').value   = ev.start;
-            document.getElementById('fEnd').value     = ev.end;
+            setTime(startSel, ev.start);
+            setTime(endSel,   ev.end);
             document.getElementById('fPlace').value   = ev.place;
             document.getElementById('fAddress').value = ev.address;
             document.getElementById('fNotes').value   = ev.notes || '';
             fDate.removeAttribute('min');
         } else {
             document.getElementById('eventModalTitle').innerHTML = '<i class="fas fa-calendar-plus"></i> Add Event';
+            setTime(startSel, '');
+            setTime(endSel,   '');
             fDate.min = todayStr();      // new events cannot be set in the past
         }
 
         /* Lock date / time / location once donors have booked.
-           readOnly (not disabled) so the values are still submitted. */
+           Text and date inputs use readOnly; the time dropdowns are disabled,
+           which is safe because the hidden start / end inputs still submit the values. */
         const locked = !!(ev && ev.booked_count > 0);
-        ['fDate', 'fStart', 'fEnd', 'fPlace', 'fAddress'].forEach(id => {
+        ['fDate', 'fPlace', 'fAddress'].forEach(id => {
             document.getElementById(id).readOnly = locked;
         });
+        startSel.disabled = locked;
+        endSel.disabled   = locked;
+
         if (locked) {
             formError.textContent = ev.booked_count + ' donor(s) have booked this event, ' +
                 'so date, time and location are locked. To change them, delete the event and create a new one.';
@@ -484,6 +620,13 @@
     form.addEventListener('submit', e => {
         const start = document.getElementById('fStart').value;
         const end   = document.getElementById('fEnd').value;
+
+        if (!start || !end) {
+            e.preventDefault();
+            formError.textContent = 'Please choose a start time and an end time.';
+            formError.hidden = false;
+            return;
+        }
 
         if (end <= start) {
             e.preventDefault();
