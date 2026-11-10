@@ -335,7 +335,7 @@ def reset_password():
 def send_otp_email(to_email, otp):
     # verification otp bypass for testing
     print(f"This is the test otp: {otp}")
-    flash(f"Demo: {otp}")
+
     message = EmailMessage()
     message.set_content(
         f"Your verification code is: {otp} \nThis code will expire shortly. Do not share it with anyone. ")
@@ -668,6 +668,11 @@ def donation_history():
 @app.route('/donor_announcements', methods=['GET', 'POST'])
 def donor_announcements():
     return render_template("donor/donor_announcements.html")
+
+
+def _date_clause(param, from_date, to_date):
+    pass
+
 
 @app.route('/staff_report/<report_type>', methods=['GET'])
 def staff_report_details(report_type):
@@ -1194,24 +1199,108 @@ def make_announcement():
 
 @app.route("/donor_dashboard", methods=['GET', 'POST'])
 def donor_dashboard():
-    return render_template("donor/donor_dashboard.html")
+    if 'user_email' not in session:
+        return redirect(url_for('login', next='donor_dashboard'))
 
+    conn = get_db_connection()
+    try:
+        row = conn.execute('''
+            SELECT d.donor_name
+              FROM donors d
+              JOIN users u ON d.user_id = u.id
+             WHERE u.email = ?
+        ''', (session.get('user_email'),)).fetchone()
+    finally:
+        conn.close()
+
+    donor_registered = row is not None
+    donor_name = (row['donor_name'] or '').strip() if row else ''
+
+    return render_template(
+        "donor/donor_dashboard.html",
+        donor_registered=donor_registered,
+        donor_name=donor_name or 'Donor'      # falls back to "Donor"
+    )
+
+import re
+from datetime import date, datetime
+
+NAME_RE = re.compile(r"^[^\W\d_]+(?: [^\W\d_]+)*$")    # letters and single spaces only
+IC_RE = re.compile(r"^\d{6}-\d{2}-\d{4}$")              # xxxxxx-xx-xxxx
+BLOOD_TYPES = {'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Unknown'}
+
+
+def _valid_phone(value):
+    digits = value.replace("-", "").replace(" ", "")
+    if digits.startswith("+"):
+        digits = digits[1:]
+    return digits.isdigit() and 9 <= len(digits) <= 12
+
+
+def validate_donor_form(form, require_ic=True):
+    """Returns (clean_data, errors). errors is a list of messages."""
+    data = {k: (form.get(k) or '').strip() for k in
+            ['name', 'ic', 'dob', 'gender', 'blood_type',
+             'phone', 'emergency_contact', 'address']}
+    errors = []
+
+    # 1. no empty fields
+    required = ['name', 'dob', 'gender', 'blood_type', 'phone', 'emergency_contact', 'address']
+    if require_ic:
+        required.append('ic')
+    if any(not data[k] for k in required):
+        errors.append("Please fill in all fields.")
+        return data, errors          # stop here; other checks need values
+
+    # 2. name: letters and spaces only
+    if not NAME_RE.match(data['name']):
+        errors.append("Name cannot contain numbers or symbols.")
+
+    # 3. IC format
+    if require_ic and not IC_RE.match(data['ic']):
+        errors.append("IC number must be in the format xxxxxx-xx-xxxx.")
+
+    # 4. date of birth
+    try:
+        if datetime.strptime(data['dob'], "%Y-%m-%d").date() > date.today():
+            errors.append("Date of birth cannot be in the future.")
+    except ValueError:
+        errors.append("Please enter a valid date of birth.")
+
+    # 5. dropdowns
+    if data['gender'] not in ('Male', 'Female'):
+        errors.append("Please select a valid gender.")
+    if data['blood_type'] not in BLOOD_TYPES:
+        errors.append("Please select a valid blood type.")
+
+    # 6. phone numbers
+    if not _valid_phone(data['phone']):
+        errors.append("Please enter a valid phone number.")
+    if not _valid_phone(data['emergency_contact']):
+        errors.append("Please enter a valid emergency contact number.")
+
+    return data, errors
 
 @app.route("/registration", methods=['GET', 'POST'])
 def registration():
     if 'user_email' not in session:
         return redirect(url_for('login', next='registration'))
 
-    if request.method == 'POST':
-        name = request.form.get('name')
-        ic = request.form.get('ic').strip()
-        dob = request.form.get('dob')
-        gender = request.form.get('gender')
-        blood_type = request.form.get('blood_type')
-        phone = request.form.get('phone')
-        emergency_contact = request.form.get('emergency_contact')
-        address = request.form.get('address')
+    if get_donor_by_email(session.get('user_email')):
+        flash("You are already registered as a donor.", "success")
+        return redirect(url_for('donor_dashboard'))
 
+    if request.method == 'POST':
+        data, errors = validate_donor_form(request.form)
+        if errors:
+            for e in errors:
+                flash(e, "error")
+            return render_template("donor/registration.html", form=request.form)
+
+        name, ic, dob = data['name'], data['ic'], data['dob']
+        gender, blood_type = data['gender'], data['blood_type']
+        phone, emergency_contact = data['phone'], data['emergency_contact']
+        address = data['address']
 
         user_email = session.get('user_email')
         conn = get_db_connection()
@@ -1227,8 +1316,8 @@ def registration():
         try:
             conn.execute('''
                 INSERT INTO donors (user_id, donor_name, ic, blood_type, dob, address, gender, emergency_contact, weight, height)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (user_id, name, ic, blood_type, dob, address, gender, emergency_contact, weight, height))
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0.0, 0.0)
+            ''', (user_id, name, ic, blood_type, dob, address, gender, emergency_contact))
 
             conn.execute('''
                 UPDATE users SET full_name = ?, phone_number = ? WHERE id = ?
@@ -1236,17 +1325,20 @@ def registration():
 
             conn.commit()
             conn.close()
-
+            session['user_name'] = name
             flash("Donor registration successful!", "success")
             return redirect(url_for('donor_dashboard'))
 
         except sqlite3.IntegrityError as e:
             conn.close()
-            flash("This IC number is already registered to another account.", "error")
-            return render_template("donor/registration.html")
+            print("Registration IntegrityError:", e)
+            if "donors.ic" in str(e):
+                flash("This IC number is already registered to another account.", "error")
+            else:
+                flash("Registration failed. Please check your details and try again.", "error")
+            return render_template("donor/registration.html", form=request.form)
 
     return render_template("donor/registration.html")
-
 
 @app.route("/manage_profile", methods=['GET', 'POST'])
 def manage_profile():
@@ -1264,7 +1356,7 @@ def manage_profile():
     user_id = user['id']
 
     donor = conn.execute('''
-        SELECT d.*, u.full_name, u.phone_number 
+        SELECT d.*, u.full_name, u.phone_number
         FROM donors d
         JOIN users u ON d.user_id = u.id
         WHERE d.user_id = ?
@@ -1273,28 +1365,44 @@ def manage_profile():
     user_info = conn.execute("SELECT full_name, phone_number FROM users WHERE id = ?", (user_id,)).fetchone()
 
     if request.method == 'POST':
-        name = request.form.get('name')
-        dob = request.form.get('dob')
-        gender = request.form.get('gender')
-        blood_type = request.form.get('blood_type')
-        phone = request.form.get('phone')
-        emergency_contact = request.form.get('emergency_contact')
-        address = request.form.get('address')
+        # IC is only required (and only editable) when the donor isn't registered yet
+        data, errors = validate_donor_form(request.form, require_ic=donor is None)
+
+        if errors:
+            conn.close()
+            for e in errors:
+                flash(e, "error")
+            # re-show what the user typed instead of the saved values
+            donor_view = dict(donor) if donor else None
+            if donor_view:
+                donor_view.update({
+                    'dob': data['dob'], 'gender': data['gender'],
+                    'blood_type': data['blood_type'],
+                    'address': data['address'],
+                    'emergency_contact': data['emergency_contact'],
+                    'full_name': data['name'], 'phone_number': data['phone'],
+                })
+            user_view = {'full_name': data['name'], 'phone_number': data['phone']}
+            return render_template("donor/manage_profile.html", donor=donor_view, user=user_view)
+
+        name, dob, gender = data['name'], data['dob'], data['gender']
+        blood_type, phone = data['blood_type'], data['phone']
+        emergency_contact, address = data['emergency_contact'], data['address']
 
         if donor:
             conn.execute('''
-                UPDATE donors 
+                UPDATE donors
                 SET blood_type = ?, dob = ?, address = ?, gender = ?, emergency_contact = ?
                 WHERE user_id = ?
             ''', (blood_type, dob, address, gender, emergency_contact, user_id))
             flash("Profile updated successfully!", "success")
         else:
-            ic = request.form.get('ic', '').strip()
+            ic = data['ic']
             try:
                 conn.execute('''
-                    INSERT INTO donors (user_id, ic, blood_type, dob, address, gender, emergency_contact, weight, height)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 0.0, 0.0)
-                ''', (user_id, ic, blood_type, dob, address, gender, emergency_contact))
+                    INSERT INTO donors (user_id, donor_name, ic, blood_type, dob, address, gender, emergency_contact, weight, height)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0.0, 0.0)
+                ''', (user_id, name, ic, blood_type, dob, address, gender, emergency_contact))
                 flash("Registration completed successfully!", "success")
             except sqlite3.IntegrityError:
                 flash("This IC number is already registered to another account.", "error")
@@ -1519,7 +1627,7 @@ def _now():
 # ------------------------------------------------------------
 # Admin: validate the add / edit form
 # ------------------------------------------------------------
-def _read_reward_form(conn, reward_id=None):
+def _read_reward_form(conn, reward_id=None, REWARD_STATUSES=None):
     f = request.form
     name = (f.get("name") or "").strip()
     description = (f.get("description") or "").strip()
