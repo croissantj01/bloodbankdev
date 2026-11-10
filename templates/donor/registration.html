@@ -27,12 +27,14 @@
         <!-- PERSONAL INFORMATION -->
 
         <div class="profile-field">
+
             <label for="name">Name</label>
             <input type="text"
                    id="name"
                    name="name"
                    placeholder="Full name"
-                   autocomplete="name"
+                   autocomplete="off"
+                   readonly onfocus="this.removeAttribute('readonly');"
                    required>
         </div>
 

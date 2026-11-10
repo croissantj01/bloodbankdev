@@ -7,7 +7,6 @@ import sqlite3
 import uuid
 from datetime import datetime, date
 from pathlib import Path
-
 import bcrypt
 from email.message import EmailMessage
 from flask import Flask, render_template, url_for, redirect, session, request, flash, send_file, jsonify, current_app
@@ -18,7 +17,6 @@ from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, Spacer
 from werkzeug.utils import secure_filename
-
 from database import (get_user_by_email, get_all_events,
                       add_event, update_event, delete_event, get_donor_by_email, create_appointment,
                       get_donor_upcoming_appointments, get_bookable_events, cancel_donor_appointment, get_db_connection,
@@ -29,9 +27,16 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'a-very-secure-permanent-fallback-key')
+app.config['UPLOAD_FOLDER'] = 'static/uploads/announcements'
 
 oauth = OAuth(app)
 
+import sqlite3
+
+def get_db_connection():
+    conn = sqlite3.connect('bloodbank.db')
+    conn.row_factory = sqlite3.Row
+    return conn
 
 def _hash_password(plain_password):
     """bcrypt hash - the same format login() verifies with bcrypt.checkpw."""
@@ -166,12 +171,22 @@ def login():
 
     if request.method == "POST":
         email = (request.form.get("email") or "").strip().lower()
-        password = request.form.get("password") or ""
+        password = (request.form.get("password") or "").strip()
 
         admin_email = (os.getenv("ADMIN_EMAIL") or "").strip().lower()
         admin_password = os.getenv("ADMIN_PASSWORD") or ""
 
         if email == admin_email and password == admin_password:
+            conn = get_db_connection()
+            existing_admin = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+            if not existing_admin:
+                conn.execute("""
+                    INSERT INTO users (full_name, email, hashed_password, role, created_at)
+                    VALUES (?, ?, ?, 'admin', datetime('now'))
+                """, ("Admin", email, "DUMMY_ADMIN_HASH"))
+                conn.commit()
+            conn.close()
+
             otp = str(random.randint(100000, 999999))
 
             session['pending_email'] = email
@@ -187,22 +202,22 @@ def login():
         user = get_user_by_email(email)
 
         if not user:
+            flash("Invalid credentials!", "error")
+            return render_template("general/login.html")
+
+        stored_hash = user['hashed_password'] if isinstance(user, dict) or hasattr(user, 'keys') else None
+
+        if not user:
             return render_template("general/login.html", error_popup="Invalid credentials.")
 
-        stored_hash = None
-        if isinstance(user, dict):
-            stored_hash = user.get('hashed_password')
-        else:
-            try:
-                stored_hash = user['hashed_password']
-            except (KeyError, IndexError):
-                stored_hash = None
+        stored_hash = user['hashed_password'] if isinstance(user, dict) or hasattr(user, 'keys') else None
 
         if stored_hash:
             password_bytes = password.encode('utf-8')
             hashed_bytes = stored_hash.encode('utf-8') if isinstance(stored_hash, str) else stored_hash
+            match_result = bcrypt.checkpw(password_bytes, hashed_bytes)
 
-            if bcrypt.checkpw(password_bytes, hashed_bytes):
+            if match_result:
                 account_status = user['status'] if 'status' in user.keys() else 'Active'
                 if str(account_status or 'Active').strip().lower() == 'inactive':
                     return render_template(
@@ -213,7 +228,6 @@ def login():
 
                 user_name = user['full_name'] if ('full_name' in user.keys() and user['full_name']) else email
                 role = user['role'] if ('role' in user.keys() and user['role']) else 'donor'
-
                 user_role = str(role).strip().lower().replace(' ', '_')
 
                 session['pending_email'] = email
@@ -226,7 +240,8 @@ def login():
 
                 return render_template("general/verification.html")
 
-        return render_template("general/login.html", error="Invalid credentials.")
+        flash("Invalid credentials!", "error")
+        return render_template("general/login.html")
 
     return render_template("general/login.html", next=next_page)
 
@@ -259,14 +274,23 @@ def check_email():
 
 
 def update_password(email, new_password):
+
+    safe_password = (new_password or "").strip()
+
     hashed_password = bcrypt.hashpw(
-        new_password.encode("utf-8"),
+        safe_password.encode("utf-8"),
         bcrypt.gensalt()
     ).decode("utf-8")
+
+    print(f"DEBUG UPDATE - Hash being saved for {email}: {hashed_password}")
+
 
     conn = get_db_connection()
 
     try:
+        user_row = conn.execute("SELECT id, email FROM users WHERE email = ?", (email.strip().lower(),)).fetchone()
+        print(f"DEBUG UPDATE - Found user ID: {user_row['id'] if user_row else 'None'} for email: {email}")
+
         cursor = conn.execute(
             """
             UPDATE users
@@ -278,11 +302,12 @@ def update_password(email, new_password):
 
         conn.commit()
 
+        print(f"DEBUG: Rows updated = {cursor.rowcount} for email: {email}")
+
         if cursor.rowcount == 0:
             print("No account found for password update.")
     finally:
         conn.close()
-
 
 @app.route("/reset_password", methods=["GET", "POST"])
 def reset_password():
@@ -303,6 +328,7 @@ def reset_password():
         session.pop('is_reset_flow', None)
         session.pop('otp_verified', None)
 
+        flash("Password successfully updated!", "success")
         return redirect(url_for('login'))
 
     return render_template("general/reset_password.html")
@@ -350,7 +376,6 @@ def signup():
                 error_popup="Passwords do not match!"
             )
 
-        # Check whether the email is already registered
         if get_user_by_email(email):
             return render_template(
                 "general/signup.html",
@@ -463,8 +488,102 @@ def donor_faq():
     return render_template("donor/donor_faq.html")
 
 
+from flask import request, redirect, url_for, render_template, session, flash
+
+from flask import request, redirect, url_for, render_template, session, flash
+
+
+@app.route('/announcements')
+def announcements():
+    if session.get('role') != 'donor':
+        return redirect(url_for('login', next='announcements'))
+
+    # 1. Get query parameters from URL
+    search_query = request.args.get('q', '').strip()
+    filter_date = request.args.get('date', '').strip()
+
+    conn = get_db_connection()
+    try:
+        # 2. Base query
+        sql = """
+            SELECT announcement_id, title, category, message, image_filename, created_at, status
+              FROM announcements
+             WHERE status = 'Published'
+        """
+        params = []
+
+        # 3. Dynamic Keyword Search (Title, Category, or Message)
+        if search_query:
+            sql += " AND (title LIKE ? OR category LIKE ? OR message LIKE ?)"
+            wildcard = f"%{search_query}%"
+            params.extend([wildcard, wildcard, wildcard])
+
+        # 4. Reliable SQLite Date Filter (Matches start of created_at string)
+        if filter_date:
+            sql += " AND created_at LIKE ?"
+            params.append(f"{filter_date}%")
+
+        sql += " ORDER BY created_at DESC"
+
+        announcements_list = conn.execute(sql, params).fetchall()
+    finally:
+        conn.close()
+
+    # 5. Pass parameters back to template so values stay in the input boxes
+    return render_template(
+        "donor/donor_announcement.html",
+        announcements=announcements_list,
+        search_query=search_query,
+        filter_date=filter_date
+    )
+
+
+@app.route('/announcements/delete/<int:announcement_id>', methods=['POST'])
+def delete_announcement(announcement_id):
+    if session.get('role') != 'donor':
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    try:
+        conn.execute("UPDATE announcements SET status = 'Hidden' WHERE announcement_id = ?", (announcement_id,))
+        conn.commit()
+
+        flash("Announcement deleted successfully.", "success")
+    finally:
+        conn.close()
+
+    return redirect(url_for('announcements'))
+
+
 from datetime import datetime  # put with your other imports at the top
 
+
+def create_notification(title, message, target_role='all', specific_user_id=None):
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+
+    if specific_user_id:
+        conn.execute("""
+            INSERT INTO notifications (user_id, title, message, created_at)
+            VALUES (?, ?, ?, datetime('now'))
+        """, (specific_user_id, title, message))
+    elif target_role and target_role != 'all':
+        users = conn.execute("SELECT id FROM users WHERE role = ?", (target_role,)).fetchall()
+        for u in users:
+            conn.execute("""
+                INSERT INTO notifications (user_id, title, message, created_at)
+                VALUES (?, ?, ?, datetime('now'))
+            """, (u['id'], title, message))
+    else:
+        users = conn.execute("SELECT id FROM users").fetchall()
+        for u in users:
+            conn.execute("""
+                INSERT INTO notifications (user_id, title, message, created_at)
+                VALUES (?, ?, ?, datetime('now'))
+            """, (u['id'], title, message))
+
+    conn.commit()
+    conn.close()
 
 def _parse_dt(value):
     text = str(value or "")
@@ -482,6 +601,50 @@ def _format_volume(value):
     except (TypeError, ValueError):
         return "—"
 
+
+@app.context_processor
+def inject_notifications():
+    email = session.get('user_email')
+    if not email:
+        return dict(unread_notifications=[])
+
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+
+    user = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+    if not user:
+        conn.close()
+        return dict(unread_notifications=[])
+
+    notifications = conn.execute("""
+        SELECT * FROM notifications 
+        WHERE user_id = ? AND is_read = 0
+        ORDER BY id DESC LIMIT 5
+    """, (user['id'],)).fetchall()
+    conn.close()
+
+    return dict(unread_notifications=notifications)
+
+
+@app.route('/notifications/read/<int:notif_id>', methods=['POST'])
+def mark_notification_read(notif_id):
+    email = session.get('user_email')
+    if not email:
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+
+    user = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+    if user:
+        conn.execute("""
+            UPDATE notifications SET is_read = 1 
+            WHERE id = ? AND user_id = ?
+        """, (notif_id, user['id']))
+        conn.commit()
+
+    conn.close()
+    return redirect(request.referrer or url_for('index'))
 
 @app.route('/donation_history')
 def donation_history():
@@ -505,8 +668,6 @@ def donation_history():
 @app.route('/donor_announcements', methods=['GET', 'POST'])
 def donor_announcements():
     return render_template("donor/donor_announcements.html")
-
-
 
 @app.route('/staff_report/<report_type>', methods=['GET'])
 def staff_report_details(report_type):
@@ -683,10 +844,33 @@ def staff_report_details(report_type):
     )
 
 
-@app.route('/blood_request', methods=['GET'])
+@app.route('/blood_request', methods=['GET', 'POST'])
 def blood_request():
     conn = get_db_connection()
 
+    if request.method == 'POST':
+        hospital_name = request.form.get('hospital_name')
+        blood_type = request.form.get('blood_type')
+        quantity = request.form.get('quantity')
+        reason = request.form.get('reason')
+        status = 'Pending'
+
+        try:
+            conn.execute("""
+                INSERT INTO blood_requests (hospital_name, blood_group, units_requested, reason, status)
+                VALUES (?, ?, ?, ?, ?)
+            """, (hospital_name, blood_type, quantity, reason, status))
+            conn.commit()
+            flash("Blood request successfully submitted!", "success")
+        except Exception as e:
+            conn.rollback()
+            flash("Failed to submit blood request.", "error")
+        finally:
+            conn.close()
+
+        return redirect(url_for('blood_request'))
+
+    # Fetch existing requests for the table view on GET
     try:
         requests = conn.execute("""
             SELECT
@@ -700,7 +884,6 @@ def blood_request():
             FROM blood_requests
             ORDER BY request_date DESC
         """).fetchall()
-
     finally:
         conn.close()
 
@@ -801,7 +984,7 @@ def send_credentials_email(to_email, full_name, temp_password):
         return False
 
 
-def register_staff_user(full_name, email, phone_number, role, password):
+def register_staff_user(full_name, email, phone_number, role, organisation, password):
     hashed_password = bcrypt.hashpw(
         password.encode("utf-8"),
         bcrypt.gensalt()
@@ -815,28 +998,33 @@ def register_staff_user(full_name, email, phone_number, role, password):
         conn.execute(
             """
             INSERT INTO users
-                (full_name, email, phone_number, hashed_password, role, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+                (full_name, email, phone_number, role, organisation, hashed_password, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, 'Active', ?)
             """,
             (
                 full_name,
                 email,
                 phone_number,
-                hashed_password,
                 normalized_role,
+                organisation,
+                hashed_password,
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             )
         )
         conn.commit()
-        return True
+        return True, "Success"
 
     except sqlite3.IntegrityError as e:
-        print(f"Staff registration failed: {e}")
-        return False
+        err_msg = str(e).lower()
+        if "phone_number" in err_msg:
+            return False, "Phone number is already registered!"
+        elif "email" in err_msg:
+            return False, "Email is already registered!"
+        else:
+            return False, "This email or phone number is already registered!"
 
     except sqlite3.Error as e:
-        print(f"Database error: {e}")
-        return False
+        return False, f"Database error: {e}"
 
     finally:
         conn.close()
@@ -961,6 +1149,8 @@ def make_announcement():
                 os.path.join(app.config['UPLOAD_FOLDER'], image_filename)
             )
 
+        staff_name = session.get('user_name') or 'Staff member'
+
         # Save announcement to the existing SQLite database
         conn = get_db_connection()
         try:
@@ -990,6 +1180,13 @@ def make_announcement():
             conn.close()
 
         flash('Announcement published successfully!', 'success')
+
+        create_notification(
+            "New Announcement Posted",
+            f"{staff_name} posted a new announcement: '{title}'",
+            target_role='all'
+        )
+
         return redirect(url_for('make_announcement'))
 
     return render_template('blood_bank_staff/make_announcement.html')
@@ -1015,8 +1212,6 @@ def registration():
         emergency_contact = request.form.get('emergency_contact')
         address = request.form.get('address')
 
-        weight = 0.0
-        height = 0.0
 
         user_email = session.get('user_email')
         conn = get_db_connection()
@@ -1285,53 +1480,6 @@ def manage_events():
         events=get_all_events()
     )
 
-
-
-POINTS_PER_DONATION = 100
-REWARD_STATUSES = ("Active", "Inactive")
-
-
-# ------------------------------------------------------------
-# Tables
-#   rewards        what the admin adds (stock NULL = unlimited)
-#   reward_claims  what donors claimed. The reward name is copied in, so the
-#                  history survives even if the admin deletes the reward.
-# ------------------------------------------------------------
-def ensure_reward_tables(conn):
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS rewards (
-            reward_id   INTEGER PRIMARY KEY AUTOINCREMENT,
-            name        TEXT NOT NULL,
-            description TEXT,
-            points_cost INTEGER NOT NULL CHECK (points_cost > 0),
-            stock       INTEGER CHECK (stock IS NULL OR stock >= 0),
-            status      TEXT NOT NULL DEFAULT 'Active',
-            created_at  TEXT,
-            needs_phone INTEGER NOT NULL DEFAULT 0
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS reward_claims (
-            claim_id     INTEGER PRIMARY KEY AUTOINCREMENT,
-            reward_id    INTEGER,
-            donor_id     INTEGER NOT NULL,
-            reward_name  TEXT NOT NULL,
-            points_spent INTEGER NOT NULL,
-            claimed_at   TEXT NOT NULL,
-            phone        TEXT,
-            FOREIGN KEY (reward_id) REFERENCES rewards(reward_id) ON DELETE SET NULL,
-            FOREIGN KEY (donor_id)  REFERENCES donors(donor_id)   ON DELETE CASCADE
-        )
-    """)
-    # tables created by the first version of this file get the new columns
-    for table, column, ddl in (("rewards", "needs_phone", "INTEGER NOT NULL DEFAULT 0"),
-                               ("reward_claims", "phone", "TEXT")):
-        have = {r["name"] for r in conn.execute("PRAGMA table_info(%s)" % table).fetchall()}
-        if column not in have:
-            conn.execute("ALTER TABLE %s ADD COLUMN %s %s" % (table, column, ddl))
-    conn.commit()
-
-
 # ------------------------------------------------------------
 # TNG phone number (Malaysian mobile). Stored as digits: 0123456789
 # Accepts 012-345 6789, 0123456789, +6012 345 6789, 60123456789 ...
@@ -1352,13 +1500,6 @@ def format_my_phone(digits):
     if len(digits) == 11:
         return "%s-%s %s" % (digits[:3], digits[3:7], digits[7:])
     return digits
-
-
-def _reward_conn():
-    conn = get_db_connection()
-    ensure_reward_tables(conn)
-    return conn
-
 
 def _rw_error(message, code=400):
     return jsonify(ok=False, error=message), code
@@ -1424,33 +1565,30 @@ def _read_reward_form(conn, reward_id=None):
                 needs_phone=needs_phone), None
 
 
-# ------------------------------------------------------------
-# Admin: the Add Rewards page
-# ------------------------------------------------------------
 @app.route('/add_rewards')
 def add_rewards():
     if session.get('role') != 'admin':
         return redirect(url_for('login', next='add_rewards'))
 
-    conn = _reward_conn()
+    conn = get_db_connection()
     try:
         reward_rows = conn.execute("""
-            SELECT r.reward_id, r.name, r.description, r.points_cost, r.stock,
+            SELECT r.id, r.name, r.desc, r.points, r.stock,
                    r.status, r.created_at, r.needs_phone,
                    (SELECT COUNT(*) FROM reward_claims c
-                     WHERE c.reward_id = r.reward_id) AS claimed
+                     WHERE c.reward_id = r.id) AS claimed
               FROM rewards r
-             ORDER BY r.reward_id DESC
+             ORDER BY r.id DESC
         """).fetchall()
 
         claim_rows = conn.execute("""
-            SELECT c.claimed_at, c.reward_name, c.points_spent, c.phone,
+            SELECT c.created_at AS claimed_at, c.reward AS reward_name, c.points AS points_spent, c.phone,
                    COALESCE(d.donor_name, u.full_name, u.email, 'Unknown donor') AS donor,
                    u.email AS email
               FROM reward_claims c
-              LEFT JOIN donors d ON d.donor_id = c.donor_id
-              LEFT JOIN users  u ON u.id = d.user_id
-             ORDER BY c.claim_id DESC
+              LEFT JOIN users  u ON u.id = c.user_id
+              LEFT JOIN donors d ON d.user_id = u.id
+             ORDER BY c.id DESC
              LIMIT 100
         """).fetchall()
 
@@ -1459,11 +1597,11 @@ def add_rewards():
         conn.close()
 
     rewards_list = [{
-        "id": r["reward_id"],
+        "id": r["id"],
         "name": r["name"],
-        "description": r["description"] or "",
-        "points": r["points_cost"],
-        "stock": r["stock"],                       # None = unlimited
+        "description": r["desc"] or "",
+        "points": r["points"],
+        "stock": r["stock"],
         "status": r["status"],
         "needs_phone": bool(r["needs_phone"]),
         "claimed": r["claimed"],
@@ -1476,7 +1614,7 @@ def add_rewards():
         "points": c["points_spent"],
         "donor": c["donor"],
         "email": c["email"] or "",
-        "phone": format_my_phone(c["phone"]),
+        "phone": c["phone"] or "",
     } for c in claim_rows]
 
     return render_template(
@@ -1486,7 +1624,6 @@ def add_rewards():
         total_claims=total_claims,
         active_count=sum(1 for r in rewards_list if r["status"] == "Active"),
         inactive_count=sum(1 for r in rewards_list if r["status"] != "Active"),
-        points_per_donation=POINTS_PER_DONATION,
     )
 
 
@@ -1566,7 +1703,7 @@ def admin_toggle_reward(reward_id):
     if denied:
         return denied
 
-    conn = _reward_conn()
+    conn = get_db_connection()
     try:
         reward = conn.execute("SELECT name, status FROM rewards WHERE reward_id = ?",
                               (reward_id,)).fetchone()
@@ -1602,20 +1739,19 @@ def delete_reward(reward_id):
     conn.close()
     return redirect(url_for('add_rewards'))
 
+POINTS_PER_DONATION = 100
 
-# ------------------------------------------------------------
-# Donor: points + claiming
-# ------------------------------------------------------------
 def _donor_points(conn, donor_id):
     """(donations, points_claimed, balance). A donor with no row has nothing."""
     if not donor_id:
         return 0, 0, 0
     donations = conn.execute(
         "SELECT COUNT(*) FROM donations WHERE donor_id = ?", (donor_id,)).fetchone()[0]
+    # Fixed: points_spent -> points, donor_id -> user_id
     spent = conn.execute(
-        "SELECT COALESCE(SUM(points_spent), 0) FROM reward_claims WHERE donor_id = ?",
+        "SELECT COALESCE(SUM(points), 0) FROM reward_claims WHERE user_id = ?",
         (donor_id,)).fetchone()[0]
-    return donations, spent, donations * POINTS_PER_DONATION - spent
+    return donations, spent, (donations * POINTS_PER_DONATION) - spent
 
 
 def claim_reward(donor_id, reward_id, phone_raw=None):
@@ -1627,12 +1763,14 @@ def claim_reward(donor_id, reward_id, phone_raw=None):
     if not reward_id:
         return False, "Please choose a reward."
 
-    conn = _reward_conn()
+    conn = get_db_connection()
+
     try:
         conn.execute("BEGIN IMMEDIATE")
 
+        # Fixed: reward_id -> id
         reward = conn.execute(
-            "SELECT * FROM rewards WHERE reward_id = ? AND status = 'Active'",
+            "SELECT * FROM rewards WHERE id = ? AND status = 'Active'",
             (reward_id,)).fetchone()
         if not reward:
             return False, "That reward is no longer available."
@@ -1647,20 +1785,25 @@ def claim_reward(donor_id, reward_id, phone_raw=None):
                                "eWallet (for example 012-345 6789).")
 
         _, _, balance = _donor_points(conn, donor_id)
-        if balance < reward["points_cost"]:
+        # Fixed: points_cost -> points
+        if balance < reward["points"]:
             return False, "You do not have enough points for this reward."
 
+        # Fixed columns: reward_id, user_id, reward, points, created_at, phone
         conn.execute("""
             INSERT INTO reward_claims
-                (reward_id, donor_id, reward_name, points_spent, claimed_at, phone)
+                (reward_id, user_id, reward, points, created_at, phone)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, (reward["reward_id"], donor_id, reward["name"],
-              reward["points_cost"], _now(), phone))
+        """, (reward["id"], donor_id, reward["name"],
+              reward["points"], _now(), phone))
+
         if reward["stock"] is not None:
-            conn.execute("UPDATE rewards SET stock = stock - 1 WHERE reward_id = ?",
-                         (reward["reward_id"],))
+            # Fixed: reward_id -> id
+            conn.execute("UPDATE rewards SET stock = stock - 1 WHERE id = ?",
+                         (reward["id"],))
         conn.commit()
-        message = 'You claimed "%s" for %d points.' % (reward["name"], reward["points_cost"])
+        # Fixed: points_cost -> points
+        message = 'You claimed "%s" for %d points.' % (reward["name"], reward["points"])
         if phone:
             message += " The admin will transfer it to your TNG number %s." % format_my_phone(phone)
         return True, message
@@ -1688,14 +1831,15 @@ def rewards():
         flash(message, "success" if ok else "error")
         return redirect(url_for('rewards'))
 
-    conn = _reward_conn()
+    conn = get_db_connection()
     try:
         donations, points_claimed, balance = _donor_points(conn, donor_id)
 
+        # Using SQL aliases so dictionary keys match Python expectations
         reward_rows = conn.execute("""
-            SELECT reward_id, name, description, points_cost, stock, needs_phone
+            SELECT id AS reward_id, name, desc AS description, points AS points_cost, stock, needs_phone
               FROM rewards WHERE status = 'Active'
-             ORDER BY points_cost ASC, reward_id ASC
+             ORDER BY points ASC, id ASC
         """).fetchall()
 
         history = []
@@ -1708,9 +1852,10 @@ def rewards():
                     "activity": "Blood donation (%s)" % d["blood_group"],
                     "points": POINTS_PER_DONATION,
                 })
+            # Using SQL aliases for reward_claims history query
             for c in conn.execute(
-                    "SELECT claimed_at, reward_name, points_spent, phone "
-                    "FROM reward_claims WHERE donor_id = ?", (donor_id,)):
+                    "SELECT created_at AS claimed_at, reward AS reward_name, points AS points_spent, phone "
+                    "FROM reward_claims WHERE user_id = ?", (donor_id,)):
                 history.append({
                     "when": str(c["claimed_at"] or "")[:19],
                     "activity": "Claimed: %s%s" % (
@@ -1751,7 +1896,7 @@ def rewards():
             "out_of_stock": out_of_stock,
             "can_claim": balance >= cost and not out_of_stock,
             "needed": max(cost - balance, 0),
-            "percent": min(100, int(max(balance, 0) * 100 / cost)),
+            "percent": min(100, int(max(balance, 0) * 100 / cost)) if cost > 0 else 100,
         })
 
     return render_template(
@@ -1797,26 +1942,27 @@ def make_appointment():
         my_appointments=get_donor_upcoming_appointments(donor['donor_id'])
     )
 
-
-
-
 @app.route('/book_appointment', methods=['POST'])
 def book_appointment():
     donor, response = _logged_in_donor()
     if response:
         return response
 
+    print("FORM DATA RECEIVED:", request.form)
+
     event_id = request.form.get('event_id', type=int)
+    appointment_date = (request.form.get('appointment_date') or '').strip()
     appt_time = (request.form.get('appointment_time') or '').strip()
     notes = (request.form.get('notes') or '').strip()[:300]
 
-    if not event_id or not appt_time:
-        flash("Please select an event and an appointment time.", "error")
+    if not event_id or not appointment_date or not appt_time:
+        flash("Please select an event, date, and time slot.", "error")
     else:
-        ok, message = create_appointment(donor['donor_id'], event_id, appt_time, notes)
+        ok, message = create_appointment(donor['donor_id'], event_id, appointment_date, appt_time, notes)
         flash(message, "success" if ok else "error")
 
     return redirect(url_for('make_appointment'))
+
 
 @app.route('/cancel_appointment', methods=['POST'])
 def cancel_appointment():
@@ -1979,7 +2125,6 @@ def collect_report_data(conn, from_date, to_date):
         _donor_detail=[(r['name'], r['email'], r['blood_type'], r['status'], r['created'])
                        for r in donor_list],
     )
-
 
 def _load_report():
     from_date, to_date = _rep_filters()
@@ -2279,7 +2424,7 @@ def _read_staff_form(conn, user_id=None, password_required=True):
     data = {
         "name": f.get("name", "").strip(),
         "email": f.get("email", "").strip().lower(),
-        "phone": f.get("phone", "").strip(),
+        "phone": f.get("phone_number", "").strip(),
         "role": f.get("role", "").strip(),
         "org": f.get("organisation", "").strip(),
         "status": f.get("status", "Active").strip() or "Active",
@@ -2321,13 +2466,44 @@ def _read_staff_form(conn, user_id=None, password_required=True):
 # ============================================================
 # Page
 # ============================================================
-@app.route('/manage_users')
+@app.route('/admin/manage_users')
 def manage_users():
-
-
-    conn = get_users_conn()
-    users = get_all_users(conn)
+    conn = get_db_connection()
+    raw_users = conn.execute('''
+        SELECT 
+            u.id AS id, 
+            u.full_name AS name, 
+            u.email AS email, 
+            u.phone_number AS phone, 
+            u.role AS role, 
+            u.organisation AS org, 
+            u.status AS status, 
+            u.created_at AS date,
+            d.ic AS ic, 
+            d.blood_type AS blood_type, 
+            d.dob AS dob, 
+            d.address AS address, 
+            d.gender AS gender, 
+            d.emergency_contact AS emergency_contact
+        FROM users u
+        LEFT JOIN donors d ON u.id = d.user_id
+        WHERE LOWER(u.role) != 'admin'
+        ORDER BY u.created_at DESC
+    ''').fetchall()
     conn.close()
+
+    # Normalize roles for clean template presentation
+    users = []
+    for u in raw_users:
+        u_dict = dict(u)
+        role = (u_dict.get('role') or '').lower()
+        if role == 'donor':
+            u_dict['role'] = 'Donor'
+        elif role in ['hospital_staff', 'hospital staff']:
+            u_dict['role'] = 'Hospital Staff'
+        elif role in ['blood_bank_staff', 'blood bank staff']:
+            u_dict['role'] = 'Blood Bank Staff'
+        users.append(u_dict)
 
     return render_template('admin/manage_users.html', users=users)
 
@@ -2335,7 +2511,7 @@ def manage_users():
 # ============================================================
 # Add staff
 # ============================================================
-@app.route('/manage_users/add', methods=['POST'])
+@app.route('/admin/manage_users/add', methods=['POST'])
 def add_staff():
     if session.get('role') != 'admin':
         return redirect(url_for('login', next="manage_users"))
@@ -2352,7 +2528,7 @@ def add_staff():
 
     temporary_password = secrets.token_urlsafe(9)
 
-    success = register_staff_user(name, email, phone,role, temporary_password)
+    success = register_staff_user(name, email, phone, role, org, temporary_password)
 
     if not success:
         flash("Email is already registered!", "error")
@@ -2371,7 +2547,7 @@ def add_staff():
 # ============================================================
 # Edit staff
 # ============================================================
-@app.route('/manage_users/<int:user_id>/edit', methods=['POST'])
+@app.route('/admin/manage_users/<int:user_id>/edit', methods=['POST'])
 def admin_edit_user(user_id):
     denied = _admin_only_json()
     if denied:
@@ -2407,7 +2583,7 @@ def admin_edit_user(user_id):
                 (_hash_password(data["password"]), user_id))
 
         conn.commit()
-        return jsonify(ok=True)
+        return redirect(url_for('manage_users'))
 
     except sqlite3.IntegrityError:
         return _json_error("That email or phone number is already in use.")
@@ -2418,7 +2594,7 @@ def admin_edit_user(user_id):
 # ============================================================
 # Activate / deactivate (staff and donors)
 # ============================================================
-@app.route('/manage_users/<int:user_id>/toggle', methods=['POST'])
+@app.route('/admin/manage_users/<int:user_id>/toggle', methods=['POST'])
 def toggle_user_status(user_id):
     if session.get('role') != 'admin':
         return redirect(url_for('login', next='manage_users'))
@@ -2471,7 +2647,7 @@ def admin_reset_password(user_id):
 # ============================================================
 # Delete staff
 # ============================================================
-@app.route('/manage_users/<int:user_id>/delete', methods=['POST'])
+@app.route('/admin/manage_users/<int:user_id>/delete', methods=['POST'])
 def admin_delete_user(user_id):
     denied = _admin_only_json()
     if denied:
@@ -2520,6 +2696,8 @@ def admin_delete_user(user_id):
 
 @app.route("/blood_bank_staff_dashboard", methods=["GET", "POST"])
 def blood_bank_staff_dashboard():
+    flash("Log in successful! Welcome!", "success")
+
     return render_template("blood_bank_staff/blood_bank_staff_dashboard.html")
 
 @app.route('/hospital_staff/blood_request', methods=['GET', 'POST'])
@@ -2572,58 +2750,9 @@ def hospital_staff_blood_request():
         'hospital_staff/hospital_staff_blood_request.html'
     )
 
-
-@app.route("/manage_blood_stock", methods=["GET", "POST"])
-def manage_blood_stock():
-    conn = get_db_connection()
-
-    try:
-        rows = conn.execute("""
-            SELECT
-                blood_group,
-                COUNT(*) AS quantity,
-                MAX(collection_date) AS last_updated
-            FROM donations
-            WHERE status = 'Available'
-              AND date(expiry_date) >= date('now')
-            GROUP BY blood_group
-        """).fetchall()
-
-    finally:
-        conn.close()
-
-    stock = {row["blood_group"]: row for row in rows}
-
-    blood_stocks = []
-
-    for blood_type in BLOOD_TYPES:
-        row = stock.get(blood_type)
-        quantity = row["quantity"] if row else 0
-
-        if quantity <= MIN_THRESHOLD * 0.5:
-            status = "Critical"
-        elif quantity < MIN_THRESHOLD:
-            status = "Low"
-        else:
-            status = "Sufficient"
-
-        blood_stocks.append({
-            "blood_type": blood_type,
-            "quantity": quantity,
-            "last_updated": (
-                row["last_updated"][:10]
-                if row and row["last_updated"]
-                else "No donations yet"
-            ),
-            "status": status
-        })
-
-    return render_template(
-        "blood_bank_staff/manage_blood_stock.html",
-        blood_stocks=blood_stocks
-    )
-
-
+@app.route("/manage_blood_inventory", methods=["GET"])
+def manage_blood_inventory():
+    return render_template("blood_bank_staff/blood_inventory.html")
 
 @app.route("/get_donor_by_ic", methods=["GET"])
 def get_donor_by_ic():
@@ -2656,26 +2785,62 @@ def get_donor_by_ic():
         conn.close()
 
 
+@app.route("/get_staff_by_email", methods=["GET"])
+def get_staff_by_email():
+    email = request.args.get("email", "").strip()
+
+    if not email:
+        return jsonify({"success": False})
+
+    conn = get_db_connection()
+
+    try:
+        staff = conn.execute("""
+            SELECT organisation AS hospital_name FROM users 
+            WHERE TRIM(LOWER(email)) = TRIM(LOWER(?))
+        """, (email,)).fetchone()
+
+        if staff and staff["hospital_name"]:
+            return jsonify({
+                "success": True,
+                "hospital_name": staff["hospital_name"]
+            })
+
+        return jsonify({"success": False})
+
+    except Exception as e:
+        print("Error in get_staff_by_email:", e)
+        return jsonify({"success": False})
+
+    finally:
+        conn.close()
+
 @app.route("/record_donation", methods=["GET", "POST"])
 def record_donation():
     donor = None
+    searched_ic = ""
 
     if request.method == "POST":
         action = request.form.get("action")
 
         if action == "search":
-            ic = request.form.get("ic").strip()
+            searched_ic = request.form.get("ic", "").strip()
             conn = get_db_connection()
+            # Explicitly alias columns so names don't collide or map incorrectly in row_factory
             donor = conn.execute('''
-                SELECT d.*, u.full_name, u.phone_number
+                SELECT d.id AS donor_id, d.ic, d.blood_type, d.gender, d.dob, d.address, d.emergency_contact,
+                       u.full_name AS name, u.email AS email, u.phone_number AS phone_number
                 FROM donors d
                 JOIN users u ON d.user_id = u.id
                 WHERE d.ic = ?
-            ''', (ic,)).fetchone()
+            ''', (searched_ic,)).fetchone()
             conn.close()
 
             if not donor:
                 return render_template("blood_bank_staff/record_donation.html", error_popup="No registered account with this IC number!")
+
+            # Pass the retrieved donor back to the template
+            return render_template("blood_bank_staff/record_donation.html", donor=donor, searched_ic=searched_ic)
 
         elif action == "record":
             donor_id = request.form.get("donor_id")
@@ -2692,7 +2857,8 @@ def record_donation():
             conn.commit()
             conn.close()
 
-            return render_template("blood_bank_staff/record_donation.html", error_popup="Donation successfully recorded!")
+            flash("Donation record successfully recorded!", "success")
+            return render_template("blood_bank_staff/record_donation.html")
 
     return render_template("blood_bank_staff/record_donation.html")
 
@@ -2723,6 +2889,66 @@ def view_appointment():
         appointments=appointments
     )
 
+@app.route("/api/blood_inventory", methods=["GET"])
+def api_blood_inventory():
+    conn = get_db_connection()
+    try:
+        inventory = conn.execute("""
+            SELECT blood_group as blood_type, 
+                   SUM(volume_blood) as total_volume,
+                   COUNT(donation_id) as available_units,
+                   MAX(collection_date) as last_updated
+            FROM donations
+            WHERE status = 'Available'
+            GROUP BY blood_group
+        """).fetchall()
+
+        blood_list = []
+        for row in inventory:
+            units = row["available_units"]
+            status = "Critical" if units <= 5 else ("Low" if units <= 15 else "Sufficient")
+
+            blood_list.append({
+                "blood_type": row["blood_type"],
+                "available_units": units,
+                "status": status,
+                "last_updated": row["last_updated"] or "N/A"
+            })
+
+        return jsonify({"success": True, "data": blood_list})
+    finally:
+        conn.close()
+
+
+@app.route("/api/send_blood_announcement", methods=["POST"])
+def api_send_blood_announcement():
+    data = request.get_json()
+    blood_type = data.get("blood_type")
+
+    if not blood_type:
+        return jsonify({"success": False, "message": "Blood type is required."}), 400
+
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            """INSERT INTO announcements (title, category, message, status) 
+               VALUES (?, ?, ?, ?)""",
+            (
+                f"Critical Shortage: Blood Type {blood_type}",
+                "Emergency",
+                f"Urgent alert: Blood type {blood_type} has dropped to a critical level. Please visit the center or book an appointment to donate immediately.",
+                "Published"
+            )
+        )
+        conn.commit()
+        flash(f"Emergency announcement successfully sent for blood type {blood_type}!", "success")
+        return jsonify({"success": True})
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500
+    finally:
+        conn.close()
 
 if __name__ == "__main__":
     from database import init_db, DB_PATH

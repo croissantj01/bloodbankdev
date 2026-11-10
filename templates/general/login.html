@@ -68,16 +68,27 @@
     </div>
 </div>
 
-{% if error %}
-<div style="color: red; margin-top: 10px;">
-    {{ error }}
-</div>
-{% endif %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <div class="bottom-toast-container" id="toast-container">
+            {% for category, message in messages %}
+                <div class="toast-message {{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
 
-{% if error_popup %}
-<script>
-    alert({{ error_popup | tojson }});
-</script>
-{% endif %}
+        <script>
+            setTimeout(function() {
+                const toastContainer = document.getElementById('toast-container');
+                if (toastContainer) {
+                    toastContainer.style.transition = 'opacity 0.5s ease';
+                    toastContainer.style.opacity = '0';
+                    setTimeout(() => toastContainer.remove(), 500);
+                }
+            }, 5000);
+        </script>
+    {% endif %}
+{% endwith %}
 
 {% endblock %}

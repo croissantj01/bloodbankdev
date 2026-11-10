@@ -75,9 +75,9 @@ def _upgrade_appointments_table():
         if "notes" not in cols:
             conn.execute("ALTER TABLE appointments ADD COLUMN notes TEXT")
 
-        # A donor can only hold one active booking per event
-        conn.execute("""CREATE UNIQUE INDEX IF NOT EXISTS ux_appt_donor_event
-                        ON appointments(donor_id, event_id)
+        # UPDATED: Include appointment_date so a donor can book the same event on different days
+        conn.execute("""CREATE UNIQUE INDEX IF NOT EXISTS ux_appt_donor_event_date
+                        ON appointments(donor_id, event_id, appointment_date)
                         WHERE status != 'Cancelled' AND event_id IS NOT NULL""")
         conn.commit()
     finally:
@@ -133,6 +133,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             full_name TEXT,
             email TEXT UNIQUE NOT NULL,
+            organisation TEXT,
             phone_number TEXT UNIQUE,
             hashed_password TEXT NOT NULL,
             role TEXT NOT NULL
@@ -294,7 +295,29 @@ def init_db():
             )
         ''')
 
+    conn.execute('''
+            CREATE TABLE IF NOT EXISTS notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                title TEXT NOT NULL,
+                message TEXT NOT NULL,
+                is_read INTEGER DEFAULT 0,
+                created_at TEXT,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        ''')
+
+    today_str = date.today().isoformat()
+    conn.execute('''
+            INSERT INTO events (event_id, title, event_date, start_time, end_time, place, address, notes)
+            SELECT 1, 'Main Donation Centre', ?, '08:00', '17:00', 'Main Blood Centre HQ', '123 Central Health Avenue', 'Permanent Walk-in & Appointment Blood Donation Centre'
+            WHERE NOT EXISTS (SELECT 1 FROM events WHERE event_id = 1 OR title = 'Main Donation Centre');
+        ''', (today_str,))
+
     conn.commit()
+
+    _upgrade_rewards_table(conn)
+
     conn.close()
     add_image_column()
 
@@ -316,6 +339,16 @@ def get_user_by_email(email):
         ).fetchone()
     finally:
         conn.close()
+
+def _upgrade_rewards_table(conn):
+    """Ensure rewards and reward_claims tables have the latest columns."""
+    for table, column, ddl in (("rewards", "needs_phone", "INTEGER NOT NULL DEFAULT 0"),
+                               ("reward_claims", "phone", "TEXT")):
+        have = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+        if column not in have:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
+            print(f"Added missing column: {table}.{column}")
+    conn.commit()
 
 
 # ---------------------------------------------------------------
@@ -478,61 +511,53 @@ def get_donor_by_email(email):
 
 
 def get_bookable_events(donor_id=None):
-    """
-    Upcoming events shaped for donor/make_appointment.html, each with its
-    appointment times and how many places are left. Events this donor has
-    already booked are left out.
-    """
-    now   = datetime.now()
+    now = datetime.now()
     today = now.date().isoformat()
-    conn  = get_db_connection()
+    conn = get_db_connection()
     try:
         events = conn.execute(
-            "SELECT * FROM events WHERE event_date >= ? ORDER BY event_date, start_time",
+            "SELECT * FROM events WHERE event_date >= ? OR title = 'Main Donation Centre' ORDER BY event_date, start_time",
             (today,)).fetchall()
 
         taken = {}
         for r in conn.execute(
-                """SELECT event_id, appointment_time, COUNT(*) AS n
+                """SELECT event_id, appointment_date, appointment_time, COUNT(*) AS n
                      FROM appointments
                     WHERE event_id IS NOT NULL AND status != 'Cancelled'
-                    GROUP BY event_id, appointment_time"""):
-            taken[(r["event_id"], r["appointment_time"])] = r["n"]
-
-        mine = set()
-        if donor_id:
-            mine = {r["event_id"] for r in conn.execute(
-                """SELECT event_id FROM appointments
-                    WHERE donor_id = ? AND status != 'Cancelled'
-                      AND event_id IS NOT NULL""", (donor_id,))}
+                    GROUP BY event_id, appointment_date, appointment_time"""):
+            taken[(r["event_id"], r["appointment_date"], r["appointment_time"])] = r["n"]
 
         result = []
         for e in events:
-            if e["event_id"] in mine:
-                continue
-
+            is_main = (e["title"] == 'Main Donation Centre')
             ev_date = datetime.strptime(e["event_date"], "%Y-%m-%d").date()
-            slots = []
-            for s in _make_slots(e["start_time"], e["end_time"]):
-                if ev_date == now.date() and s <= now.strftime("%H:%M"):
-                    continue                      # this time has already started
-                left = SLOT_CAPACITY - taken.get((e["event_id"], s), 0)
-                slots.append({"time": s, "label": _time_label(s), "available": max(left, 0)})
 
-            if not slots:
-                continue                          # nothing left to book
+            base_slots = _make_slots(e["start_time"], e["end_time"])
+            slots = []
+
+            for s in base_slots:
+                # For regular events today, filter out past times. Main centre allows all future/today times.
+                if not is_main and ev_date == now.date() and s <= now.strftime("%H:%M"):
+                    continue
+
+                # For main centre, check availability based on today as a default preview or let the modal handle date selection
+                check_date = today if is_main else e["event_date"]
+                left = SLOT_CAPACITY - taken.get((e["event_id"], check_date, s), 0)
+                slots.append({"time": s, "label": _time_label(s), "available": max(left, 0)})
 
             result.append({
                 "id": e["event_id"],
                 "name": e["title"],
                 "location": e["place"],
                 "address": e["address"],
-                "event_date": ev_date,
+                "event_date": e["event_date"],
                 "start_time": _time_label(e["start_time"]),
                 "end_time": _time_label(e["end_time"]),
                 "description": e["notes"] or "",
                 "image": e["image"],
+                "is_permanent": is_main,
                 "available_times": slots,
+                "base_slots": base_slots,
             })
         return result
     finally:
@@ -733,11 +758,9 @@ def get_user_details(user_id):
         "upcoming": upcoming,
     }
 
-def create_appointment(donor_id, event_id, appt_time, notes=""):
+def create_appointment(donor_id, event_id, appointment_date, appt_time, notes=""):
     """
-    Book a time slot. Returns (True, message) or (False, reason).
-    Everything is re-checked here, so a tampered form cannot book a
-    full slot, a past event or a time that does not exist.
+    Book a time slot for a specific user-selected date. Returns (True, message) or (False, reason).
     """
     conn = get_db_connection()
     try:
@@ -748,41 +771,47 @@ def create_appointment(donor_id, event_id, appt_time, notes=""):
             return False, "That event no longer exists."
 
         now = datetime.now()
-        ev_date = datetime.strptime(ev["event_date"], "%Y-%m-%d").date()
-        if ev_date < now.date():
-            return False, "That event has already taken place."
+        try:
+            appt_dt = datetime.strptime(appointment_date, "%Y-%m-%d").date()
+        except ValueError:
+            return False, "Invalid appointment date format."
+
+        if appt_dt < now.date():
+            return False, "You cannot book an appointment for a past date."
 
         if appt_time not in _make_slots(ev["start_time"], ev["end_time"]):
             return False, "Please choose one of the available times."
-        if ev_date == now.date() and appt_time <= now.strftime("%H:%M"):
+        if appt_dt == now.date() and appt_time <= now.strftime("%H:%M"):
             return False, "That time has already passed."
 
+        # Check if already booked for this event on this specific date
         already = conn.execute(
             """SELECT 1 FROM appointments
-                WHERE donor_id = ? AND event_id = ? AND status != 'Cancelled'""",
-            (donor_id, event_id)).fetchone()
+                WHERE donor_id = ? AND event_id = ? AND appointment_date = ? AND status != 'Cancelled'""",
+            (donor_id, event_id, appointment_date)).fetchone()
         if already:
-            return False, "You have already booked this event."
+            return False, "You have already booked an appointment for this date."
 
+        # Check capacity for this specific date and time slot
         used = conn.execute(
             """SELECT COUNT(*) FROM appointments
-                WHERE event_id = ? AND appointment_time = ? AND status != 'Cancelled'""",
-            (event_id, appt_time)).fetchone()[0]
+                WHERE event_id = ? AND appointment_date = ? AND appointment_time = ? AND status != 'Cancelled'""",
+            (event_id, appointment_date, appt_time)).fetchone()[0]
         if used >= SLOT_CAPACITY:
-            return False, "Sorry, that time is now full. Please choose another time."
+            return False, "Sorry, that time slot is full for the selected date. Please pick another time."
 
         conn.execute(
             """INSERT INTO appointments
                    (donor_id, event_id, appointment_date, appointment_time, status, notes)
                VALUES (?, ?, ?, ?, 'Booked', ?)""",
-            (donor_id, event_id, ev["event_date"], appt_time, notes or None))
+            (donor_id, event_id, appointment_date, appt_time, notes or None))
         conn.commit()
 
         return True, "Appointment confirmed: %s on %s at %s." % (
-            ev["title"], ev_date.strftime("%d %b %Y"), _time_label(appt_time))
+            ev["title"], appt_dt.strftime("%d %b %Y"), _time_label(appt_time))
 
     except sqlite3.IntegrityError:
-        return False, "You have already booked this event."
+        return False, "You have already booked an appointment on this date."
     finally:
         if conn.in_transaction:
             conn.rollback()

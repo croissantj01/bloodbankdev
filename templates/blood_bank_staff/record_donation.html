@@ -1,166 +1,166 @@
 {% extends "blood_bank_staff/blood_bank_staff_base.html" %}
-{% block title %}Record Blood Donation{% endblock %}
+{% block title %}Record Donation{% endblock %}
 {% block content %}
 
-<div class="staff-page">
+<div class="content-page" style="min-height: 100vh; padding: 40px 20px;">
+    <div class="container" style="max-width: 850px;">
 
-    <h1>Record Blood Donation</h1>
+        <!-- Main Card Container -->
+        <div class="card border-0 shadow-sm p-5" style="border-radius: 24px; background: #ffffff;">
 
-    <p class="staff-subtitle">
-        Record a donation made by a registered donor.
-    </p>
+            <!-- Header Section -->
+            <div class="mb-4 pb-3 border-bottom">
+                <h2 class="fw-bold mb-1" style="font-size: 24px; color: #0f172a;">Record Blood Donation</h2>
+                <p class="text-muted small m-0">Verify donor credentials and log donation units securely into the system.</p>
+            </div>
 
-    {% if error_popup %}
-    <div class="alert-popup">
-        <p>{{ error_popup }}</p>
-    </div>
-    {% endif %}
+            <form method="POST" action="{{ url_for('record_donation') }}">
+                <!-- Hidden field for donor_id -->
+                <input type="hidden" name="donor_id" id="donorIdInput">
 
-<div class="donation-layout">
+                <!-- Section: Donor Verification -->
+                <div class="mb-4">
+                    <label class="form-label fw-semibold text-secondary small text-uppercase tracking-wider mb-2">Donor Verification</label>
 
-    <div class="donation-form-panel">
-
-        <h2>Donation Details</h2>
-
-        <form method="POST"
-              action="{{ url_for('record_donation') }}"
-              class="staff-form">
-
-            <input type="hidden" name="action" value="record">
-            <!-- Hidden field to hold donor_id once IC is verified -->
-            <input type="hidden" id="donor_id" name="donor_id" required>
-
-            <!-- IC Search Field -->
-            <div class="staff-form-group">
-                <label for="ic">Donor IC Number:</label>
-                <div style="display: flex; gap: 8px;">
-                    <input type="text" id="ic" name="ic" placeholder="Enter IC number..." style="flex: 1;">
-                    <button type="button" id="search_ic_btn" class="staff-btn" style="width: auto; padding: 0 15px;">Verify IC</button>
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="d-flex align-items-center bg-light px-3 flex-grow-1" style="border-radius: 12px; height: 45px;">
+                            <i class="fa-solid fa-id-card text-muted me-2" style="font-size: 16px;"></i>
+                            <input type="text" id="icInput" name="ic" class="form-control bg-transparent border-0 p-0 shadow-none" placeholder="Enter Donor IC Number..." required style="font-size: 14px;">
+                        </div>
+                        <button type="button" id="verifyIcBtn" class="btn btn-danger px-4 py-0 shadow-sm" style="border-radius: 12px; font-weight: 600; font-size: 14px; background-color: #C2281D; border: none; height: 45px; white-space: nowrap;">
+                            <i class="fa-solid fa-magnifying-glass me-1"></i> Verify IC
+                        </button>
+                    </div>
                 </div>
-            </div>
 
-            <!-- Donor Name Confirmation Badge (Shows up after search) -->
-            <div id="donor_info_display" style="display: none; margin-bottom: 15px; padding: 10px 14px; background: #eef9f2; border: 1px solid #c3e6cb; border-radius: 4px; color: #155724;">
-                <strong>Donor Name:</strong> <span id="confirmed_donor_name">-</span>
-            </div>
+                <!-- Section: Donor Details -->
+                <div class="mb-4">
+                    <label class="form-label fw-semibold text-secondary small text-uppercase tracking-wider mb-2">Donor Details</label>
 
-            <!-- Error message if IC is not found -->
-            <div id="donor_error_display" style="display: none; margin-bottom: 15px; padding: 10px 14px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;">
-                <span id="ic_error_msg">No registered donor found with this IC number.</span>
-            </div>
+                    <div class="row g-3">
+                        <!-- Donor Name -->
+                        <div class="col-md-6">
+                            <label for="donorNameInput" class="form-label text-muted small mb-1">Full Name</label>
+                            <input type="text" id="donorNameInput" class="form-control bg-light border-0 py-2.5 px-3" placeholder="Auto-populated name" readonly style="font-size: 14px; border-radius: 12px; cursor: not-allowed; height: 45px;">
+                        </div>
 
-            <!-- Blood Type Selection -->
-            <div class="staff-form-group">
-                <label for="blood_group">Blood Type:</label>
-                <select id="blood_group" name="blood_group" required>
-                    <option value="">Select Blood Type</option>
-                    <option value="A+">A+</option>
-                    <option value="A-">A-</option>
-                    <option value="B+">B+</option>
-                    <option value="B-">B-</option>
-                    <option value="AB+">AB+</option>
-                    <option value="AB-">AB-</option>
-                    <option value="O+">O+</option>
-                    <option value="O-">O-</option>
-                </select>
-            </div>
+                        <!-- Blood Type -->
+                        <div class="col-md-6">
+                            <label for="bloodTypeSelect" class="form-label text-muted small mb-1">Blood Type</label>
+                            <select id="bloodTypeSelect" name="blood_group" class="form-select bg-light border-0 py-2.5 px-3" required style="font-size: 14px; border-radius: 12px; height: 45px;">
+                                <option value="">Select blood type</option>
+                                <option value="A+">A+</option>
+                                <option value="A-">A-</option>
+                                <option value="B+">B+</option>
+                                <option value="B-">B-</option>
+                                <option value="AB+">AB+</option>
+                                <option value="AB-">AB-</option>
+                                <option value="O+">O+</option>
+                                <option value="O-">O-</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
 
-            <!-- Volume Collected (ml) -->
-            <div class="staff-form-group">
-                <label for="volume_blood">Volume Collected (ml):</label>
-                <input type="number" id="volume_blood" name="volume_blood" min="50" step="10" placeholder="e.g., 450" required>
-            </div>
+                <!-- Section: Donation Metrics -->
+                <div class="mb-4">
+                    <label class="form-label fw-semibold text-secondary small text-uppercase tracking-wider mb-2">Donation Metrics</label>
 
-            <!-- Expiry Date -->
-            <div class="staff-form-group">
-                <label for="expiry_date">Expiry Date:</label>
-                <input type="date" id="expiry_date" name="expiry_date" required>
-            </div>
+                    <div class="row g-3">
+                        <!-- Volume -->
+                        <div class="col-md-6">
+                            <label for="volume_blood" class="form-label text-muted small mb-1">Volume (ml)</label>
+                            <input type="number" id="volume_blood" name="volume_blood" class="form-control bg-light border-0 py-2.5 px-3" placeholder="e.g. 450" required style="font-size: 14px; border-radius: 12px; height: 45px;">
+                        </div>
 
-            <!-- Remarks -->
-            <div class="staff-form-group">
-                <label for="remarks">Remarks:</label>
-                <textarea id="remarks" name="remarks" rows="3"
-                          placeholder="Enter any additional remarks (optional)"></textarea>
-            </div>
+                        <!-- Expiry Date -->
+                        <div class="col-md-6">
+                            <label for="expiry_date" class="form-label text-muted small mb-1">Expiry Date</label>
+                            <input type="date" id="expiry_date" name="expiry_date" class="form-control bg-light border-0 py-2.5 px-3" required style="font-size: 14px; border-radius: 12px; height: 45px;">
+                        </div>
+                    </div>
+                </div>
 
-            <button type="submit" class="staff-btn">
-                Record Donation
-            </button>
-
-        </form>
-
+                <!-- Action Button -->
+                <div class="pt-3 border-top d-flex justify-content-end">
+                    <button type="submit" name="action" value="record" id="recordSubmitBtn" class="btn btn-success px-5 py-2.5 shadow-sm" disabled style="border-radius: 12px; font-weight: 600; font-size: 14px;">
+                        <i class="fa-solid fa-check me-1"></i> Record Donation
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
-
-    <div class="donation-image">
-        <img
-            src="{{ url_for('static', filename='images/blooddonation.jpg') }}"
-            alt="Blood donation"
-        >
-    </div>
-
-</div>
-
 </div>
 
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-    const icInput = document.getElementById("ic");
-    const searchBtn = document.getElementById("search_ic_btn");
-    const donorInfoDisplay = document.getElementById("donor_info_display");
-    const donorErrorDisplay = document.getElementById("donor_error_display");
-    const confirmedNameSpan = document.getElementById("confirmed_donor_name");
-    const donorIdInput = document.getElementById("donor_id");
-    const bloodGroupSelect = document.getElementById("blood_group");
+document.addEventListener('DOMContentLoaded', function () {
+    const icInput          = document.getElementById('icInput');
+    const verifyBtn        = document.getElementById('verifyIcBtn');
+    const donorNameInput   = document.getElementById('donorNameInput');
+    const bloodTypeSelect  = document.getElementById('bloodTypeSelect');
+    const donorIdInput     = document.getElementById('donorIdInput');
+    const recordSubmitBtn  = document.getElementById('recordSubmitBtn');
 
-    function verifyIC() {
-        const icVal = icInput.value.trim();
-        if (!icVal) {
-            alert("Please enter an IC number first.");
+    function checkDonorByIC() {
+        const icValue = icInput.value.trim();
+
+        if (!icValue) {
+            alert('Please enter an IC number.');
             return;
         }
 
-        // Use Flask's url_for via template injection for the fetch route
-        const fetchUrl = "{{ url_for('get_donor_by_ic') }}?ic=" + encodeURIComponent(icVal);
-
-        fetch(fetchUrl)
+        fetch(`/get_donor_by_ic?ic=${encodeURIComponent(icValue)}`)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    donorErrorDisplay.style.display = "none";
-                    confirmedNameSpan.textContent = data.full_name;
-                    donorInfoDisplay.style.display = "block";
-                    donorIdInput.value = data.donor_id;
+                    donorNameInput.value = data.full_name;
+                    donorIdInput.value   = data.donor_id;
 
                     if (data.blood_type) {
-                        bloodGroupSelect.value = data.blood_type;
+                        bloodTypeSelect.value = data.blood_type;
                     }
+
+                    recordSubmitBtn.disabled = false;
                 } else {
-                    donorInfoDisplay.style.display = "none";
-                    donorIdInput.value = "";
-                    donorErrorDisplay.style.display = "block";
+                    alert('No registered donor found with this IC number.');
+                    donorNameInput.value  = '';
+                    donorIdInput.value    = '';
+                    bloodTypeSelect.value = '';
+                    recordSubmitBtn.disabled = true;
                 }
             })
-            .catch(err => {
-                console.error("Error fetching donor:", err);
-                alert("An error occurred while searching for the donor.");
+            .catch(error => {
+                console.error('Error fetching donor details:', error);
             });
     }
 
-    // Trigger on button click
-    searchBtn.addEventListener("click", function(e) {
-        e.preventDefault();
-        verifyIC();
-    });
-
-    // Also trigger when user presses "Enter" inside the IC text field
-    icInput.addEventListener("keydown", function(e) {
-        if (e.key === "Enter") {
-            e.preventDefault();
-            verifyIC();
-        }
-    });
+    if (verifyBtn) {
+        verifyBtn.addEventListener('click', checkDonorByIC);
+    }
 });
 </script>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <div class="bottom-toast-container" id="toast-container">
+            {% for category, message in messages %}
+                <div class="toast-message {{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+
+        <script>
+            setTimeout(function() {
+                const toastContainer = document.getElementById('toast-container');
+                if (toastContainer) {
+                    toastContainer.style.transition = 'opacity 0.5s ease';
+                    toastContainer.style.opacity = '0';
+                    setTimeout(() => toastContainer.remove(), 500);
+                }
+            }, 5000);
+        </script>
+    {% endif %}
+{% endwith %}
 
 {% endblock %}

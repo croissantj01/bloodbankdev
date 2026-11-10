@@ -9,27 +9,52 @@
         <p>Please fill in the form below to request blood from the blood bank.</p>
     </div>
 
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+            <div class="profile-alert profile-alert--{{ category }}" role="status">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endwith %}
+
     <div class="blood-request-card">
 
         <div class="blood-request-intro">
             <div class="blood-request-icon">
                 <i class="fa-solid fa-droplet"></i>
             </div>
-
             <div>
                 <h2>Blood Request Form</h2>
-                <p>Please provide the details of your blood request.</p>
+                <p>Verify your staff email to autofill your organisation details.</p>
             </div>
         </div>
 
-        <form method="POST" action="{{ url_for('hospital_staff_blood_request') }}">
+        <form method="POST" action="{{ url_for('blood_request') }}">
+
+            <!-- STAFF EMAIL VERIFICATION -->
+            <div class="request-form-group">
+                <label for="email">Staff Email</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="email"
+                           id="email"
+                           name="email"
+                           placeholder="Enter your staff email"
+                           required>
+                    <button type="button" id="verify-email-btn" class="submit-blood-btn" style="width: auto; padding: 0 20px;">
+                        Verify Email
+                    </button>
+                </div>
+            </div>
+
+            <hr style="margin: 25px 0; border: 0; border-top: 1px solid #eee;">
 
             <div class="request-form-group">
-                <label for="hospital_name">Hospital Name</label>
+                <label for="hospital_name">Hospital Name (Organisation)</label>
                 <input type="text"
                        id="hospital_name"
                        name="hospital_name"
-                       placeholder="Enter your hospital name"
+                       placeholder="Hospital name will appear here"
+                       readonly
                        required>
             </div>
 
@@ -80,6 +105,31 @@
 
 </div>
 
+<!-- JavaScript to handle email verification asynchronously -->
+<script>
+    document.getElementById('verify-email-btn').addEventListener('click', function() {
+        const email = document.getElementById('email').value.trim();
+        const hospitalInput = document.getElementById('hospital_name');
+
+        if (!email) {
+            alert('Please enter a staff email first.');
+            return;
+        }
+
+        fetch(`/get_staff_by_email?email=${encodeURIComponent(email)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    hospitalInput.value = data.hospital_name;
+                } else {
+                    alert('No account found with this email or organisation is empty.');
+                    hospitalInput.value = '';
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching staff data:', error);
+            });
+    });
+</script>
+
 {% endblock %}
-
-

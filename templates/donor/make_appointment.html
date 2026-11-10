@@ -120,6 +120,7 @@
                  data-id="{{ event.id }}"
                  data-title="{{ event.name }}"
                  data-date="{{ (event.event_date|string)[:10] }}"
+                 data-is-main="{{ 'true' if event.is_permanent else 'false' }}"
                  data-when="{{ event.event_date|fmt_date('%A, %d %b %Y') }} · {{ event.start_time }} - {{ event.end_time }}"
                  data-search="{{ (event.name ~ ' ' ~ event.location ~ ' ' ~ event.address)|lower }}">
 
@@ -205,6 +206,12 @@
         <form method="POST" action="{{ url_for('book_appointment') }}" id="bookForm" autocomplete="off">
 
             <input type="hidden" name="event_id" id="bookEventId" value="">
+
+            <!-- Appointment Date Picker Field -->
+            <div class="ev-field">
+                <label for="bookAppointmentDate">Appointment Date</label>
+                <input type="date" id="bookAppointmentDate" name="appointment_date" class="ev-input" required>
+            </div>
 
             <div class="ev-field">
                 <label>Choose an appointment time</label>
@@ -323,11 +330,26 @@
 
         const card = btn.closest('.ev-card');
         const id   = card.dataset.id;
+        const isMain = card.dataset.isMain === 'true';
 
         document.getElementById('bookEventId').value         = id;
         document.getElementById('bookEventName').textContent = card.dataset.title;
         document.getElementById('bookEventWhen').textContent = card.dataset.when;
         document.getElementById('bookNotes').value           = '';
+
+        const dateInput = document.getElementById('bookAppointmentDate');
+
+        if (isMain) {
+            // Main Centre: Allow custom date selection starting from today
+            dateInput.readOnly = false;
+            const todayStr = new Date().toISOString().split('T')[0];
+            dateInput.min = todayStr;
+            dateInput.value = todayStr;
+        } else {
+            // Regular Event: Lock to the event's specific date
+            dateInput.readOnly = true;
+            dateInput.value = card.dataset.date;
+        }
 
         // Show only this event's times; disable every other radio so
         // exactly one appointment_time can be submitted.
@@ -351,9 +373,10 @@
 
     form.addEventListener('submit', e => {
         const chosen = form.querySelector('input[name="appointment_time"]:checked:not(:disabled)');
-        if (!document.getElementById('bookEventId').value || !chosen) {
+        const dateVal = document.getElementById('bookAppointmentDate').value;
+        if (!document.getElementById('bookEventId').value || !dateVal || !chosen) {
             e.preventDefault();
-            alert('Please choose an available appointment time.');
+            alert('Please choose an appointment date and an available time slot.');
         }
     });
 

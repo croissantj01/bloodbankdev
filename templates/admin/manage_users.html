@@ -1,8 +1,15 @@
 {% extends 'admin/admin_base.html' %}
 {% block content %}
 
-{% set staff  = users|rejectattr('role', 'equalto', 'Donor')|list %}
-{% set donors = users|selectattr('role', 'equalto', 'Donor')|list %}
+{% set staff = [] %}
+{% set donors = [] %}
+{% for u in users %}
+    {% if (u.role | string | lower) == 'donor' %}
+        {% set _ = donors.append(u) %}
+    {% else %}
+        {% set _ = staff.append(u) %}
+    {% endif %}
+{% endfor %}
 
 
 <div class="container py-4">
@@ -32,12 +39,12 @@
 
         <div class="report-card">
             <h4>Hospital Staff</h4>
-            <div class="report-value" id="statHospital">{{ users|selectattr('role', 'equalto', 'Hospital Staff')|list|length }}</div>
+            <div class="report-value" id="statHospital">{{ users|selectattr('role', 'defined') | selectattr('role', 'equalto', 'Hospital Staff')|list|length }}</div>
         </div>
 
         <div class="report-card">
             <h4>Blood Bank Staff</h4>
-            <div class="report-value" id="statBank">{{ users|selectattr('role', 'equalto', 'Blood Bank Staff')|list|length }}</div>
+            <div class="report-value" id="statBank">{{ users|selectattr('role', 'defined') | selectattr('role', 'equalto', 'Blood Bank Staff')|list|length }}</div>
         </div>
 
         <div class="report-card">
@@ -45,14 +52,12 @@
             <div class="report-value" id="statDonors">{{ donors|length }}</div>
         </div>
 
-
-
     </div>
 
 
     <!-- ================= TABS ================= -->
     <div class="mu-tabs" role="tablist">
-        <button type="button" class="mu-tab active" data-tab="staff" role="tab">
+        <button type="button" class="mu-tab" data-tab="staff" role="tab">
             <i class="fas fa-user-shield"></i> Staff Accounts
             <span class="mu-count" id="countStaff">{{ staff|length }}</span>
         </button>
@@ -110,11 +115,21 @@
                 <tbody id="userTableBody">
 
                 {% for u in users %}
-                    {% set is_donor = u.role == 'Donor' %}
+                    {% set is_donor = (u.role | string | lower) == 'donor' %}
                     <tr data-id="{{ u.id }}"
                         data-group="{{ 'donor' if is_donor else 'staff' }}"
                         data-role="{{ u.role }}"
-                        data-status="{{ u.status }}">
+                        data-status="{{ u.status }}"
+                        data-name="{{ u.name }}"
+                        data-email="{{ u.email }}"
+                        data-phone="{{ u.phone }}"
+                        data-blood="{{ u.blood_type or u.org }}"
+                        data-ic="{{ u.ic }}"
+                        data-dob="{{ u.dob }}"
+                        data-address="{{ u.address }}"
+                        data-gender="{{ u.gender }}"
+                        data-emergency="{{ u.emergency_contact }}"
+                        data-date="{{ u.date }}">
 
                         <td>
                             <div class="mu-user">
@@ -136,7 +151,7 @@
 
                         <td>
                             {% if is_donor %}
-                                <span class="mu-blood">{{ u.org }}</span>
+                                <span class="mu-blood">{{ u.blood_type or u.org }}</span>
                             {% else %}
                                 {{ u.org }}
                             {% endif %}
@@ -152,6 +167,12 @@
 
                         <td class="text-end">
                             <div class="mu-actions">
+
+                                {% if is_donor %}
+                                <button type="button" class="mu-icon-btn" title="View Donor Details" data-action="view-donor">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                {% endif %}
 
                                 {% if not is_donor %}
                                 <button type="button" class="mu-icon-btn" title="Edit" data-action="edit">
@@ -181,6 +202,80 @@
 
     </div>
 
+</div>
+
+
+<!-- ================= VIEW DONOR MODAL ================= -->
+<div class="mu-modal" id="donorModal" hidden>
+    <div class="mu-modal-backdrop" data-close></div>
+
+    <div class="mu-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="donorModalTitle" style="max-width: 600px;">
+
+        <div class="mu-modal-head">
+            <h3 id="donorModalTitle">
+                <i class="fas fa-heart text-danger"></i> Donor Profile Details
+            </h3>
+            <button type="button" class="mu-close" data-close aria-label="Close">&times;</button>
+        </div>
+
+        <div class="mu-details-body py-3">
+            <div class="d-flex align-items-center mb-4">
+                <span class="mu-avatar me-3" id="donorAvatar" style="width: 48px; height: 48px; font-size: 1.25rem;"></span>
+                <div>
+                    <h4 class="mb-0" id="donorName"></h4>
+                    <span class="mu-badge status active mt-1" id="donorStatus"></span>
+                </div>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="text-muted small">IC Number</label>
+                    <p class="fw-bold mb-0" id="donorIc"></p>
+                </div>
+                <div class="col-md-4">
+                    <label class="text-muted small">Blood Type</label>
+                    <p class="fw-bold text-danger mb-0" id="donorBlood"></p>
+                </div>
+                <div class="col-md-4">
+                    <label class="text-muted small">Gender</label>
+                    <p class="fw-bold mb-0" id="donorGender"></p>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="text-muted small">Date of Birth</label>
+                    <p class="fw-bold mb-0" id="donorDob"></p>
+                </div>
+                <div class="col-md-6">
+                    <label class="text-muted small">Email Address</label>
+                    <p class="fw-bold mb-0" id="donorEmail"></p>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="text-muted small">Phone Number</label>
+                    <p class="fw-bold mb-0" id="donorPhone"></p>
+                </div>
+                <div class="col-md-6">
+                    <label class="text-muted small">Emergency Contact</label>
+                    <p class="fw-bold mb-0 text-danger" id="donorEmergency"></p>
+                </div>
+
+                <div class="col-12">
+                    <label class="text-muted small">Residential Address</label>
+                    <p class="fw-bold mb-0" id="donorAddress"></p>
+                </div>
+
+                <div class="col-12">
+                    <label class="text-muted small">Account Registered Date</label>
+                    <p class="fw-bold mb-0 text-muted" id="donorCreated"></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="mu-modal-foot">
+            <button type="button" class="mu-btn-ghost" data-close>Close</button>
+        </div>
+
+    </div>
 </div>
 
 
@@ -281,7 +376,8 @@
     const orgHeader     = document.getElementById('orgHeader');
     const toast         = document.getElementById('toast');
 
-    let activeTab = 'staff';
+    // Remember last active tab using localStorage
+    let activeTab = localStorage.getItem('mu_active_tab') || 'staff';
 
     const rows = () => Array.from(body.querySelectorAll('tr'));
 
@@ -328,11 +424,20 @@
         emptyState.hidden = visible > 0;
     }
 
+    // Initialize active tab class and view on load
     document.querySelectorAll('.mu-tab').forEach(tab => {
+        const isTarget = tab.dataset.tab === activeTab;
+        if (isTarget) {
+            tab.classList.add('active');
+        } else {
+            tab.classList.remove('active');
+        }
+
         tab.addEventListener('click', () => {
             document.querySelectorAll('.mu-tab').forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
             activeTab = tab.dataset.tab;
+            localStorage.setItem('mu_active_tab', activeTab);
 
             const isDonor = activeTab === 'donor';
             roleFilter.hidden = isDonor;
@@ -344,6 +449,13 @@
             applyFilters();
         });
     });
+
+    // Set initial toolbar state based on remembered tab
+    const isDonorInitial = activeTab === 'donor';
+    roleFilter.hidden = isDonorInitial;
+    donorNote.hidden  = !isDonorInitial;
+    orgHeader.textContent = isDonorInitial ? 'Blood Type' : 'Hospital / Branch';
+    document.getElementById('openAddModal').hidden = isDonorInitial;
 
     [searchInput, roleFilter, statusFilter].forEach(el => {
         el.addEventListener('input', applyFilters);
@@ -377,9 +489,12 @@
         staffForm.reset();
         staffForm.action = URL_BASE + '/' + r.dataset.id + '/edit';
 
-        document.getElementById('fName').value   = r.querySelector('.mu-name').textContent.trim();
-        document.getElementById('fEmail').value  = r.querySelector('.mu-email').textContent.trim();
-        document.getElementById('fPhone').value  = r.querySelector('.mu-phone').textContent.trim();
+        document.getElementById('fName').value   = r.dataset.name || '';
+        document.getElementById('fEmail').value  = r.dataset.email || '';
+
+        const phoneEl = r.querySelector('.mu-phone');
+        document.getElementById('fPhone').value  = phoneEl ? phoneEl.textContent.trim() : (r.dataset.phone || '');
+
         fRole.value                              = r.dataset.role;
         document.getElementById('fOrg').value    = cell(r, 3).textContent.trim();
         syncOrgLabel();
@@ -429,6 +544,8 @@
     });
 
     /* ---------- row actions ---------- */
+    const donorModal = document.getElementById('donorModal');
+
     body.addEventListener('click', e => {
         const btn = e.target.closest('[data-action]');
         if (!btn) return;
@@ -436,6 +553,21 @@
         const r = btn.closest('tr');
         if (btn.dataset.action === 'edit') {
             openEdit(r);
+        } else if (btn.dataset.action === 'view-donor') {
+            document.getElementById('donorAvatar').textContent  = (r.dataset.name || 'D')[0].toUpperCase();
+            document.getElementById('donorName').textContent    = r.dataset.name || '-';
+            document.getElementById('donorStatus').textContent  = r.dataset.status || '-';
+            document.getElementById('donorIc').textContent      = r.dataset.ic || '-';
+            document.getElementById('donorBlood').textContent   = r.dataset.blood || '-';
+            document.getElementById('donorGender').textContent  = r.dataset.gender || '-';
+            document.getElementById('donorDob').textContent     = r.dataset.dob || '-';
+            document.getElementById('donorEmail').textContent   = r.dataset.email || '-';
+            document.getElementById('donorPhone').textContent   = r.dataset.phone || '-';
+            document.getElementById('donorEmergency').textContent = r.dataset.emergency || '-';
+            document.getElementById('donorAddress').textContent = r.dataset.address || '-';
+            document.getElementById('donorCreated').textContent = r.dataset.date || '-';
+
+            openModal(donorModal);
         }
     });
 

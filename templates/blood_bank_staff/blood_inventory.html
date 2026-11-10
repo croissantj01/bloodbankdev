@@ -1,0 +1,132 @@
+{% extends 'blood_bank_staff/blood_bank_staff_base.html' %}
+{% block content %}
+
+<div class="container py-4 blood-page-container">
+
+    <!-- Page Header -->
+    <div class="mb-4">
+        <h1 class="page-title mb-1">View Blood Details</h1>
+    </div>
+
+    <!-- Summary Statistics Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="card border-0 shadow-sm p-3 h-100 stat-card-dark">
+                <span class="stat-label">Total Units in Stock</span>
+                <h3 id="totalUnits" class="stat-value text-dark">0</h3>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card border-0 shadow-sm p-3 h-100 stat-card-blue">
+                <span class="stat-label">Blood Types</span>
+                <h3 id="typeCount" class="stat-value text-dark">0</h3>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card border-0 shadow-sm p-3 h-100 stat-card-green">
+                <span class="stat-label">Sufficient Types</span>
+                <h3 id="sufficientCount" class="stat-value text-dark">0</h3>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card border-0 shadow-sm p-3 h-100 stat-card-red">
+                <span class="stat-label">Low / Critical Types</span>
+                <h3 id="lowCount" class="stat-value text-danger">0</h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- Low Stock Alert Banner -->
+    <div class="alert alert-danger border-0 shadow-sm mb-4 py-3 px-4 d-flex align-items-center alert-custom" id="criticalAlert" style="display:none;">
+        <i class="fa-solid fa-triangle-exclamation me-2 fs-5"></i>
+        <div id="criticalAlertText" class="fw-medium"></div>
+    </div>
+
+    <!-- Filters Bar -->
+    <div class="card border-0 shadow-sm p-3 mb-4 rounded-card">
+        <div class="row g-3 align-items-center">
+            <div class="col-md-3">
+                <select id="bloodTypeFilter" class="form-select bg-light border-0 py-2 px-3 custom-input">
+                    <option value="All">All Blood Types</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <select id="statusFilter" class="form-select bg-light border-0 py-2 px-3 custom-input">
+                    <option value="All">All Statuses</option>
+                    <option value="Sufficient">Sufficient</option>
+                    <option value="Low">Low</option>
+                    <option value="Critical">Critical</option>
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <select id="sortBlood" class="form-select bg-light border-0 py-2 px-3 custom-input">
+                    <option value="desc">Quantity: High to Low</option>
+                    <option value="asc">Quantity: Low to High</option>
+                    <option value="type">Blood Type: A to Z</option>
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <button class="btn btn-light w-100 py-2 text-secondary fw-semibold border-0 btn-reset" onclick="resetFilters()">
+                    <i class="fa-solid fa-rotate-left me-1"></i> Reset Filters
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Blood Inventory Table Card -->
+    <div class="card border-0 shadow-sm p-4 rounded-card">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="table-card-title m-0">Blood Inventory</h4>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light text-uppercase text-muted table-header-custom">
+                    <tr>
+                        <th class="py-3 px-3 rounded-start">Blood Type</th>
+                        <th class="py-3">Available Units</th>
+                        <th class="py-3">Status</th>
+                        <th class="py-3">Last Updated</th>
+                        <th class="py-3 text-end rounded-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="bloodTableBody">
+                    <!-- Populated dynamically via JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- Announcement Confirmation Modal -->
+<div class="modal fade" id="announcementModal" tabindex="-1" aria-labelledby="announcementModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow modal-content-custom">
+            <div class="modal-header border-0 pb-0 px-4 pt-4">
+                <h5 class="modal-title fw-bold modal-title-custom" id="announcementModalLabel">Confirm Announcement</h5>
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body px-4 py-3">
+                <p class="mb-0 text-muted">Are you sure you want to send an emergency shortage announcement to all donors with blood type <strong id="modalBloodType" class="text-danger"></strong>?</p>
+            </div>
+            <div class="modal-footer border-0 px-4 pb-4">
+                <button type="button" class="btn btn-light px-4 py-2 text-secondary fw-semibold border-0" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="confirmSendBtn" class="btn btn-danger px-4 py-2 fw-semibold">Yes, Send Announcement</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

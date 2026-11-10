@@ -1,0 +1,230 @@
+{% extends "donor/donor_base.html" %}
+{% block title %}Announcements & Events{% endblock %}
+{% block content %}
+
+<div class="content-page">
+    <div class="announcements-hero mb-4">
+        <h1 class="announcements-hero-title">Announcements & Events</h1>
+    </div>
+
+    <div class="mu-card p-3 mb-4">
+        <div class="mu-toolbar m-0 border-0 p-0 flex-wrap gap-2">
+            <div class="mu-search flex-grow-1">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search by title or content...">
+            </div>
+
+            <select id="categoryFilter" class="mu-select" aria-label="Filter by category">
+                <option value="">All categories</option>
+                <option value="Blood Stock">Blood Stock</option>
+                <option value="Blood Donation">Blood Donation</option>
+                <option value="Event">Event</option>
+                <option value="General">General</option>
+            </select>
+
+            <div class="d-flex align-items-center gap-2">
+                <input type="date" id="fromDate" class="mu-select" aria-label="From date" title="From date">
+                <span class="text-muted" style="font-size: 13px;">to</span>
+                <input type="date" id="toDate" class="mu-select" aria-label="To date" title="To date">
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4" id="announcementsGrid">
+        {% if announcements and announcements|length > 0 %}
+            {% for item in announcements %}
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3 announcement-item"
+                     data-title="{{ item.title | lower }}"
+                     data-category="{{ item.category }}"
+                     data-date="{{ (item.created_at or '')[:10] }}">
+                    <div class="announcement-grid-card shadow-sm h-100 d-flex flex-column position-relative">
+
+                        <div class="card-num-header d-flex justify-content-between align-items-start">
+                            <div>
+                                <span class="card-num-text">0{{ loop.index if loop.index < 10 else loop.index }}</span>
+                                <div class="card-num-line"></div>
+                            </div>
+
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="card-header-date">{{ (item.created_at or '')[:10] }}</span>
+                                <form action="{{ url_for('delete_announcement', announcement_id=item.announcement_id) }}" method="POST" class="d-inline delete-form">
+                                    <button type="button" class="btn text-danger p-0 border-0 bg-transparent trigger-delete" title="Hide Announcement">
+                                        <i class="fa-regular fa-trash-can"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <div class="px-3 pt-3">
+                            <h2 class="card-item-title text-truncate mb-1" title="{{ item.title }}">{{ item.title }}</h2>
+                            <span class="card-item-category">{{ item.category }}</span>
+                        </div>
+
+                        <div class="px-3 py-3 flex-grow-1">
+                            <div class="card-img-wrapper">
+                                {% if item.image_filename %}
+                                    <img src="{{ url_for('static', filename='uploads/' ~ item.image_filename) }}" alt="{{ item.title }}">
+                                {% else %}
+                                    <div class="placeholder-img d-flex align-items-center justify-content-center h-100 bg-light text-muted">
+                                        <i class="fa-solid fa-bullhorn fa-2x" style="color: #cbd5e1;"></i>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="card-footer-action px-3 pb-3 pt-0">
+                            <button type="button" class="btn-view-more w-100" data-bs-toggle="modal" data-bs-target="#announcementModal{{ item.announcement_id }}">
+                                View Details <i class="fa-solid fa-arrow-right ms-1" style="font-size: 11px;"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal fade" id="announcementModal{{ item.announcement_id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content border-0 shadow" style="border-radius: 20px;">
+                            <div class="modal-header border-0 pb-0 d-flex justify-content-between">
+                                <span class="badge rounded-pill bg-danger text-white px-3 py-1" style="font-size: 12px;">{{ item.category }}</span>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body px-4 py-3">
+                                <h3 class="fw-bold mb-2" style="font-size: 20px; color: #0f172a;">{{ item.title }}</h3>
+                                <p class="text-muted small mb-3"><i class="fa-regular fa-clock me-1"></i> Published on {{ item.created_at }}</p>
+
+                                {% if item.image_filename %}
+                                    <div class="mb-3 text-center">
+                                        <img src="{{ url_for('static', filename='uploads/' ~ item.image_filename) }}" alt="Announcement Image" class="img-fluid rounded-4 shadow-sm" style="max-height: 260px; object-fit: cover; width: 100%;">
+                                    </div>
+                                {% endif %}
+
+                                <div style="color: #334155; line-height: 1.6; font-size: 14px; white-space: pre-wrap;">{{ item.message }}</div>
+                            </div>
+                            <div class="modal-footer border-0 pt-0 pb-4 px-4 gap-2">
+                                <button type="button" class="btn btn-secondary w-100 py-2 rounded-pill" data-bs-dismiss="modal" style="font-weight: 600; font-size: 14px;">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12 text-center py-5" id="emptyState">
+                <p class="text-muted fs-5">No announcements found.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="text-center py-5" id="emptySearchState" style="display: none;">
+        <p class="text-muted fs-5">No announcements match your search criteria.</p>
+    </div>
+</div>
+
+<div class="mu-modal" id="confirmModal" hidden>
+    <div class="mu-modal-backdrop" data-close></div>
+
+    <div class="mu-modal-dialog mu-modal-sm" role="alertdialog" aria-modal="true">
+        <div class="mu-confirm-icon"><i class="fas fa-triangle-exclamation"></i></div>
+        <h3 id="confirmTitle">Delete announcement?</h3>
+        <p id="confirmText" class="mu-confirm-text">This will be permanently deleted!</p>
+
+        <div class="mu-modal-foot center">
+            <button type="button" class="mu-btn-ghost" data-close>Cancel</button>
+            <button type="button" class="export-btn btn-danger" id="confirmOk" style="background-color: #C2281D;">Delete</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const searchInput    = document.getElementById('searchInput');
+    const categoryFilter = document.getElementById('categoryFilter');
+    const fromDateFilter = document.getElementById('fromDate');
+    const toDateFilter   = document.getElementById('toDate');
+    const cards          = document.querySelectorAll('.announcement-item');
+    const emptySearch    = document.getElementById('emptySearchState');
+
+    const confirmModal   = document.getElementById('confirmModal');
+    let targetForm       = null;
+
+    function openModal(el)  { el.hidden = false; document.body.classList.add('mu-no-scroll'); }
+    function closeModal(el) { el.hidden = true;  document.body.classList.remove('mu-no-scroll'); }
+
+    document.querySelectorAll('.mu-modal').forEach(modal => {
+        modal.addEventListener('click', e => {
+            if (e.target.closest('[data-close]')) closeModal(modal);
+        });
+    });
+
+    function applyFilters() {
+        const q        = searchInput.value.trim().toLowerCase();
+        const category = categoryFilter.value;
+        const fromDate = fromDateFilter.value;
+        const toDate   = toDateFilter.value;
+        let visible    = 0;
+
+        cards.forEach(card => {
+            const title = card.getAttribute('data-title') || '';
+            const cat   = card.getAttribute('data-category') || '';
+            const date  = card.getAttribute('data-date') || '';
+
+            let match = true;
+
+            if (q && !title.includes(q)) match = false;
+            if (category && cat !== category) match = false;
+            if (fromDate && date < fromDate) match = false;
+            if (toDate && date > toDate) match = false;
+
+            card.style.display = match ? '' : 'none';
+            if (match) visible++;
+        });
+
+        if (emptySearch) {
+            emptySearch.style.display = visible > 0 ? 'none' : 'block';
+        }
+    }
+
+    if (searchInput) searchInput.addEventListener('input', applyFilters);
+    if (categoryFilter) categoryFilter.addEventListener('change', applyFilters);
+    if (fromDateFilter) fromDateFilter.addEventListener('change', applyFilters);
+    if (toDateFilter) toDateFilter.addEventListener('change', applyFilters);
+
+    document.querySelectorAll('.trigger-delete').forEach(btn => {
+        btn.addEventListener('click', e => {
+            e.preventDefault();
+            targetForm = btn.closest('form');
+            openModal(confirmModal);
+        });
+    });
+
+    document.getElementById('confirmOk').addEventListener('click', () => {
+        closeModal(confirmModal);
+        if (targetForm) {
+            targetForm.submit();
+        }
+    });
+})();
+</script>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <div class="bottom-toast-container" id="toast-container">
+            {% for category, message in messages %}
+                <div class="toast-message {{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+
+        <script>
+            setTimeout(function() {
+                const toastContainer = document.getElementById('toast-container');
+                if (toastContainer) {
+                    toastContainer.style.transition = 'opacity 0.5s ease';
+                    toastContainer.style.opacity = '0';
+                    setTimeout(() => toastContainer.remove(), 500);
+                }
+            }, 5000);
+        </script>
+    {% endif %}
+{% endwith %}
+
+{% endblock %}

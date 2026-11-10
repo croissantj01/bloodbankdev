@@ -3,57 +3,80 @@
 {% block content %}
 
 <div class="content-page">
-
-    <section class="about-hero">
-        <h1 class="about-hero-title">About Our Services</h1>
-        <p class="about-hero-subtitle">
-            Welcome to our blood bank page!
-        </p>
-    </section>
-
-    <section class="about-list">
-
-        <div class="about-item">
-            <div class="about-icon">
-                <i class="fa-solid fa-hospital"></i>
+    <div class="about-container-red">
+        <!-- Left Side: Visual Collage -->
+        <div class="about-collage">
+            <div class="collage-main-img">
+                <img src="https://images.unsplash.com/photo-1615461066841-6116e61058f4?auto=format&fit=crop&w=800&q=80" alt="Blood Donation">
             </div>
 
-            <div class="about-text">
-                <h2>Who We Are</h2>
-                <p>
-                    We are a blood bank that utilizes modern technology to send blood packs to whoever is in need immediately.
-                </p>
-            </div>
-        </div>
-
-        <div class="about-item">
-            <div class="about-icon">
-                <i class="fa-solid fa-heart"></i>
+            <div class="collage-floating-card stat-card">
+                <div class="stat-number">10,000+</div>
+                <div class="stat-desc">Blood packs delivered instantly with 5-star donor care.</div>
+                <div class="stat-avatars">
+                    <i class="fa-solid fa-heart" style="color: #C2281D;"></i>
+                    <i class="fa-solid fa-hospital" style="color: #C2281D;"></i>
+                    <i class="fa-solid fa-shield-halved" style="color: #C2281D;"></i>
+                </div>
             </div>
 
-            <div class="about-text">
-                <h2>Our Mission</h2>
-                <p>
-                    We aim to reduce the current burdens that the current blood banks are facing and to solve the issues faced by them.
-                </p>
+            <div class="collage-floating-card rating-card">
+                <span>Trusted Excellence</span>
+                <div class="rating-stars">
+                    <i class="fa-solid fa-star" style="color: #f59e0b;"></i>
+                    <i class="fa-solid fa-star" style="color: #f59e0b;"></i>
+                    <i class="fa-solid fa-star" style="color: #f59e0b;"></i>
+                    <i class="fa-solid fa-star" style="color: #f59e0b;"></i>
+                    <i class="fa-solid fa-star" style="color: #f59e0b;"></i>
+                </div>
             </div>
         </div>
 
-        <div class="about-item">
-            <div class="about-icon">
-                <i class="fa-solid fa-eye"></i>
+        <!-- Right Side: Content & Mission / Vision -->
+        <div class="about-content-side">
+            <span class="banner"></span>
+            <h1 class="about-hero-title">About Us</h1>
+            <p class="about-hero-subtitle">
+                Welcome to our blood bank page! We harness modern technology to bridge the gap between donors and hospitals in critical need.
+            </p>
+
+            <div class="about-feature-list">
+                <div class="about-item-modern">
+                    <div class="about-icon">
+                        <i class="fa-solid fa-hospital"></i>
+                    </div>
+                    <div class="about-text">
+                        <h2>Who We Are</h2>
+                        <p>We are a blood bank that utilizes modern technology to send blood packs to whoever is in need immediately.</p>
+                    </div>
+                </div>
+
+                <div class="about-item-modern">
+                    <div class="about-icon">
+                        <i class="fa-solid fa-heart"></i>
+                    </div>
+                    <div class="about-text">
+                        <h2>Our Mission</h2>
+                        <p>We aim to reduce the current burdens that blood banks face and solve operational challenges efficiently.</p>
+                    </div>
+                </div>
+
+                <div class="about-item-modern">
+                    <div class="about-icon">
+                        <i class="fa-solid fa-eye"></i>
+                    </div>
+                    <div class="about-text">
+                        <h2>Our Vision</h2>
+                        <p>We aim to keep all blood types in sufficient amounts and urgently deliver them to hospitals with minimal delay.</p>
+                    </div>
+                </div>
             </div>
 
-            <div class="about-text">
-                <h2>Our Vision</h2>
-                <p>
-                    We aim to keep all blood types in sufficient amount and to urgently deliver them to hospital with as little delay as possible.
-                </p>
+            <div class="about-cta-wrapper">
+                <a href="{{ url_for('signup') }}" class="banner-button">Explore More</a>
             </div>
         </div>
-
-    </section>
-
+    </div>
 </div>
 
 {% endblock %}
