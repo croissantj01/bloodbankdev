@@ -20,7 +20,7 @@ from werkzeug.utils import secure_filename
 from database import (get_user_by_email, get_all_events,
                       add_event, update_event, delete_event, get_donor_by_email, create_appointment,
                       get_donor_upcoming_appointments, get_bookable_events, cancel_donor_appointment, get_db_connection,
-                      get_donation_history, get_user_details)
+                      get_donation_history, get_user_details, init_db)
 import random
 
 load_dotenv()
@@ -38,8 +38,6 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-with app.app_context():
-    db.create_all()
 
 def _hash_password(plain_password):
     """bcrypt hash - the same format login() verifies with bcrypt.checkpw."""
