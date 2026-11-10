@@ -33,6 +33,9 @@ oauth = OAuth(app)
 
 import sqlite3
 
+with app.app_context():
+    db.create_all()
+
 def get_db_connection():
     conn = sqlite3.connect('bloodbank.db')
     conn.row_factory = sqlite3.Row
