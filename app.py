@@ -335,6 +335,7 @@ def reset_password():
 def send_otp_email(to_email, otp):
     # verification otp bypass for testing
     print(f"This is the test otp: {otp}")
+    flash(f"Demo: {otp}")
     message = EmailMessage()
     message.set_content(
         f"Your verification code is: {otp} \nThis code will expire shortly. Do not share it with anyone. ")
