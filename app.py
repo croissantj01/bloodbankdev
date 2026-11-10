@@ -343,11 +343,12 @@ def send_otp_email(to_email, otp):
     message['To'] = to_email
 
     try:
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=5) as server:
             server.login(os.getenv('MAIL_USERNAME'), os.getenv('MAIL_PASSWORD'))
             server.send_message(message)
         return True
     except Exception as e:
+        print("SMTP error/timeout skipped: ", e)
         return False
 
 
