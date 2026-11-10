@@ -33,13 +33,13 @@ oauth = OAuth(app)
 
 import sqlite3
 
-with app.app_context():
-    db.create_all()
-
 def get_db_connection():
     conn = sqlite3.connect('bloodbank.db')
     conn.row_factory = sqlite3.Row
     return conn
+
+with app.app_context():
+    db.create_all()
 
 def _hash_password(plain_password):
     """bcrypt hash - the same format login() verifies with bcrypt.checkpw."""
