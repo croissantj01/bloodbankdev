@@ -29,15 +29,12 @@ app = Flask(__name__)
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'a-very-secure-permanent-fallback-key')
 app.config['UPLOAD_FOLDER'] = 'static/uploads/announcements'
 
+with app.app_context():
+    init_db()
+
 oauth = OAuth(app)
 
 import sqlite3
-
-def get_db_connection():
-    conn = sqlite3.connect('bloodbank.db')
-    conn.row_factory = sqlite3.Row
-    return conn
-
 
 def _hash_password(plain_password):
     """bcrypt hash - the same format login() verifies with bcrypt.checkpw."""
