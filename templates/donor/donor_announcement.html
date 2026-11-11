@@ -63,7 +63,7 @@
                         <div class="px-3 py-3 flex-grow-1">
                             <div class="card-img-wrapper">
                                 {% if item.image_filename %}
-                                    <img src="{{ url_for('static', filename='uploads/' ~ item.image_filename) }}" alt="{{ item.title }}">
+                                    <img src="{{ url_for('static', filename='uploads/announcements/' ~ item.image_filename) }}" alt="{{ item.title }}">
                                 {% else %}
                                     <div class="placeholder-img d-flex align-items-center justify-content-center h-100 bg-light text-muted">
                                         <i class="fa-solid fa-bullhorn fa-2x" style="color: #cbd5e1;"></i>
@@ -93,7 +93,7 @@
 
                                 {% if item.image_filename %}
                                     <div class="mb-3 text-center">
-                                        <img src="{{ url_for('static', filename='uploads/' ~ item.image_filename) }}" alt="Announcement Image" class="img-fluid rounded-4 shadow-sm" style="max-height: 260px; object-fit: cover; width: 100%;">
+                                        <img src="{{ url_for('static', filename='uploads/announcements/' ~ item.image_filename) }}" alt="Announcement Image" class="img-fluid rounded-4 shadow-sm" style="max-height: 260px; object-fit: cover; width: 100%;">
                                     </div>
                                 {% endif %}
 

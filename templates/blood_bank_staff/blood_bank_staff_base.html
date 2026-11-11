@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -34,22 +33,43 @@
             <div class="dropdown">
                 <a href="#" class="text-secondary text-decoration-none position-relative dropdown-toggle" id="notificationDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 20px; padding: 6px 10px;">
                     <i class="fa-solid fa-bell"></i>
-                    {% if notifications and notifications|length > 0 %}
-                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.6rem; padding: 3px 5px;">
-                        {{ notifications|length }}
+                    {% if unread_notifications and unread_notifications|length > 0 %}
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger text-white" style="font-size: 0.6rem; padding: 3px 5px; color: white;">
+                        {{ unread_notifications|length }}
                     </span>
                     {% endif %}
                 </a>
-                <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2 notification-dropdown" aria-labelledby="notificationDropdown" style="min-width: 280px; padding: 10px; border-radius: 12px;">
+                <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2 notification-dropdown" aria-labelledby="notificationDropdown" style="min-width: 300px; padding: 10px; border-radius: 12px;">
                     <li><h6 class="dropdown-header fw-bold">Notifications</h6></li>
                     <li><hr class="dropdown-divider"></li>
 
-                    {% if notifications and notifications|length > 0 %}
-                        {% for notif in notifications %}
-                            <li><a class="dropdown-item small py-2 text-wrap" href="#">{{ notif.message }}</a></li>
+                    {% if unread_notifications and unread_notifications|length > 0 %}
+                        {% for notif in unread_notifications %}
+                            <li class="d-flex align-items-center justify-content-between px-2 py-1 border-bottom">
+                                <!-- Click to mark as read / disappear -->
+                                <form action="{{ url_for('mark_notification_read', notif_id=notif.id) }}" method="POST" style="margin: 0; flex-grow: 1;">
+                                    <button type="submit" class="dropdown-item small py-1 text-wrap" style="background: none; border: none; width: 100%; text-align: left;">
+                                        <strong>{{ notif.title }}</strong><br>
+                                        {{ notif.message }}
+                                    </button>
+                                </form>
+
+                                <!-- X Button to hide notification from UI (Data remains safely in database) -->
+                                <form action="{{ url_for('hide_notification', notif_id=notif.id) }}" method="POST" style="margin: 0; margin-left: 5px;">
+                                    <button type="submit" class="btn btn-sm text-muted p-1" title="Hide notification" style="background: none; border: none;">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </form>
+                            </li>
                         {% endfor %}
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item text-center small text-primary fw-bold" href="#">Mark all as read</a></li>
+                        <li>
+                            <form action="{{ url_for('mark_all_notifications_read') }}" method="POST" style="margin: 0;">
+                                <button type="submit" class="dropdown-item text-center small text-primary fw-bold" style="background: none; border: none; width: 100%;">
+                                    Mark all as read
+                                </button>
+                            </form>
+                        </li>
                     {% else %}
                         <li><span class="dropdown-item small text-muted text-center py-2">No new notifications</span></li>
                     {% endif %}
@@ -76,7 +96,6 @@
                             <span class="nav-text">Home</span>
                         </a>
                     </li>
-
 
                     <li class="nav-item">
                         <a href="{{ url_for('record_donation') }}" class="nav-link">

@@ -43,6 +43,14 @@
                                 </form>
                             </li>
                         {% endfor %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <form action="{{ url_for('mark_all_notifications_read') }}" method="POST" style="margin: 0; text-align: center;">
+                                <button type="submit" class="dropdown-item small text-primary fw-bold text-center" style="background: none; border: none; width: 100%;">
+                                    Mark all as read
+                                </button>
+                            </form>
+                        </li>
                     {% else %}
                         <li><span class="dropdown-item small text-muted text-center py-2">No new notifications</span></li>
                     {% endif %}
