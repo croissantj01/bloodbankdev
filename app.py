@@ -319,33 +319,8 @@ def reset_password():
         if new_password != confirm_password:
             return render_template("general/reset_password.html", error_popup="The password does not match!")
 
-        # --- PASSWORD CONSTRAINTS VALIDATION ---
-        # Example rules: Minimum 8 characters, at least one letter and one number
-        if len(new_password) < 8:
-            return render_template("general/reset_password.html",
-                                   error_popup="Password must be at least 8 characters long!")
-
-        if not re.search(r"[A-Za-z]", new_password) or not re.search(r"[0-9]", new_password):
-            return render_template("general/reset_password.html",
-                                   error_popup="Password must contain at least one letter and one number!")
-        # ---------------------------------------
-
         email = session.get('pending_email')
-
-        conn = get_db_connection()
-        try:
-            conn.execute("""
-                UPDATE users 
-                SET hashed_password = ? 
-                WHERE email = ?
-            """, (new_password, email))
-            conn.commit()
-        except Exception as e:
-            conn.rollback()
-            flash(f"Error updating password: {str(e)}", "error")
-            return redirect(url_for('reset_password'))
-        finally:
-            conn.close()
+        update_password(email, new_password)
 
         session.pop('pending_email', None)
         session.pop('is_reset_flow', None)
@@ -360,6 +335,7 @@ def reset_password():
 def send_otp_email(to_email, otp):
     # verification otp bypass for testing
     print(f"This is the test otp: {otp}")
+
     message = EmailMessage()
     message.set_content(
         f"Your verification code is: {otp} \nThis code will expire shortly. Do not share it with anyone. ")
@@ -399,20 +375,6 @@ def signup():
                 "general/signup.html",
                 error_popup="Passwords do not match!"
             )
-
-        # --- PASSWORD CONSTRAINTS VALIDATION ---
-        if len(password) < 8:
-            return render_template(
-                "general/signup.html",
-                error_popup="Password must be at least 8 characters long!"
-            )
-
-        if not re.search(r"[A-Za-z]", password) or not re.search(r"[0-9]", password):
-            return render_template(
-                "general/signup.html",
-                error_popup="Password must contain at least one letter and one number!"
-            )
-        # ---------------------------------------
 
         if get_user_by_email(email):
             return render_template(
@@ -576,62 +538,6 @@ def announcements():
     )
 
 
-@app.route('/blood_bank/announcements/create', methods=['GET', 'POST'])
-def blood_bank_create_announcement():
-    # Make sure only Blood Bank Staff can post announcements
-    if session.get('role') != 'Blood Bank Staff':
-        return redirect(url_for('login'))
-
-    if request.method == 'POST':
-        title = request.form.get('title')
-        category = request.form.get('category')
-        message = request.form.get('message')
-        status = request.form.get('status', 'Published')
-        image_filename = request.form.get('image_filename') # Adjust if using file uploads
-
-        conn = get_db_connection()
-        try:
-            # 1. Insert the new announcement into the database
-            conn.execute("""
-                INSERT INTO announcements (title, category, message, image_filename, status, created_at)
-                VALUES (?, ?, ?, ?, ?, datetime('now'))
-            """, (title, category, message, image_filename, status))
-            conn.commit()
-
-            # 2. If published, notify all Donors and Admins using your existing helper
-            if status == 'Published':
-                # Since your create_notification uses a fail-safe query for staff,
-                # let's explicitly target both donors and admins:
-                target_users = conn.execute("""
-                    SELECT id FROM users 
-                    WHERE LOWER(role) IN ('donor', 'admin')
-                """).fetchall()
-
-                notif_title = f"New Announcement: {title}"
-                notif_message = message[:120] + "..." if len(message) > 120 else message
-
-                # Leverage your existing create_notification function per user
-                # (or loop through user IDs with it)
-                for user in target_users:
-                    create_notification(
-                        title=notif_title,
-                        message=notif_message,
-                        target_user_id=user['id']
-                    )
-
-            flash("Announcement posted and notifications sent successfully!", "success")
-            return redirect(url_for('announcements'))
-
-        except Exception as e:
-            conn.rollback()
-            print("ERROR CREATING ANNOUNCEMENT:", e)
-            flash("Failed to post announcement.", "error")
-        finally:
-            conn.close()
-
-    return render_template("blood_bank/create_announcement.html")
-
-
 @app.route('/announcements/delete/<int:announcement_id>', methods=['POST'])
 def delete_announcement(announcement_id):
     if session.get('role') != 'donor':
@@ -652,33 +558,29 @@ def delete_announcement(announcement_id):
 from datetime import datetime  # put with your other imports at the top
 
 
-def create_notification(title, message, target_role=None, target_user_id=None):
+def create_notification(title, message, target_role='all', specific_user_id=None):
     conn = get_db_connection()
     conn.row_factory = sqlite3.Row
 
-    users_to_notify = []
-
-    if target_user_id:
-        users_to_notify = conn.execute("SELECT id FROM users WHERE id = ?", (target_user_id,)).fetchall()
-    elif target_role and target_role != 'all':
-        # Fail-safe query: catches 'Blood Bank Staff', 'staff', 'blood_bank_staff', etc. regardless of casing
-        users_to_notify = conn.execute(
-            """SELECT id FROM users 
-               WHERE LOWER(role) LIKE LOWER(?) 
-                  OR LOWER(role) LIKE LOWER(?) 
-                  OR LOWER(role) LIKE LOWER(?)""",
-            ("%blood bank staff%", "%staff%", "%blood%")
-        ).fetchall()
-    else:
-        users_to_notify = conn.execute("SELECT id FROM users").fetchall()
-
-    print(f"DEBUG: Found {len(users_to_notify)} users to notify for '{title}'")
-
-    for user in users_to_notify:
+    if specific_user_id:
         conn.execute("""
-            INSERT INTO notifications (user_id, title, message, is_read, created_at)
-            VALUES (?, ?, ?, 0, datetime('now'))
-        """, (user['id'], title, message))
+            INSERT INTO notifications (user_id, title, message, created_at)
+            VALUES (?, ?, ?, datetime('now'))
+        """, (specific_user_id, title, message))
+    elif target_role and target_role != 'all':
+        users = conn.execute("SELECT id FROM users WHERE role = ?", (target_role,)).fetchall()
+        for u in users:
+            conn.execute("""
+                INSERT INTO notifications (user_id, title, message, created_at)
+                VALUES (?, ?, ?, datetime('now'))
+            """, (u['id'], title, message))
+    else:
+        users = conn.execute("SELECT id FROM users").fetchall()
+        for u in users:
+            conn.execute("""
+                INSERT INTO notifications (user_id, title, message, created_at)
+                VALUES (?, ?, ?, datetime('now'))
+            """, (u['id'], title, message))
 
     conn.commit()
     conn.close()
@@ -703,15 +605,13 @@ def _format_volume(value):
 @app.context_processor
 def inject_notifications():
     email = session.get('user_email')
-
     if not email:
         return dict(unread_notifications=[])
 
     conn = get_db_connection()
     conn.row_factory = sqlite3.Row
 
-    user = conn.execute("SELECT id, role FROM users WHERE email = ?", (email,)).fetchone()
-
+    user = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
     if not user:
         conn.close()
         return dict(unread_notifications=[])
@@ -721,7 +621,6 @@ def inject_notifications():
         WHERE user_id = ? AND is_read = 0
         ORDER BY id DESC LIMIT 5
     """, (user['id'],)).fetchall()
-
     conn.close()
 
     return dict(unread_notifications=notifications)
@@ -729,24 +628,6 @@ def inject_notifications():
 
 @app.route('/notifications/read/<int:notif_id>', methods=['POST'])
 def mark_notification_read(notif_id):
-    email = session.get('user_email')
-    if not email:
-        return redirect(url_for('index'))
-
-    conn = get_db_connection()
-    user = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
-    if user:
-        conn.execute("""
-            UPDATE notifications 
-            SET is_read = 1 
-            WHERE id = ? AND user_id = ?
-        """, (notif_id, user['id']))
-        conn.commit()
-    conn.close()
-    return redirect(request.referrer or url_for('blood_bank_staff_dashboard'))
-
-@app.route('/notifications/read-all', methods=['POST'])
-def mark_all_notifications_read():
     email = session.get('user_email')
     if not email:
         return redirect(url_for('login'))
@@ -758,30 +639,12 @@ def mark_all_notifications_read():
     if user:
         conn.execute("""
             UPDATE notifications SET is_read = 1 
-            WHERE user_id = ? AND is_read = 0
-        """, (user['id'],))
-        conn.commit()
-
-    conn.close()
-    return redirect(request.referrer or url_for('blood_bank_staff_dashboard'))
-
-@app.route('/notifications/hide/<int:notif_id>', methods=['POST'])
-def hide_notification(notif_id):
-    email = session.get('user_email')
-    if not email:
-        return redirect(url_for('index'))
-
-    conn = get_db_connection()
-    user = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
-    if user:
-        conn.execute("""
-            UPDATE notifications 
-            SET is_read = 1 
             WHERE id = ? AND user_id = ?
         """, (notif_id, user['id']))
         conn.commit()
+
     conn.close()
-    return redirect(request.referrer or url_for('blood_bank_staff_dashboard'))
+    return redirect(request.referrer or url_for('index'))
 
 @app.route('/donation_history')
 def donation_history():
@@ -997,7 +860,6 @@ def staff_report_details(report_type):
 @app.route('/blood_request', methods=['GET', 'POST'])
 def blood_request():
     conn = get_db_connection()
-    conn.row_factory = sqlite3.Row
 
     if request.method == 'POST':
         hospital_name = request.form.get('hospital_name')
@@ -1012,14 +874,6 @@ def blood_request():
                 VALUES (?, ?, ?, ?, ?)
             """, (hospital_name, blood_type, quantity, reason, status))
             conn.commit()
-
-            # 1. Notify Blood Bank Staff about the new request
-            create_notification(
-                title="New Blood Request",
-                message=f"{hospital_name} requested {quantity} units of Blood Type {blood_type}.",
-                target_role='Blood Bank Staff'
-            )
-
             flash("Blood request successfully submitted!", "success")
         except Exception as e:
             conn.rollback()
@@ -1051,42 +905,20 @@ def blood_request():
         requests=requests
     )
 
-
 @app.route('/approve_blood_request/<int:request_id>', methods=['POST'])
 def approve_blood_request(request_id):
     conn = get_db_connection()
-    conn.row_factory = sqlite3.Row
 
     try:
-        # Fetch the request details first so we know the hospital name and blood type
-        req = conn.execute("""
-            SELECT hospital_name, blood_group, units_requested 
-            FROM blood_requests 
-            WHERE request_id = ? AND status = 'Pending'
-        """, (request_id,)).fetchone()
+        conn.execute("""
+            UPDATE blood_requests
+            SET status = 'Approved'
+            WHERE request_id = ?
+              AND status = 'Pending'
+        """, (request_id,))
 
-        if req:
-            conn.execute("""
-                UPDATE blood_requests
-                SET status = 'Approved'
-                WHERE request_id = ?
-            """, (request_id,))
-            conn.commit()
+        conn.commit()
 
-            # 2. Notify hospital staff members belonging to this hospital organization
-            hospital_users = conn.execute("""
-                SELECT id FROM users 
-                WHERE LOWER(organisation) = LOWER(?)
-            """, (req['hospital_name'],)).fetchall()
-
-            for user in hospital_users:
-                create_notification(
-                    title="Blood Request Approved",
-                    message=f"Your request for {req['units_requested']} units of Blood Type {req['blood_group']} has been approved.",
-                    target_user_id=user['id']
-                )
-
-            flash("Blood request approved successfully.", "success")
     finally:
         conn.close()
 
@@ -1096,38 +928,17 @@ def approve_blood_request(request_id):
 @app.route('/reject_blood_request/<int:request_id>', methods=['POST'])
 def reject_blood_request(request_id):
     conn = get_db_connection()
-    conn.row_factory = sqlite3.Row
 
     try:
-        # Fetch the request details first
-        req = conn.execute("""
-            SELECT hospital_name, blood_group, units_requested 
-            FROM blood_requests 
-            WHERE request_id = ? AND status = 'Pending'
-        """, (request_id,)).fetchone()
+        conn.execute("""
+            UPDATE blood_requests
+            SET status = 'Rejected'
+            WHERE request_id = ?
+              AND status = 'Pending'
+        """, (request_id,))
 
-        if req:
-            conn.execute("""
-                UPDATE blood_requests
-                SET status = 'Rejected'
-                WHERE request_id = ?
-            """, (request_id,))
-            conn.commit()
+        conn.commit()
 
-            # 3. Notify hospital staff members belonging to this hospital organization
-            hospital_users = conn.execute("""
-                SELECT id FROM users 
-                WHERE LOWER(organisation) = LOWER(?)
-            """, (req['hospital_name'],)).fetchall()
-
-            for user in hospital_users:
-                create_notification(
-                    title="Blood Request Rejected",
-                    message=f"Your request for {req['units_requested']} units of Blood Type {req['blood_group']} has been rejected.",
-                    target_user_id=user['id']
-                )
-
-            flash("Blood request rejected.", "info")
     finally:
         conn.close()
 
@@ -1137,10 +948,8 @@ def reject_blood_request(request_id):
 @app.route('/view_blood_request', methods=['GET'])
 def view_blood_request():
     conn = get_db_connection()
-    conn.row_factory = sqlite3.Row
 
     try:
-        # Temporarily fetching all requests to verify data is saving correctly
         requests = conn.execute("""
             SELECT
                 request_id AS id,
@@ -1264,58 +1073,6 @@ def faq():
 @app.route('/hospital_staff_dashboard', methods=['GET', 'POST'])
 def hospital_staff_dashboard():
     return render_template("hospital_staff/hospital_staff_dashboard.html")
-
-@app.route('/hospital/blood_request', methods=['GET', 'POST'])
-def hospital_staff_blood_request():
-    email = session.get('user_email')
-    if not email:
-        return redirect(url_for('login'))
-
-    conn = get_db_connection()
-    conn.row_factory = sqlite3.Row
-
-    # Find the logged-in user's ID
-    user = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
-    if not user:
-        conn.close()
-        return redirect(url_for('login'))
-
-    staff_id = user['id']
-
-    if request.method == 'POST':
-        hospital_name = request.form.get('hospital_name')
-        blood_type = request.form.get('blood_type')
-        quantity = request.form.get('quantity')
-        reason = request.form.get('reason')
-        status = 'Pending'
-
-        try:
-            # Insert with the required staff_id foreign key
-            conn.execute("""
-                INSERT INTO blood_requests (hospital_name, staff_id, blood_group, units_requested, reason, status)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (hospital_name, staff_id, blood_type, quantity, reason, status))
-            conn.commit()
-
-            # Notify Blood Bank Staff about the new request
-            create_notification(
-                title="New Blood Request",
-                message=f"{hospital_name} requested {quantity} units of Blood Type {blood_type}.",
-                target_role='Blood Bank Staff'
-            )
-
-            flash("Blood request successfully submitted!", "success")
-        except Exception as e:
-            conn.rollback()
-            print("ERROR INSERTING BLOOD REQUEST:", e)
-            flash("Failed to submit blood request.", "error")
-        finally:
-            conn.close()
-
-        return redirect(url_for('view_blood_request'))
-
-    conn.close()
-    return render_template("hospital_staff/hospital_staff_blood_request.html")
 
 
 MIN_THRESHOLD = 20
@@ -1450,24 +1207,108 @@ def make_announcement():
 
 @app.route("/donor_dashboard", methods=['GET', 'POST'])
 def donor_dashboard():
-    return render_template("donor/donor_dashboard.html")
+    if 'user_email' not in session:
+        return redirect(url_for('login', next='donor_dashboard'))
 
+    conn = get_db_connection()
+    try:
+        row = conn.execute('''
+            SELECT d.donor_name
+              FROM donors d
+              JOIN users u ON d.user_id = u.id
+             WHERE u.email = ?
+        ''', (session.get('user_email'),)).fetchone()
+    finally:
+        conn.close()
+
+    donor_registered = row is not None
+    donor_name = (row['donor_name'] or '').strip() if row else ''
+
+    return render_template(
+        "donor/donor_dashboard.html",
+        donor_registered=donor_registered,
+        donor_name=donor_name or 'Donor'      # falls back to "Donor"
+    )
+
+import re
+from datetime import date, datetime
+
+NAME_RE = re.compile(r"^[^\W\d_]+(?: [^\W\d_]+)*$")    # letters and single spaces only
+IC_RE = re.compile(r"^\d{6}-\d{2}-\d{4}$")              # xxxxxx-xx-xxxx
+BLOOD_TYPES = {'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Unknown'}
+
+
+def _valid_phone(value):
+    digits = value.replace("-", "").replace(" ", "")
+    if digits.startswith("+"):
+        digits = digits[1:]
+    return digits.isdigit() and 9 <= len(digits) <= 12
+
+
+def validate_donor_form(form, require_ic=True):
+    """Returns (clean_data, errors). errors is a list of messages."""
+    data = {k: (form.get(k) or '').strip() for k in
+            ['name', 'ic', 'dob', 'gender', 'blood_type',
+             'phone', 'emergency_contact', 'address']}
+    errors = []
+
+    # 1. no empty fields
+    required = ['name', 'dob', 'gender', 'blood_type', 'phone', 'emergency_contact', 'address']
+    if require_ic:
+        required.append('ic')
+    if any(not data[k] for k in required):
+        errors.append("Please fill in all fields.")
+        return data, errors          # stop here; other checks need values
+
+    # 2. name: letters and spaces only
+    if not NAME_RE.match(data['name']):
+        errors.append("Name cannot contain numbers or symbols.")
+
+    # 3. IC format
+    if require_ic and not IC_RE.match(data['ic']):
+        errors.append("IC number must be in the format xxxxxx-xx-xxxx.")
+
+    # 4. date of birth
+    try:
+        if datetime.strptime(data['dob'], "%Y-%m-%d").date() > date.today():
+            errors.append("Date of birth cannot be in the future.")
+    except ValueError:
+        errors.append("Please enter a valid date of birth.")
+
+    # 5. dropdowns
+    if data['gender'] not in ('Male', 'Female'):
+        errors.append("Please select a valid gender.")
+    if data['blood_type'] not in BLOOD_TYPES:
+        errors.append("Please select a valid blood type.")
+
+    # 6. phone numbers
+    if not _valid_phone(data['phone']):
+        errors.append("Please enter a valid phone number.")
+    if not _valid_phone(data['emergency_contact']):
+        errors.append("Please enter a valid emergency contact number.")
+
+    return data, errors
 
 @app.route("/registration", methods=['GET', 'POST'])
 def registration():
     if 'user_email' not in session:
         return redirect(url_for('login', next='registration'))
 
-    if request.method == 'POST':
-        name = request.form.get('name')
-        ic = request.form.get('ic').strip()
-        dob = request.form.get('dob')
-        gender = request.form.get('gender')
-        blood_type = request.form.get('blood_type')
-        phone = request.form.get('phone')
-        emergency_contact = request.form.get('emergency_contact')
-        address = request.form.get('address')
+    if get_donor_by_email(session.get('user_email')):
+        flash("You are already registered as a donor.", "success")
+        return redirect(url_for('donor_dashboard'))
 
+    if request.method == 'POST':
+        data, errors = validate_donor_form(request.form)
+        if errors:
+            for e in errors:
+                flash(e, "error")
+            return render_template("donor/registration.html", form=request.form)
+
+        name, ic, dob = data['name'], data['ic'], data['dob']
+        gender, blood_type = data['gender'], data['blood_type']
+        phone, emergency_contact = data['phone'], data['emergency_contact']
+        address = data['address']
 
         user_email = session.get('user_email')
         conn = get_db_connection()
@@ -1483,8 +1324,8 @@ def registration():
         try:
             conn.execute('''
                 INSERT INTO donors (user_id, donor_name, ic, blood_type, dob, address, gender, emergency_contact, weight, height)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (user_id, name, ic, blood_type, dob, address, gender, emergency_contact, weight, height))
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0.0, 0.0)
+            ''', (user_id, name, ic, blood_type, dob, address, gender, emergency_contact))
 
             conn.execute('''
                 UPDATE users SET full_name = ?, phone_number = ? WHERE id = ?
@@ -1492,17 +1333,20 @@ def registration():
 
             conn.commit()
             conn.close()
-
+            session['user_name'] = name
             flash("Donor registration successful!", "success")
             return redirect(url_for('donor_dashboard'))
 
         except sqlite3.IntegrityError as e:
             conn.close()
-            flash("This IC number is already registered to another account.", "error")
-            return render_template("donor/registration.html")
+            print("Registration IntegrityError:", e)
+            if "donors.ic" in str(e):
+                flash("This IC number is already registered to another account.", "error")
+            else:
+                flash("Registration failed. Please check your details and try again.", "error")
+            return render_template("donor/registration.html", form=request.form)
 
     return render_template("donor/registration.html")
-
 
 @app.route("/manage_profile", methods=['GET', 'POST'])
 def manage_profile():
@@ -1520,7 +1364,7 @@ def manage_profile():
     user_id = user['id']
 
     donor = conn.execute('''
-        SELECT d.*, u.full_name, u.phone_number 
+        SELECT d.*, u.full_name, u.phone_number
         FROM donors d
         JOIN users u ON d.user_id = u.id
         WHERE d.user_id = ?
@@ -1529,28 +1373,44 @@ def manage_profile():
     user_info = conn.execute("SELECT full_name, phone_number FROM users WHERE id = ?", (user_id,)).fetchone()
 
     if request.method == 'POST':
-        name = request.form.get('name')
-        dob = request.form.get('dob')
-        gender = request.form.get('gender')
-        blood_type = request.form.get('blood_type')
-        phone = request.form.get('phone')
-        emergency_contact = request.form.get('emergency_contact')
-        address = request.form.get('address')
+        # IC is only required (and only editable) when the donor isn't registered yet
+        data, errors = validate_donor_form(request.form, require_ic=donor is None)
+
+        if errors:
+            conn.close()
+            for e in errors:
+                flash(e, "error")
+            # re-show what the user typed instead of the saved values
+            donor_view = dict(donor) if donor else None
+            if donor_view:
+                donor_view.update({
+                    'dob': data['dob'], 'gender': data['gender'],
+                    'blood_type': data['blood_type'],
+                    'address': data['address'],
+                    'emergency_contact': data['emergency_contact'],
+                    'full_name': data['name'], 'phone_number': data['phone'],
+                })
+            user_view = {'full_name': data['name'], 'phone_number': data['phone']}
+            return render_template("donor/manage_profile.html", donor=donor_view, user=user_view)
+
+        name, dob, gender = data['name'], data['dob'], data['gender']
+        blood_type, phone = data['blood_type'], data['phone']
+        emergency_contact, address = data['emergency_contact'], data['address']
 
         if donor:
             conn.execute('''
-                UPDATE donors 
+                UPDATE donors
                 SET blood_type = ?, dob = ?, address = ?, gender = ?, emergency_contact = ?
                 WHERE user_id = ?
             ''', (blood_type, dob, address, gender, emergency_contact, user_id))
             flash("Profile updated successfully!", "success")
         else:
-            ic = request.form.get('ic', '').strip()
+            ic = data['ic']
             try:
                 conn.execute('''
-                    INSERT INTO donors (user_id, ic, blood_type, dob, address, gender, emergency_contact, weight, height)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 0.0, 0.0)
-                ''', (user_id, ic, blood_type, dob, address, gender, emergency_contact))
+                    INSERT INTO donors (user_id, donor_name, ic, blood_type, dob, address, gender, emergency_contact, weight, height)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0.0, 0.0)
+                ''', (user_id, name, ic, blood_type, dob, address, gender, emergency_contact))
                 flash("Registration completed successfully!", "success")
             except sqlite3.IntegrityError:
                 flash("This IC number is already registered to another account.", "error")
@@ -1672,9 +1532,9 @@ def save_event_image(file):
 
     return filename
 
-
 @app.route('/manage_events', methods=['GET', 'POST'])
 def manage_events():
+
     if request.method == 'POST':
         action = request.form.get('action')
         event_id = request.form.get('event_id', type=int)
@@ -1703,50 +1563,30 @@ def manage_events():
                 flash(str(exc), "error")
                 return redirect(url_for('manage_events'))
 
-            event_title = data[0] if data else "Event"
-
             if action == 'add':
+                # Requires add_event() to support the image parameter.
                 add_event(*data, image=image_filename)
-
-                # Use your helper function for Donors and Staff
-                create_notification(
-                    title="New Event Announced! 📅",
-                    message=f"A new event '{event_title}' has been added.",
-                    target_role="donor"
-                )
-                create_notification(
-                    title="New Event Announced! 📅",
-                    message=f"A new event '{event_title}' has been added.",
-                    target_role="blood bank staff"
-                )
-
                 flash("Event added.", "success")
 
+
             elif event_id:
+
                 try:
+
                     updated = update_event(event_id, *data, image=image_filename)
+
                 except ValueError as exc:
+
                     flash(str(exc), "error")
+
                     return redirect(url_for('manage_events'))
 
-                if updated:
-                    # Use your helper function for Donors and Staff on update
-                    create_notification(
-                        title="Event Updated 📅",
-                        message=f"The details for event '{event_title}' have been updated.",
-                        target_role="donor"
-                    )
-                    create_notification(
-                        title="Event Updated 📅",
-                        message=f"The details for event '{event_title}' have been updated.",
-                        target_role="blood bank staff"
-                    )
+                flash("Event updated." if updated else "Event not found.",
 
-                    flash("Event updated.", "success")
-                else:
-                    flash("Event not found.", "error")
+                      "success" if updated else "error")
 
             else:
+
                 flash("Event not found.", "error")
 
         return redirect(url_for('manage_events'))
@@ -1795,7 +1635,7 @@ def _now():
 # ------------------------------------------------------------
 # Admin: validate the add / edit form
 # ------------------------------------------------------------
-def _read_reward_form(conn, reward_id=None):
+def _read_reward_form(conn, reward_id=None, REWARD_STATUSES=None):
     f = request.form
     name = (f.get("name") or "").strip()
     description = (f.get("description") or "").strip()
@@ -1923,24 +1763,13 @@ def add_reward():
 
     conn = get_db_connection()
     try:
-        # 1. Insert the new reward into the database
         conn.execute("""
             INSERT INTO rewards (name, desc, points, stock, status, needs_phone, created_at)
             VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
         """, (name, description, int(points_cost), stock_val, status, needs_phone))
         conn.commit()
-
-        # 2. If the reward is Active, send a notification to all donors
-        if status == 'Active':
-            create_notification(
-                title="New Reward Available! 🎁",
-                message=f"Check out the new reward '{name}' for {points_cost} points!",
-                target_role="donor"
-            )
-
         flash(f"Reward '{name}' added successfully!", "success")
     except Exception as e:
-        conn.rollback()
         flash(f"Error adding reward: {str(e)}", "error")
     finally:
         conn.close()
@@ -2229,7 +2058,6 @@ def make_appointment():
         my_appointments=get_donor_upcoming_appointments(donor['donor_id'])
     )
 
-
 @app.route('/book_appointment', methods=['POST'])
 def book_appointment():
     donor, response = _logged_in_donor()
@@ -2247,13 +2075,6 @@ def book_appointment():
         flash("Please select an event, date, and time slot.", "error")
     else:
         ok, message = create_appointment(donor['donor_id'], event_id, appointment_date, appt_time, notes)
-
-        if ok:
-            notif_title = "New Appointment Booked"
-            notif_msg = f"An appointment has been booked for {appointment_date} at {appt_time}."
-
-            create_notification(notif_title, notif_msg, target_role='Blood Bank Staff')
-
         flash(message, "success" if ok else "error")
 
     return redirect(url_for('make_appointment'))
@@ -2268,11 +2089,6 @@ def cancel_appointment():
     appointment_id = request.form.get('appointment_id', type=int)
 
     if appointment_id and cancel_donor_appointment(appointment_id, donor['donor_id']):
-        notif_title = "Appointment Cancelled"
-        notif_msg = f"A donor (ID: {donor['donor_id']}) has cancelled appointment #{appointment_id}."
-
-        create_notification(notif_title, notif_msg, target_role='Blood Bank Staff')
-
         flash("Appointment cancelled.", "success")
     else:
         flash("Appointment not found.", "error")
@@ -2996,7 +2812,59 @@ def admin_delete_user(user_id):
 
 @app.route("/blood_bank_staff_dashboard", methods=["GET", "POST"])
 def blood_bank_staff_dashboard():
+    flash("Log in successful! Welcome!", "success")
+
     return render_template("blood_bank_staff/blood_bank_staff_dashboard.html")
+
+@app.route('/hospital_staff/blood_request', methods=['GET', 'POST'])
+def hospital_staff_blood_request():
+    if request.method == 'POST':
+        hospital_name = request.form.get('hospital_name', '').strip()
+        blood_group = request.form.get('blood_type', '').strip()
+        quantity = request.form.get('quantity', '').strip()
+        reason = request.form.get('reason', '').strip()
+
+        # Validate the submitted information
+        if not hospital_name or not blood_group or not quantity or not reason:
+            return render_template(
+                'hospital_staff/hospital_staff_blood_request.html',
+                error="Please fill in all fields."
+            )
+
+        try:
+            quantity = int(quantity)
+            if quantity < 1:
+                raise ValueError
+        except ValueError:
+            return render_template(
+                'hospital_staff/hospital_staff_blood_request.html',
+                error="Quantity must be at least 1 unit."
+            )
+
+        conn = get_db_connection()
+
+        try:
+            conn.execute("""
+                INSERT INTO blood_requests (
+                    hospital_name,
+                    blood_group,
+                    units_requested,
+                    reason,
+                    status
+                )
+                VALUES (?, ?, ?, ?, 'Pending')
+            """, (hospital_name, blood_group, quantity, reason))
+
+            conn.commit()
+
+        finally:
+            conn.close()
+
+        return redirect(url_for('view_blood_request'))
+
+    return render_template(
+        'hospital_staff/hospital_staff_blood_request.html'
+    )
 
 @app.route("/manage_blood_inventory", methods=["GET"])
 def manage_blood_inventory():
