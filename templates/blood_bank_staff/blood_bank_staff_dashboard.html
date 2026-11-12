@@ -10,7 +10,7 @@
             <div class="col-lg-7 p-4 p-lg-5">
 
                 <span class="badge donor-badge mb-3">
-                    <i class="fa-duotone fa-solid fa-hospital-user"></i>
+                    <i class="fas fa-hospital-user me-1"></i>
                     Blood Bank Staff
                 </span>
 
@@ -19,8 +19,14 @@
                 </h1>
 
                 <p class="hero-description mb-4">
-                    Manage blood donations, appointments, inventory , requests and announcements from here.
+                    Manage blood donations, appointments, inventory,
+                    requests and announcements from here.
                 </p>
+
+                <a href="{{ url_for('record_donation') }}"
+                   class="btn btn-primary-custom">
+                    Record a Donation
+                </a>
 
             </div>
 
@@ -28,74 +34,182 @@
                 <div class="hero-image-wrapper">
                     <img src="{{ url_for('static', filename='images/blood_bank_staff.jpg') }}"
                          class="img-fluid hero-image"
-                         alt="Blood bank administration">
+                         alt="Blood bank staff">
                 </div>
             </div>
 
         </div>
     </div>
 
-<div class="staff-page">
-
-    <!-- Main Responsibilities -->
-    <h2 class="dashboard-section-title">Functionalities</h2>
-            <p class="staff-subtitle">
-                Please use the sidebar to navigate through these functions.
-            </p>
-
-    <div class="staff-report-grid">
-
-        <div class="staff-report-card">
-            <h2>Record Blood Donations</h2>
-            <p>
-                Record donations from registered donors and keep donation
-                records up to date.
+    <div class="d-flex justify-content-between align-items-center mt-5 mb-3">
+        <div>
+            <h2 class="section-title mb-1">Staff Services</h2>
+            <p class="text-muted mb-0">
+                Manage blood bank operations.
             </p>
         </div>
+    </div>
 
-        <div class="staff-report-card">
-            <h2>View Appointments</h2>
-            <p>
-                Review donation appointments and manage visits
-                from registered donors.
-            </p>
+    <div class="row g-4">
+
+        <!-- Record Donation -->
+        <div class="col-md-4">
+            <div class="card dashboard-card h-100 shadow-sm">
+                <div class="card-body p-4">
+
+                    <div class="icon-circle">
+                        <i class="fa-solid fa-clipboard-user"></i>
+                    </div>
+
+                    <h4 class="fw-bold mt-3">Record Donation</h4>
+
+                    <p class="text-muted">
+                        Record donations from registered donors and keep
+                        donation records up to date.
+                    </p>
+
+                    <a href="{{ url_for('record_donation') }}"
+                       class="btn btn-outline-primary-custom mt-2">
+                        Record Donation
+                        <i class="fas fa-arrow-right ms-2"></i>
+                    </a>
+
+                </div>
+            </div>
         </div>
 
-        <div class="staff-report-card">
-            <h2>Manage Blood Stock</h2>
-            <p>
-                Monitor available blood units across blood types
-                and identify stock that needs attention.
-            </p>
+        <!-- Appointments -->
+        <div class="col-md-4">
+            <div class="card dashboard-card h-100 shadow-sm">
+                <div class="card-body p-4">
+
+                    <div class="icon-circle">
+                        <i class="fa-solid fa-calendar-check"></i>
+                    </div>
+
+                    <h4 class="fw-bold mt-3">Appointments</h4>
+
+                    <p class="text-muted">
+                        Review donation appointments and manage visits
+                        from registered donors.
+                    </p>
+
+                    <a href="{{ url_for('view_appointment') }}"
+                       class="btn btn-outline-primary-custom mt-2">
+                        View Appointments
+                        <i class="fas fa-arrow-right ms-2"></i>
+                    </a>
+
+                </div>
+            </div>
         </div>
 
-        <div class="staff-report-card">
-            <h2>Manage Blood Requests</h2>
-            <p>
-                Review blood requests submitted by hospitals and manage
-                their request status.
-            </p>
+        <!-- Blood Inventory -->
+        <div class="col-md-4">
+            <div class="card dashboard-card h-100 shadow-sm">
+                <div class="card-body p-4">
+
+                    <div class="icon-circle">
+                        <i class="fas fa-tint"></i>
+                    </div>
+
+                    <h4 class="fw-bold mt-3">Blood Inventory</h4>
+
+                    <p class="text-muted">
+                        Monitor available blood units across blood types
+                        and spot stock that needs attention.
+                    </p>
+
+                    <a href="{{ url_for('manage_blood_inventory') }}"
+                       class="btn btn-outline-primary-custom mt-2">
+                        Manage Inventory
+                        <i class="fas fa-arrow-right ms-2"></i>
+                    </a>
+
+                </div>
+            </div>
         </div>
 
-        <div class="staff-report-card">
-            <h2>View Reports</h2>
-            <p>
-                Review blood bank information and reports to support
-                daily operations.
-            </p>
+        <!-- Blood Requests -->
+        <div class="col-md-4">
+            <div class="card dashboard-card h-100 shadow-sm">
+                <div class="card-body p-4">
+
+                    <div class="icon-circle">
+                        <i class="fa-solid fa-hand-holding-medical"></i>
+                    </div>
+
+                    <h4 class="fw-bold mt-3">Blood Requests</h4>
+
+                    <p class="text-muted">
+                        Review blood requests submitted by hospitals and
+                        manage their status.
+                    </p>
+
+                    <a href="{{ url_for('blood_request') }}"
+                       class="btn btn-outline-primary-custom mt-2">
+                        Manage Requests
+                        <i class="fas fa-arrow-right ms-2"></i>
+                    </a>
+
+                </div>
+            </div>
         </div>
 
-        <div class="staff-report-card">
-            <h2>Make Announcements</h2>
-            <p>
-                Publish important announcements to share updates with
-                the relevant users.
-            </p>
+        <!-- Reports -->
+        <div class="col-md-4">
+            <div class="card dashboard-card h-100 shadow-sm">
+                <div class="card-body p-4">
+
+                    <div class="icon-circle">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+
+                    <h4 class="fw-bold mt-3">Reports</h4>
+
+                    <p class="text-muted">
+                        Review blood bank reports to support daily
+                        operations.
+                    </p>
+
+                    <a href="{{ url_for('staff_report') }}"
+                       class="btn btn-outline-primary-custom mt-2">
+                        View Reports
+                        <i class="fas fa-arrow-right ms-2"></i>
+                    </a>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Announcements -->
+        <div class="col-md-4">
+            <div class="card dashboard-card h-100 shadow-sm">
+                <div class="card-body p-4">
+
+                    <div class="icon-circle">
+                        <i class="fa-solid fa-bullhorn"></i>
+                    </div>
+
+                    <h4 class="fw-bold mt-3">Announcements</h4>
+
+                    <p class="text-muted">
+                        Publish important updates to share with the
+                        relevant users.
+                    </p>
+
+                    <a href="{{ url_for('make_announcement') }}"
+                       class="btn btn-outline-primary-custom mt-2">
+                        Make Announcement
+                        <i class="fas fa-arrow-right ms-2"></i>
+                    </a>
+
+                </div>
+            </div>
         </div>
 
     </div>
 
-</div>
 </div>
 
 {% with messages = get_flashed_messages(with_categories=true) %}

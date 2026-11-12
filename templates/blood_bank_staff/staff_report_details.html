@@ -2,275 +2,385 @@
 {% block title %}View Report{% endblock %}
 {% block content %}
 
-<div class="staff-page">
+<div class="container py-4">
 
-    <h1>Blood Bank Reports</h1>
+<h1 class="report-heading">Blood Bank Reports</h1>
+<p class="report-subtitle">Review stock, requests, donations and user activity.</p>
 
-    <p class="staff-subtitle">
-        View report information retrieved from the blood bank database.
-    </p>
+<!-- Date Filter -->
+<form method="GET" class="report-filter">
+    <label for="from_date">From</label>
+    <input type="date" id="from_date" name="from_date" value="{{ from_date or '' }}">
 
-    <div class="staff-panel">
+    <label for="to_date">To</label>
+    <input type="date" id="to_date" name="to_date" value="{{ to_date or '' }}">
 
-        {% if report_type == 'blood_stock' %}
-            <h2><i class="fa-solid fa-droplet"></i> Blood Stock Report</h2>
+    <button type="submit" class="export-btn">
+        <i class="fas fa-filter"></i> Apply
+    </button>
 
-            <div class="staff-report-grid">
-                <div class="staff-report-card">
-                    <h3>Total Units in Stock</h3>
-                    <p class="report-value">{{ total_units }}</p>
-                </div>
+    <a href="{{ url_for('staff_report') }}" class="export-btn">
+        <i class="fas fa-arrow-left"></i> Back to Reports
+    </a>
+</form>
 
-                <div class="staff-report-card">
-                    <h3>Sufficient Blood Types</h3>
-                    <p class="report-value">{{ sufficient_count }}</p>
-                </div>
 
-                <div class="staff-report-card">
-                    <h3>Low Stock Types</h3>
-                    <p class="report-value">{{ low_count }}</p>
-                </div>
+<div class="report-grid">
 
-                <div class="staff-report-card">
-                    <h3>Critical Stock Types</h3>
-                    <p class="report-value">{{ critical_count }}</p>
-                </div>
-            </div>
+<div class="report-block report-block--wide">
 
-            <h3>Current Stock by Blood Type</h3>
-            <canvas id="reportChart"></canvas>
+{% if report_type == 'blood_stock' %}
+<!-- ================= BLOOD STOCK REPORT ================= -->
+<h2 class="report-title"><i class="fas fa-tint"></i> Blood Stock Report</h2>
 
-        {% elif report_type == 'low_stock' %}
-            <h2><i class="fa-solid fa-bell"></i> Low Stock Alert Report</h2>
-
-            <div class="staff-report-grid">
-                <div class="staff-report-card">
-                    <h3>Blood Types Below Threshold</h3>
-                    <p class="report-value">{{ alerts_triggered }}</p>
-                </div>
-
-                <div class="staff-report-card">
-                    <h3>Staff Notified</h3>
-                    <p class="report-value">{{ alerts_notified }}</p>
-                </div>
-
-                <div class="staff-report-card">
-                    <h3>Lowest Stock Type</h3>
-                    <p class="report-value">{{ most_low_type }}</p>
-                </div>
-            </div>
-
-            <h3>Low Stock by Blood Type</h3>
-            <canvas id="reportChart"></canvas>
-
-        {% elif report_type == 'blood_request' %}
-            <h2><i class="fa-solid fa-clipboard-list"></i> Blood Request Report</h2>
-
-            <div class="staff-report-grid">
-                <div class="staff-report-card">
-                    <h3>Total Requests</h3>
-                    <p class="report-value">{{ total_requests }}</p>
-                </div>
-
-                <div class="staff-report-card">
-                    <h3>Approved</h3>
-                    <p class="report-value">{{ approved_requests }}</p>
-                </div>
-
-                <div class="staff-report-card">
-                    <h3>Rejected</h3>
-                    <p class="report-value">{{ rejected_requests }}</p>
-                </div>
-
-                <div class="staff-report-card">
-                    <h3>Pending</h3>
-                    <p class="report-value">{{ pending_requests }}</p>
-                </div>
-
-                <div class="staff-report-card">
-                    <h3>Auto-Closed</h3>
-                    <p class="report-value">{{ auto_closed_requests }}</p>
-                </div>
-            </div>
-
-            <h3>Request Status</h3>
-            <canvas id="reportChart"></canvas>
-
-        {% elif report_type == 'users' %}
-            <h2><i class="fa-solid fa-users"></i> User Report</h2>
-
-            <div class="staff-report-grid">
-                <div class="staff-report-card">
-                    <h3>Registered Donors</h3>
-                    <p class="report-value">{{ total_donors }}</p>
-                </div>
-
-                <div class="staff-report-card">
-                    <h3>New Registrations</h3>
-                    <p class="report-value">{{ new_registrations }}</p>
-                </div>
-
-                <div class="staff-report-card">
-                    <h3>Active Users</h3>
-                    <p class="report-value">{{ active_users }}</p>
-                </div>
-
-                <div class="staff-report-card">
-                    <h3>Inactive Users</h3>
-                    <p class="report-value">{{ inactive_users }}</p>
-                </div>
-            </div>
-
-            <h3>Active vs Inactive Users</h3>
-            <canvas id="reportChart"></canvas>
-
-        {% elif report_type == 'donations' %}
-            <h2><i class="fa-solid fa-hand-holding-heart"></i> Donation Report</h2>
-
-            <div class="staff-report-grid">
-                <div class="staff-report-card">
-                    <h3>Total Donations</h3>
-                    <p class="report-value">{{ total_donations }}</p>
-                </div>
-
-                <div class="staff-report-card">
-                    <h3>Donations This Month</h3>
-                    <p class="report-value">{{ donations_this_month }}</p>
-                </div>
-
-                <div class="staff-report-card">
-                    <h3>Top Donated Blood Type</h3>
-                    <p class="report-value">{{ top_donated_type }}</p>
-                </div>
-            </div>
-
-            <h3>Monthly Donations</h3>
-            <canvas id="reportChart"></canvas>
-
-            <h3>Donations by Blood Type</h3>
-            <canvas id="donationTypeChart"></canvas>
-        {% endif %}
-
-        <div style="margin-top: 25px;">
-            <a href="{{ url_for('staff_report') }}" class="staff-btn">
-                <i class="fa-solid fa-arrow-left"></i>
-                Back to Reports
-            </a>
-        </div>
-
+<div class="report-summary">
+    <div class="report-card">
+        <h4>Total Units in Stock</h4>
+        <div class="report-value">{{ total_units }}</div>
+    </div>
+    <div class="report-card">
+        <h4>Sufficient Types</h4>
+        <div class="report-value">{{ sufficient_count }}</div>
+    </div>
+    <div class="report-card">
+        <h4>Low Stock Types</h4>
+        <div class="report-value">{{ low_count }}</div>
+    </div>
+    <div class="report-card">
+        <h4>Critical Types</h4>
+        <div class="report-value">{{ critical_count }}</div>
     </div>
 </div>
+
+<div class="chart-row">
+    <div class="chart-card">
+        <h3>Current Stock by Blood Type</h3>
+        <div class="chart-container">
+            <canvas id="stockChart"></canvas>
+        </div>
+    </div>
+</div>
+
+{% elif report_type == 'low_stock' %}
+<!-- ================= LOW STOCK ALERT REPORT ================= -->
+<h2 class="report-title"><i class="fas fa-bell"></i> Low Stock Alert Report</h2>
+
+<div class="report-summary">
+    <div class="report-card">
+        <h4>Alerts Triggered</h4>
+        <div class="report-value">{{ alerts_triggered }}</div>
+    </div>
+    <div class="report-card">
+        <h4>Staff Notified</h4>
+        <div class="report-value">{{ alerts_notified }}</div>
+    </div>
+    <div class="report-card">
+        <h4>Lowest Stock Type</h4>
+        <div class="report-value">{{ most_low_type }}</div>
+    </div>
+</div>
+
+<div class="chart-row">
+    <div class="chart-card">
+        <h3>Low Stock Alerts by Blood Type</h3>
+        <div class="chart-container">
+            <canvas id="alertChart"></canvas>
+        </div>
+    </div>
+</div>
+
+{% elif report_type == 'blood_request' %}
+<!-- ================= BLOOD REQUEST REPORT ================= -->
+<h2 class="report-title"><i class="fas fa-clipboard-list"></i> Blood Request Report</h2>
+
+<div class="report-summary">
+    <div class="report-card">
+        <h4>Total Requests</h4>
+        <div class="report-value">{{ total_requests }}</div>
+    </div>
+    <div class="report-card">
+        <h4>Approved</h4>
+        <div class="report-value">{{ approved_requests }}</div>
+    </div>
+    <div class="report-card">
+        <h4>Rejected</h4>
+        <div class="report-value">{{ rejected_requests }}</div>
+    </div>
+    <div class="report-card">
+        <h4>Pending</h4>
+        <div class="report-value">{{ pending_requests }}</div>
+    </div>
+    <div class="report-card">
+        <h4>Auto-Closed (Quantity Met)</h4>
+        <div class="report-value">{{ auto_closed_requests }}</div>
+    </div>
+</div>
+
+<div class="chart-row">
+    <div class="chart-card">
+        <h3>Request Status</h3>
+        <div class="chart-container">
+            <canvas id="requestChart"></canvas>
+        </div>
+    </div>
+</div>
+
+{% elif report_type == 'users' %}
+<!-- ================= USER REPORT ================= -->
+<h2 class="report-title"><i class="fas fa-users"></i> User Report</h2>
+
+<div class="report-summary">
+    <div class="report-card">
+        <h4>Registered Donors</h4>
+        <div class="report-value">{{ total_donors }}</div>
+    </div>
+    <div class="report-card">
+        <h4>New Registrations</h4>
+        <div class="report-value">{{ new_registrations }}</div>
+    </div>
+    <div class="report-card">
+        <h4>Active Users</h4>
+        <div class="report-value">{{ active_users }}</div>
+    </div>
+    <div class="report-card">
+        <h4>Inactive Users</h4>
+        <div class="report-value">{{ inactive_users }}</div>
+    </div>
+</div>
+
+<div class="chart-row">
+    <div class="chart-card">
+        <h3>Active vs Inactive Users</h3>
+        <div class="chart-container">
+            <canvas id="userChart"></canvas>
+        </div>
+    </div>
+</div>
+
+{% elif report_type == 'donations' %}
+<!-- ================= DONATION REPORT ================= -->
+<h2 class="report-title"><i class="fas fa-hand-holding-heart"></i> Donation Report</h2>
+
+<div class="report-summary">
+    <div class="report-card">
+        <h4>Total Donations</h4>
+        <div class="report-value">{{ total_donations }}</div>
+    </div>
+    <div class="report-card">
+        <h4>Donations This Month</h4>
+        <div class="report-value">{{ donations_this_month }}</div>
+    </div>
+    <div class="report-card">
+        <h4>Top Donated Type</h4>
+        <div class="report-value">{{ top_donated_type }}</div>
+    </div>
+</div>
+
+<div class="chart-row">
+    <div class="chart-card">
+        <h3>Monthly Donations</h3>
+        <div class="chart-container">
+            <canvas id="donationMonthChart"></canvas>
+        </div>
+    </div>
+    <div class="chart-card">
+        <h3>Donations by Blood Type</h3>
+        <div class="chart-container">
+            <canvas id="donationTypeChart"></canvas>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+</div>
+
+</div><!-- /report-grid -->
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-const reportType = {{ report_type|tojson }};
+const smallFont = { font: { size: 10 } };
 
-const stockLabels = {{ stock_labels|tojson }};
-const stockUnits = {{ stock_units|tojson }};
-const alertLabels = {{ alert_labels|tojson }};
-const alertCounts = {{ alert_counts|tojson }};
-
-const donationMonths = {{ donation_months|tojson }};
-const donationCounts = {{ donation_counts|tojson }};
-const donationTypeLabels = {{ donation_type_labels|tojson }};
-const donationTypeCounts = {{ donation_type_counts|tojson }};
-
-const chartCanvas = document.getElementById('reportChart');
-
-if (chartCanvas) {
-    let config = null;
-
-    if (reportType === 'blood_stock') {
-        config = {
-            type: 'bar',
-            data: {
-                labels: stockLabels,
-                datasets: [{
-                    label: 'Available Units',
-                    data: stockUnits,
-                    backgroundColor: 'rgba(220, 53, 69, 0.75)'
-                }]
-            },
-            options: { responsive: true, scales: { y: { beginAtZero: true } } }
-        };
-    } else if (reportType === 'low_stock') {
-        config = {
-            type: 'bar',
-            data: {
-                labels: alertLabels,
-                datasets: [{
-                    label: 'Available Units',
-                    data: alertCounts,
-                    backgroundColor: 'rgba(255, 163, 163, 1)'
-                }]
-            },
-            options: { responsive: true, scales: { y: { beginAtZero: true } } }
-        };
-    } else if (reportType === 'blood_request') {
-        config = {
-            type: 'pie',
-            data: {
-                labels: ['Approved', 'Rejected', 'Pending', 'Auto-Closed'],
-                datasets: [{
-                    data: [
-                        {{ approved_requests }},
-                        {{ rejected_requests }},
-                        {{ pending_requests }},
-                        {{ auto_closed_requests }}
-                    ]
-                }]
-            },
-            options: { responsive: true }
-        };
-    } else if (reportType === 'users') {
-        config = {
-            type: 'pie',
-            data: {
-                labels: ['Active Users', 'Inactive Users'],
-                datasets: [{
-                    data: [{{ active_users }}, {{ inactive_users }}]
-                }]
-            },
-            options: { responsive: true }
-        };
-    } else if (reportType === 'donations') {
-        config = {
-            type: 'bar',
-            data: {
-                labels: donationMonths,
-                datasets: [{
-                    label: 'Donations',
-                    data: donationCounts,
-                    backgroundColor: 'rgba(255, 182, 193, 0.8)'
-                }]
-            },
-            options: { responsive: true, scales: { y: { beginAtZero: true } } }
-        };
+{% if report_type == 'blood_stock' %}
+// Blood Stock (Bar)
+new Chart(document.getElementById('stockChart'), {
+    type: 'bar',
+    data: {
+        labels: {{ stock_labels|tojson }},
+        datasets: [{
+            label: 'Units',
+            data: {{ stock_units|tojson }},
+            backgroundColor: 'rgba(220, 53, 69, 0.75)',
+            borderColor: 'rgba(176, 30, 45, 1)',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        aspectRatio: 2,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { beginAtZero: true, ticks: smallFont },
+            x: { ticks: smallFont }
+        }
     }
+});
 
-    if (config) {
-        new Chart(chartCanvas, config);
+{% elif report_type == 'low_stock' %}
+// Low Stock Alerts (Bar)
+new Chart(document.getElementById('alertChart'), {
+    type: 'bar',
+    data: {
+        labels: {{ alert_labels|tojson }},
+        datasets: [{
+            label: 'Alerts',
+            data: {{ alert_counts|tojson }},
+            backgroundColor: 'rgba(255, 163, 163, 1)',
+            borderWidth: 0
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        aspectRatio: 2,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { beginAtZero: true, ticks: { ...smallFont, precision: 0 } },
+            x: { ticks: smallFont }
+        }
     }
-}
+});
 
-if (reportType === 'donations') {
-    const typeCanvas = document.getElementById('donationTypeChart');
+{% elif report_type == 'blood_request' %}
+// Request Status (Pie)
+new Chart(document.getElementById('requestChart'), {
+    type: 'pie',
+    data: {
+        labels: ['Approved', 'Rejected', 'Pending', 'Auto-Closed'],
+        datasets: [{
+            data: [
+                {{ approved_requests }},
+                {{ rejected_requests }},
+                {{ pending_requests }},
+                {{ auto_closed_requests }}
+            ],
+            backgroundColor: [
+                'rgba(135, 206, 235, 0.9)',
+                'rgba(255, 163, 163, 1)',
+                'rgba(255, 193, 7, 0.85)',
+                'rgba(25, 25, 112, 0.9)'
+            ],
+            borderWidth: 0
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        aspectRatio: 1.8,
+        plugins: {
+            legend: {
+                display: true,
+                position: 'bottom',
+                labels: { font: { size: 12 }, padding: 15 }
+            }
+        }
+    }
+});
 
-    if (typeCanvas) {
-        new Chart(typeCanvas, {
-            type: 'bar',
-            data: {
-                labels: donationTypeLabels,
-                datasets: [{
-                    label: 'Donations',
-                    data: donationTypeCounts,
-                    backgroundColor: 'rgba(135, 206, 235, 0.9)'
-                }]
+{% elif report_type == 'users' %}
+// Active vs Inactive Users (Pie)
+new Chart(document.getElementById('userChart'), {
+    type: 'pie',
+    data: {
+        labels: ['Active Users', 'Inactive Users'],
+        datasets: [{
+            data: [{{ active_users }}, {{ inactive_users }}],
+            backgroundColor: [
+                'rgba(135, 206, 235, 0.9)',
+                'rgba(255, 163, 163, 1)'
+            ],
+            borderWidth: 0
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        aspectRatio: 1.8,
+        plugins: {
+            legend: {
+                display: true,
+                position: 'bottom',
+                labels: { font: { size: 12 }, padding: 15 }
             },
-            options: { responsive: true, scales: { y: { beginAtZero: true } } }
-        });
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        const total = {{ active_users }} + {{ inactive_users }};
+                        const value = context.raw;
+                        const pct = total ? ((value / total) * 100).toFixed(1) : 0;
+                        return `${context.label}: ${value} (${pct}%)`;
+                    }
+                }
+            }
+        }
     }
-}
+});
+
+{% elif report_type == 'donations' %}
+// Monthly Donations (Bar)
+new Chart(document.getElementById('donationMonthChart'), {
+    type: 'bar',
+    data: {
+        labels: {{ donation_months|tojson }},
+        datasets: [{
+            label: 'Donations',
+            data: {{ donation_counts|tojson }},
+            backgroundColor: 'rgba(255, 182, 193, 0.8)',
+            borderColor: 'rgba(255, 105, 180, 1)',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        aspectRatio: 1.5,
+        plugins: {
+            legend: { display: true, position: 'top', labels: { font: { size: 11 } } }
+        },
+        scales: {
+            y: { beginAtZero: true, ticks: { ...smallFont, precision: 0 } },
+            x: { ticks: smallFont }
+        }
+    }
+});
+
+// Donations by Blood Type (Bar)
+new Chart(document.getElementById('donationTypeChart'), {
+    type: 'bar',
+    data: {
+        labels: {{ donation_type_labels|tojson }},
+        datasets: [{
+            label: 'Donations',
+            data: {{ donation_type_counts|tojson }},
+            backgroundColor: 'rgba(135, 206, 235, 0.9)',
+            borderWidth: 0
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        aspectRatio: 1.5,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { beginAtZero: true, ticks: { ...smallFont, precision: 0 } },
+            x: { ticks: smallFont }
+        }
+    }
+});
+{% endif %}
 </script>
+
+</div>
+
 {% endblock %}
