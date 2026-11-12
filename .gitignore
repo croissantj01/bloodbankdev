@@ -1,0 +1,13 @@
+# Database
+bloodbank.db
+
+# IDE files
+.idea/
+
+# User uploaded media
+static/uploads/
+
+# Environment variables & Python cache
+.env
+__pycache__/
+venv/
