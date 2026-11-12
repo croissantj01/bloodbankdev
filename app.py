@@ -26,6 +26,20 @@ import random
 load_dotenv()
 
 app = Flask(__name__)
+from flask.json.provider import DefaultJSONProvider
+import sqlite3
+
+
+class AppJSONProvider(DefaultJSONProvider):
+    def default(self, o):
+        if isinstance(o, (set, frozenset)):
+            return sorted(o, key=str)      # sets become sorted lists
+        if isinstance(o, sqlite3.Row):
+            return dict(o)                 # rows become dicts
+        return super().default(o)
+
+
+app.json = AppJSONProvider(app)
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'a-very-secure-permanent-fallback-key')
 app.config['UPLOAD_FOLDER'] = 'static/uploads/announcements'
 
