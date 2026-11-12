@@ -669,9 +669,17 @@ def donation_history():
 def donor_announcements():
     return render_template("donor/donor_announcements.html")
 
-
-def _date_clause(param, from_date, to_date):
-    pass
+# --- HELPER FUNCTIONS GO HERE ---
+def _date_clause(column_name, from_date, to_date):
+    clause = ""
+    params = []
+    if from_date:
+        clause += f" AND date({column_name}) >= date(?)"
+        params.append(from_date)
+    if to_date:
+        clause += f" AND date({column_name}) <= date(?)"
+        params.append(to_date)
+    return clause, params
 
 
 @app.route('/staff_report/<report_type>', methods=['GET'])
