@@ -567,22 +567,6 @@ def announcements():
     )
 
 
-@app.route('/announcements/delete/<int:announcement_id>', methods=['POST'])
-def delete_announcement(announcement_id):
-    if session.get('role') != 'donor':
-        return redirect(url_for('login'))
-
-    conn = get_db_connection()
-    try:
-        conn.execute("UPDATE announcements SET status = 'Hidden' WHERE announcement_id = ?", (announcement_id,))
-        conn.commit()
-
-        flash("Announcement deleted successfully.", "success")
-    finally:
-        conn.close()
-
-    return redirect(url_for('announcements'))
-
 
 from datetime import datetime  # put with your other imports at the top
 
@@ -3176,6 +3160,40 @@ def record_donation():
 
     return render_template("blood_bank_staff/record_donation.html")
 
+@app.route('/delete_announcement/<int:announcement_id>', methods=['POST'])
+def delete_announcement(announcement_id):
+    if session.get('role') != 'blood_bank_staff':
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    try:
+        announcement = conn.execute("""
+            SELECT image_filename
+            FROM announcements
+            WHERE announcement_id = ?
+        """, (announcement_id,)).fetchone()
+
+        if not announcement:
+            flash('Announcement not found.', 'error')
+            return redirect(url_for('make_announcement'))
+
+        conn.execute(
+            "DELETE FROM announcements WHERE announcement_id = ?",
+            (announcement_id,)
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        flash('Unable to delete the announcement. Please try again.', 'error')
+        return redirect(url_for('make_announcement'))
+    finally:
+        conn.close()
+
+    # Remove the image file only after the row is gone
+    _delete_announcement_image(announcement['image_filename'])
+
+    flash('Announcement deleted successfully.', 'success')
+    return redirect(url_for('make_announcement'))
 
 @app.route("/view_appointment")
 def view_appointment():
