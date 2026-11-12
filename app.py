@@ -728,7 +728,7 @@ def mark_notification_read(notif_id):
 
 @app.route('/donation_history')
 def donation_history():
-    donor = get_donor_by_email(session.get("email"))
+    donor = get_donor_by_email(session.get("user_email"))
 
     if donor:
         history = get_donation_history(donor["donor_id"])
