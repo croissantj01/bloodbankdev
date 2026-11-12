@@ -348,6 +348,16 @@ def reset_password():
         if new_password != confirm_password:
             return render_template("general/reset_password.html", error_popup="The password does not match!")
 
+         # --- PASSWORD CONSTRAINTS VALIDATION ---
+        # Example rules: Minimum 8 characters, at least one letter and one number
+        if len(new_password) < 8:
+            return render_template("general/reset_password.html",
+                                    error_popup="Password must be at least 8 characters long!")
+
+        if not re.search(r"[A-Za-z]", new_password) or not re.search(r"[0-9]", new_password):
+            return render_template("general/reset_password.html",
+                                     error_popup="Password must contain at least one letter and one number!")
+
         email = session.get('pending_email')
         update_password(email, new_password)
 
@@ -403,6 +413,18 @@ def signup():
             return render_template(
                 "general/signup.html",
                 error_popup="Passwords do not match!"
+            )
+        # --- PASSWORD CONSTRAINTS VALIDATION ---
+        if len(password) < 8:
+            return render_template(
+                "general/signup.html",
+                error_popup="Password must be at least 8 characters long!"
+            )
+
+        if not re.search(r"[A-Za-z]", password) or not re.search(r"[0-9]", password):
+            return render_template(
+                "general/signup.html",
+                error_popup="Password must contain at least one letter and one number!"
             )
 
         if get_user_by_email(email):
