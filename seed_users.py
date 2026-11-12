@@ -25,7 +25,7 @@ import bcrypt
 from database import DB_PATH, _make_slots, get_db_connection, init_db
 
 SAMPLE_DOMAIN = "@gmail.com"
-SAMPLE_PASSWORD = "123"
+SAMPLE_PASSWORD = "Password123"
 TODAY = date.today()
 FMT = "%Y-%m-%d %H:%M:%S"
 

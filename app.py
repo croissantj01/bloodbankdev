@@ -27,8 +27,6 @@ load_dotenv()
 
 app = Flask(__name__)
 from flask.json.provider import DefaultJSONProvider
-import sqlite3
-
 
 class AppJSONProvider(DefaultJSONProvider):
     def default(self, o):
@@ -51,7 +49,6 @@ oauth = OAuth(app)
 import sqlite3
 
 def _hash_password(plain_password):
-    """bcrypt hash - the same format login() verifies with bcrypt.checkpw."""
     return bcrypt.hashpw(plain_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
@@ -168,7 +165,19 @@ def oauth_authorize(provider):
 
 @app.route("/")
 def index():
-    return render_template("general/index.html")
+    events = get_bookable_events()
+
+    conn = get_db_connection()
+    try:
+        blood_stock = conn.execute(
+            "SELECT blood_group, status, description FROM blood_inventory ORDER BY blood_group"
+        ).fetchall()
+    except Exception:
+        blood_stock = []
+    finally:
+        conn.close()
+
+    return render_template("general/index.html", events=events, blood_stock=blood_stock)
 
 
 @app.route("/about")
@@ -179,7 +188,7 @@ def about():
 import hmac
 
 
-def _start_otp_flow(email, name, role, next_page):
+def _start_otp_flow(email, name, role, next_page, organisation=None):
     """Store the pending login in the session, email the OTP, show the verify page."""
     otp = str(random.randint(100000, 999999))
 
@@ -188,6 +197,7 @@ def _start_otp_flow(email, name, role, next_page):
     session['pending_name'] = name
     session['pending_role'] = role
     session['next_page'] = next_page
+    session['pending_organisation'] = organisation  # <--- Store pending org here
 
     send_otp_email(email, otp)
     return render_template("general/verification.html")
@@ -237,7 +247,7 @@ def login():
         finally:
             conn.close()
 
-        return _start_otp_flow(email, "Admin", "admin", next_page)
+        return _start_otp_flow(email, "Admin", "admin", next_page, organisation=None)
 
     # ---------- Normal users (donor, hospital staff, blood bank staff) ----------
     user = get_user_by_email(email)
@@ -271,7 +281,17 @@ def login():
     role = user['role'] if ('role' in user_keys and user['role']) else 'donor'
     user_role = str(role).strip().lower().replace(' ', '_')
 
-    return _start_otp_flow(email, user_name, user_role, next_page)
+    # Pull the staff member's organisation (hospital / blood bank) from their user row.
+    # Tries the likely column names; change the list if yours is different.
+    organisation = None
+    for column in ('organisation', 'organization', 'hospital_name'):
+        if column in user_keys and user[column]:
+            organisation = str(user[column]).strip()
+            break
+
+    print("DEBUG -> Login organisation for", email, ":", repr(organisation))
+
+    return _start_otp_flow(email, user_name, user_role, next_page, organisation=organisation)
 
 @app.route("/check_email", methods=["GET", "POST"])
 def check_email():
@@ -475,6 +495,7 @@ def verification():
         if not register_user(email, pending_password):
             session.pop("pending_password", None)
             session.pop("pending_email", None)
+            session.pop("pending_organisation", None)
 
             return render_template(
                 "general/signup.html",
@@ -486,16 +507,19 @@ def verification():
 
         session.pop("pending_password", None)
         session.pop("pending_email", None)
+        session.pop("pending_organisation", None)
 
         session["user_email"] = email
         session["user_name"] = "User"
         session["role"] = "donor"
+        session["organisation"] = None
 
     else:
         # Handle other OTP flows that already have a pending user
         email = session.pop("pending_email", None)
         name = session.pop("pending_name", "User")
         role = session.pop("pending_role", "donor")
+        organisation = session.pop("pending_organisation", None)  # <-- the fix
 
         if not email:
             return redirect(url_for("login"))
@@ -503,6 +527,7 @@ def verification():
         session["user_email"] = email
         session["user_name"] = name
         session["role"] = role
+        session["organisation"] = organisation  # <-- the fix
 
     target_page = session.pop("next_page", None)
 
@@ -1028,8 +1053,28 @@ def reject_blood_request(request_id):
 
 @app.route('/view_blood_request', methods=['GET'])
 def view_blood_request():
-    conn = get_db_connection()
+    user_organisation = session.get('organisation')
 
+    # Fallback: look it up from the logged-in user's email
+    if not user_organisation:
+        email = session.get('user_email')
+        if not email:
+            return redirect(url_for('login'))
+
+        user = get_user_by_email(email)
+        if user and 'organisation' in user.keys() and user['organisation']:
+            user_organisation = str(user['organisation']).strip()
+            session['organisation'] = user_organisation
+
+    print("DEBUG -> Organisation used for requests:", repr(user_organisation))
+
+    if not user_organisation:
+        return render_template(
+            "hospital_staff/view_blood_request.html",
+            requests=[]
+        )
+
+    conn = get_db_connection()
     try:
         requests = conn.execute("""
             SELECT
@@ -1041,8 +1086,9 @@ def view_blood_request():
                 reason,
                 status
             FROM blood_requests
+            WHERE TRIM(hospital_name) = TRIM(?) COLLATE NOCASE
             ORDER BY request_date DESC
-        """).fetchall()
+        """, (user_organisation,)).fetchall()
     finally:
         conn.close()
 
@@ -1604,7 +1650,6 @@ def view_user(user_id):
     if details is None:
         return jsonify(ok=False, error="User not found."), 404
     return jsonify(ok=True, user=details)
-
 
 @app.route("/index")
 def logout():

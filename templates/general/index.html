@@ -39,8 +39,8 @@
             </div>
 
             <div class="banner-lines">
-                <span class="line-active" onclick="set-slide(0)"></span>
-                <span class="line" onclick="set-slide(1)"></span>
+                <span class="line active" onclick="set_banner(0)"></span>
+                <span class="line" onclick="set_banner(1)"></span>
             </div>
         </div>
 
@@ -56,29 +56,29 @@
             </div>
 
             <div class="all-events">
-                    <div class="event-card">
-                        <div class="event-image">
+                {% for event in events %}
+                <div class="event-card">
+                    <div class="event-image">
+                        {% if event.image %}
+                            {% set img_path = event.image if event.image.startswith('uploads/') else 'uploads/events/' + event.image %}
+                            <img src="{{ url_for('static', filename=img_path) }}"
+                                 onerror="this.onerror=null; this.src='{{ url_for('static', filename='images/event1picture.jpg') }}';"
+                                 alt="{{ event.name }}">
+                        {% else %}
                             <img src="{{ url_for('static', filename='images/event1picture.jpg') }}"
-                                 alt="Event 1">
-                            <div class="event-date">Oct 18</div>
-                        </div>
-                        <div class="event-info">
-                            <h3>Event 1</h3>
-                            <p><i class="fa-solid fa-location-dot"></i> Area 1</p>
-                        </div>
+                                 alt="{{ event.name }}">
+                        {% endif %}
+                        <div class="event-date">{{ event.event_date }}</div>
                     </div>
-                    <div class="event-card">
-                        <div class="event-image">
-                            <img src="{{ url_for('static', filename='images/event2picture.jpg') }}"
-                                 alt="Event 2">
-                            <div class="event-date">Oct 18</div>
-                        </div>
-                        <div class="event-info">
-                            <h3>Event 2</h3>
-                            <p><i class="fa-solid fa-location-dot"></i> Area 2</p>
-                        </div>
+                    <div class="event-info">
+                        <h3>{{ event.name }}</h3>
+                        <p><i class="fa-solid fa-location-dot"></i> {{ event.location }}</p>
                     </div>
                 </div>
+                {% else %}
+                <p>No upcoming events found.</p>
+                {% endfor %}
+            </div>
         </section>
 
         <div class="side-widget-list">
@@ -114,12 +114,11 @@
                 </div>
 
                 <a href="{{ url_for('quiz', next='quiz') }}" class="take-quiz">Take the full quiz</a>
-
             </section>
 
             <section class="milestone-container">
                 <div class="milestone-header">
-                    <h2>Donor Rewards & Perks </h2>
+                    <h2>Donor Rewards & Perks</h2>
                 </div>
 
                 <div class="milestones">
@@ -156,26 +155,37 @@
                 <a href="{{ url_for('signup', next='rewards') }}" class="milestone-button">Claim now</a>
             </section>
 
-            <section class ="blood-shortage">
+            <section class="blood-shortage">
                 <div class="blood-shortage-header">
                     <h2>Blood Inventory Availability</h2>
                 </div>
                 <div class="blood-group-container">
-                    <div class="blood-group-type critical">
-                        <div class="blood-group">
-                            <span class="blood-type">A- Negative</span>
-                            <span class="status">Critical</span>
+                    {% if blood_stock %}
+                        {% for stock in blood_stock %}
+                        <div class="blood-group-type {{ stock.status | lower }}">
+                            <div class="blood-group">
+                                <span class="blood-type">{{ stock.blood_group }}</span>
+                                <span class="status">{{ stock.status }}</span>
+                            </div>
+                            <p>{{ stock.description or 'Sufficient inventory' }}</p>
                         </div>
-                        <p>Sufficient inventory</p>
-                    </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="blood-group-type critical">
+                            <div class="blood-group">
+                                <span class="blood-type">A- Negative</span>
+                                <span class="status">Critical</span>
+                            </div>
+                            <p>Sufficient inventory</p>
+                        </div>
 
-                    <div class="blood-group-type low">
-                        <div class="blood-group">
-                            <span class="blood-type">B+ Positive</span>
-                            <span class="status">Low</span>
+                        <div class="blood-group-type low">
+                            <div class="blood-group">
+                                <span class="blood-type">B+ Positive</span>
+                                <span class="status">Low</span>
+                            </div>
+                            <p>Sufficient inventory</p>
                         </div>
-                        <p>Sufficient inventory</p>
-                    </div>
 
                         <div class="blood-group-type stable">
                             <div class="blood-group">
@@ -184,13 +194,12 @@
                             </div>
                             <p>Sufficient inventory</p>
                         </div>
+                    {% endif %}
                 </div>
             </section>
         </div>
-
     </div>
 </div>
-
 
 <script>
     let current_banner = 0;
@@ -225,5 +234,4 @@
         change_banner(1);
     }, 20000);
 </script>
-
 {% endblock %}
