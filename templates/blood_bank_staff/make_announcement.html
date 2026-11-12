@@ -22,16 +22,11 @@
 
                 <p>{{ message }}</p>
 
-                <button type="button"
-                        class="staff-btn"
-                        onclick="closeAnnouncementPopup()">
-                    OK
-                </button>
+                <button type="button" class="staff-btn" onclick="closeAnnouncementPopup()">OK</button>
             </div>
         </div>
     {% endfor %}
 {% endwith %}
-
 
     <h1>Make Announcement</h1>
 
@@ -39,15 +34,13 @@
         Create announcements to share important information with users.
     </p>
 
-    <form method="POST"
-          enctype="multipart/form-data"
-          class="staff-form announcement-form">
+    <form method="POST" enctype="multipart/form-data" class="staff-form announcement-form">
 
         <div class="announcement-layout">
 
-        <div class="staff-panel announcement-form-panel">
+            <div class="staff-panel announcement-form-panel">
 
-            <h2>Create New Announcement</h2>
+                <h2>Create New Announcement</h2>
 
                 <div class="staff-form-group">
                     <label for="title">Announcement Title</label>
@@ -84,39 +77,71 @@
                     Clear Form
                 </button>
 
+            </div>
 
+            <div class="staff-panel announcement-image-panel">
 
-        </div>
+                <h2>Announcement Image</h2>
 
-        <div class="staff-panel announcement-image-panel">
+                <input type="file" id="announcement_image" name="announcement_image"
+                       accept="image/png, image/jpeg">
 
-            <h2>Announcement Image</h2>
+                <div class="image-preview">
+                    <img id="image_preview" src="" alt="Announcement image preview" hidden>
+                    <p id="preview_message">Your selected image will appear here.</p>
+                </div>
 
-            <input
-                type="file"
-                id="announcement_image"
-                name="announcement_image"
-                accept="image/png, image/jpeg"
-            >
-
-            <div class="image-preview">
-                <img
-                    id="image_preview"
-                    src=""
-                    alt="Announcement image preview"
-                    hidden
-                >
-
-                <p id="preview_message">
-                    Your selected image will appear here.
-                </p>
             </div>
 
         </div>
 
-        </div>
-
     </form>
+
+    <!-- All announcements -->
+    <div class="staff-panel" style="margin-top: 30px;">
+        <h2>Announcements</h2>
+
+        {% if announcements %}
+        <div style="overflow-x: auto;">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Category</th>
+                        <th>Message</th>
+                        <th>Image</th>
+                        <th>Posted</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in announcements %}
+                    <tr>
+                        <td><strong>{{ a.title }}</strong></td>
+                        <td>{{ a.category }}</td>
+                        <td style="max-width: 320px;">{{ a.message }}</td>
+                        <td>
+                            {% if a.image_filename %}
+                            <img src="{{ url_for('static', filename='uploads/announcements/' ~ a.image_filename) }}"
+                                 alt="" style="height: 48px; border-radius: 6px;">
+                            {% else %}—{% endif %}
+                        </td>
+                        <td>{{ (a.created_at or '')[:16] }}</td>
+                        <td>
+                            <a href="{{ url_for('edit_announcement', announcement_id=a.id) }}"
+                               class="staff-btn staff-btn-outline">
+                                <i class="fa-solid fa-pen"></i> Edit
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">No announcements yet.</p>
+        {% endif %}
+    </div>
 
 </div>
 
@@ -145,17 +170,11 @@
         imagePreview.hidden = false;
         previewMessage.hidden = true;
     });
-</script>
 
-<script>
     function closeAnnouncementPopup() {
         const popup = document.getElementById("announcementPopup");
-
-        if (popup) {
-            popup.remove();
-        }
+        if (popup) popup.remove();
     }
 </script>
 
 {% endblock %}
-

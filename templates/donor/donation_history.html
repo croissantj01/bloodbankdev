@@ -259,4 +259,80 @@
     </div>
 </div>
 
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    var tbody     = document.getElementById('historyTableBody');
+    var rows      = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+    var filters   = document.querySelectorAll('.history-filter');
+    var emptyBox  = document.getElementById('historyEmpty');
+    var emptyText = emptyBox.querySelector('p');
+    var countEl   = document.getElementById('historyCount');
+    var modalEl   = document.getElementById('historyDetailModal');
+
+    /* ---------- Completed / Cancelled / All filter ---------- */
+    function applyFilter(filter) {
+        var shown = 0;
+
+        rows.forEach(function (row) {
+            var match = filter === 'all' || row.dataset.status === filter;
+            row.style.display = match ? '' : 'none';
+            if (match) shown++;
+        });
+
+        filters.forEach(function (btn) {
+            var active = btn.dataset.filter === filter;
+            btn.classList.toggle('active', active);
+            btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+
+        if (rows.length === 0) {
+            emptyText.textContent = 'Your donations will appear here once they are recorded.';
+        } else if (shown === 0) {
+            emptyText.textContent = 'No ' + (filter === 'all' ? '' : filter + ' ') +
+                                    'records to show. Try another filter.';
+        }
+        emptyBox.hidden = shown > 0;
+
+        countEl.textContent = 'Showing ' + shown + ' record' + (shown === 1 ? '' : 's');
+    }
+
+    filters.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            applyFilter(btn.dataset.filter);
+        });
+    });
+
+    /* ---------- View button -> details popup ---------- */
+    function setText(id, value) {
+        document.getElementById(id).textContent = value && value.trim() ? value : '\u2014';
+    }
+
+    tbody.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-view]');
+        if (!btn) return;
+
+        var row    = btn.closest('tr');
+        var status = row.dataset.status === 'completed' ? 'Completed' : 'Cancelled';
+        var dateEl = row.querySelector('td strong');
+
+        setText('detailEvent',    row.dataset.title);
+        setText('detailStatus',   status);
+        setText('detailDate',     dateEl ? dateEl.textContent : row.dataset.date);
+        setText('detailTime',     row.dataset.time);
+        setText('detailLocation', row.dataset.location);   /* blood group */
+        setText('detailType',     row.dataset.type);       /* volume */
+        setText('detailNotes',    row.dataset.notes);
+
+        if (window.bootstrap && window.bootstrap.Modal) {
+            window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        } else {
+            console.error('Bootstrap JS is not loaded, so the details popup cannot open.');
+        }
+    });
+
+    applyFilter('all');
+});
+</script>
+
 {% endblock %}

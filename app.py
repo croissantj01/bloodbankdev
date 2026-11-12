@@ -162,87 +162,102 @@ def about():
     return render_template("general/about.html")
 
 
+import hmac
+
+
+def _start_otp_flow(email, name, role, next_page):
+    """Store the pending login in the session, email the OTP, show the verify page."""
+    otp = str(random.randint(100000, 999999))
+
+    session['pending_email'] = email
+    session['pending_otp'] = otp
+    session['pending_name'] = name
+    session['pending_role'] = role
+    session['next_page'] = next_page
+
+    send_otp_email(email, otp)
+    return render_template("general/verification.html")
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     session.pop('is_reset_flow', None)
     next_page = request.args.get('next') or request.form.get('next')
 
-    if request.method == "POST":
-        email = (request.form.get("email") or "").strip().lower()
-        password = (request.form.get("password") or "").strip()
+    if request.method == "GET":
+        return render_template("general/login.html", next=next_page)
 
-        admin_email = (os.getenv("ADMIN_EMAIL") or "").strip().lower()
-        admin_password = os.getenv("ADMIN_PASSWORD") or ""
+    email = (request.form.get("email") or "").strip().lower()
+    password = (request.form.get("password") or "").strip()
 
-        if email == admin_email and password == admin_password:
-            conn = get_db_connection()
-            existing_admin = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+    def fail(message="Invalid credentials!"):
+        flash(message, "error")
+        return render_template("general/login.html", next=next_page)
+
+    if not email or not password:
+        return fail()
+
+    # ---------- Admin login (credentials from environment variables) ----------
+    admin_email = (os.getenv("ADMIN_EMAIL") or "").strip().lower()
+    admin_password = os.getenv("ADMIN_PASSWORD") or ""
+
+    if admin_email and email == admin_email:
+        password_ok = hmac.compare_digest(
+            password.encode("utf-8"), admin_password.encode("utf-8")
+        )
+        if not password_ok:
+            return fail()
+
+        # Make sure the admin has a row in users, so notifications work
+        conn = get_db_connection()
+        try:
+            existing_admin = conn.execute(
+                "SELECT id FROM users WHERE email = ?", (email,)
+            ).fetchone()
             if not existing_admin:
                 conn.execute("""
                     INSERT INTO users (full_name, email, hashed_password, role, created_at)
                     VALUES (?, ?, ?, 'admin', datetime('now'))
                 """, ("Admin", email, "DUMMY_ADMIN_HASH"))
                 conn.commit()
+        finally:
             conn.close()
 
-            otp = str(random.randint(100000, 999999))
+        return _start_otp_flow(email, "Admin", "admin", next_page)
 
-            session['pending_email'] = email
-            session['pending_otp'] = otp
-            session['pending_name'] = "Admin"
-            session['pending_role'] = "admin"
-            session['next_page'] = next_page
+    # ---------- Normal users (donor, hospital staff, blood bank staff) ----------
+    user = get_user_by_email(email)
+    if not user:
+        return fail()
 
-            send_otp_email(email, otp)
+    user_keys = user.keys()
+    stored_hash = user['hashed_password'] if 'hashed_password' in user_keys else None
+    if not stored_hash:
+        return fail()
 
-            return render_template("general/verification.html")
+    try:
+        hashed_bytes = stored_hash.encode('utf-8') if isinstance(stored_hash, str) else stored_hash
+        password_ok = bcrypt.checkpw(password.encode('utf-8'), hashed_bytes)
+    except ValueError:
+        # Malformed or placeholder hash
+        password_ok = False
 
-        user = get_user_by_email(email)
+    if not password_ok:
+        return fail()
 
-        if not user:
-            flash("Invalid credentials!", "error")
-            return render_template("general/login.html")
+    account_status = user['status'] if 'status' in user_keys else 'Active'
+    if str(account_status or 'Active').strip().lower() == 'inactive':
+        return render_template(
+            "general/login.html",
+            next=next_page,
+            error_popup="Your account has been deactivated. Please contact the administrator."
+        )
 
-        stored_hash = user['hashed_password'] if isinstance(user, dict) or hasattr(user, 'keys') else None
+    user_name = user['full_name'] if ('full_name' in user_keys and user['full_name']) else email
+    role = user['role'] if ('role' in user_keys and user['role']) else 'donor'
+    user_role = str(role).strip().lower().replace(' ', '_')
 
-        if not user:
-            return render_template("general/login.html", error_popup="Invalid credentials.")
-
-        stored_hash = user['hashed_password'] if isinstance(user, dict) or hasattr(user, 'keys') else None
-
-        if stored_hash:
-            password_bytes = password.encode('utf-8')
-            hashed_bytes = stored_hash.encode('utf-8') if isinstance(stored_hash, str) else stored_hash
-            match_result = bcrypt.checkpw(password_bytes, hashed_bytes)
-
-            if match_result:
-                account_status = user['status'] if 'status' in user.keys() else 'Active'
-                if str(account_status or 'Active').strip().lower() == 'inactive':
-                    return render_template(
-                        "general/login.html",
-                        error_popup="Your account has been deactivated. Please contact the administrator.")
-
-                otp = str(random.randint(100000, 999999))
-
-                user_name = user['full_name'] if ('full_name' in user.keys() and user['full_name']) else email
-                role = user['role'] if ('role' in user.keys() and user['role']) else 'donor'
-                user_role = str(role).strip().lower().replace(' ', '_')
-
-                session['pending_email'] = email
-                session['pending_otp'] = otp
-                session['next_page'] = next_page
-                session['pending_name'] = user_name
-                session['pending_role'] = user_role
-
-                send_otp_email(email, otp)
-
-                return render_template("general/verification.html")
-
-        flash("Invalid credentials!", "error")
-        return render_template("general/login.html")
-
-    return render_template("general/login.html", next=next_page)
-
+    return _start_otp_flow(email, user_name, user_role, next_page)
 
 @app.route("/check_email", methods=["GET", "POST"])
 def check_email():
@@ -604,47 +619,67 @@ def _format_volume(value):
 
 @app.context_processor
 def inject_notifications():
-    email = session.get('user_email')
-    if not email:
-        return dict(unread_notifications=[])
+    empty = dict(unread_notifications=[], unread_count=0)
+
+    user_id = _get_user_id_from_session()
+    if not user_id:
+        return empty
 
     conn = get_db_connection()
     conn.row_factory = sqlite3.Row
+    try:
+        notifications = conn.execute("""
+            SELECT * FROM notifications
+            WHERE user_id = ? AND is_read = 0
+            ORDER BY id DESC LIMIT 5
+        """, (user_id,)).fetchall()
 
-    user = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
-    if not user:
+        unread_count = conn.execute(
+            "SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0",
+            (user_id,)
+        ).fetchone()[0]
+    except Exception:
+        return empty
+    finally:
         conn.close()
-        return dict(unread_notifications=[])
 
-    notifications = conn.execute("""
-        SELECT * FROM notifications 
-        WHERE user_id = ? AND is_read = 0
-        ORDER BY id DESC LIMIT 5
-    """, (user['id'],)).fetchall()
-    conn.close()
+    return dict(unread_notifications=notifications, unread_count=unread_count)
 
-    return dict(unread_notifications=notifications)
 
+def _get_user_id_from_session():
+    """Return the logged-in user's users.id, or None."""
+    email = (session.get('user_email') or "").strip().lower()
+    if not email:
+        return None
+
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+    try:
+        user = conn.execute(
+            "SELECT id FROM users WHERE email = ?", (email,)
+        ).fetchone()
+    finally:
+        conn.close()
+    return user['id'] if user else None
 
 @app.route('/notifications/read/<int:notif_id>', methods=['POST'])
 def mark_notification_read(notif_id):
-    email = session.get('user_email')
-    if not email:
+    user_id = _get_user_id_from_session()
+    if not user_id:
         return redirect(url_for('login'))
 
     conn = get_db_connection()
-    conn.row_factory = sqlite3.Row
-
-    user = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
-    if user:
+    try:
         conn.execute("""
-            UPDATE notifications SET is_read = 1 
+            UPDATE notifications SET is_read = 1
             WHERE id = ? AND user_id = ?
-        """, (notif_id, user['id']))
+        """, (notif_id, user_id))
         conn.commit()
+    finally:
+        conn.close()
 
-    conn.close()
     return redirect(request.referrer or url_for('index'))
+
 
 @app.route('/donation_history')
 def donation_history():
@@ -665,9 +700,9 @@ def donation_history():
     return render_template("donor/donation_history.html", **history)
 
 
-@app.route('/donor_announcements', methods=['GET', 'POST'])
-def donor_announcements():
-    return render_template("donor/donor_announcements.html")
+@app.route('/donor_announcement', methods=['GET', 'POST'])
+def donor_announcement():
+    return render_template("donor/donor_announcement.html")
 
 # --- HELPER FUNCTIONS GO HERE ---
 def _date_clause(column_name, from_date, to_date):
@@ -908,19 +943,32 @@ def blood_request():
 @app.route('/approve_blood_request/<int:request_id>', methods=['POST'])
 def approve_blood_request(request_id):
     conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
 
     try:
-        conn.execute("""
+        req = conn.execute("""
+            SELECT hospital_name, blood_group, units_requested
+            FROM blood_requests
+            WHERE request_id = ? AND status = 'Pending'
+        """, (request_id,)).fetchone()
+
+        cur = conn.execute("""
             UPDATE blood_requests
             SET status = 'Approved'
             WHERE request_id = ?
               AND status = 'Pending'
         """, (request_id,))
-
         conn.commit()
-
+        changed = cur.rowcount > 0
     finally:
         conn.close()
+
+    if changed and req:
+        create_notification(
+            "Blood Request Approved",
+            f"The request from {req['hospital_name']} for {req['units_requested']} unit(s) of {req['blood_group']} was approved.",
+            target_role='hospital_staff'
+        )
 
     return redirect(url_for('blood_request'))
 
@@ -928,19 +976,32 @@ def approve_blood_request(request_id):
 @app.route('/reject_blood_request/<int:request_id>', methods=['POST'])
 def reject_blood_request(request_id):
     conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
 
     try:
-        conn.execute("""
+        req = conn.execute("""
+            SELECT hospital_name, blood_group, units_requested
+            FROM blood_requests
+            WHERE request_id = ? AND status = 'Pending'
+        """, (request_id,)).fetchone()
+
+        cur = conn.execute("""
             UPDATE blood_requests
             SET status = 'Rejected'
             WHERE request_id = ?
               AND status = 'Pending'
         """, (request_id,))
-
         conn.commit()
-
+        changed = cur.rowcount > 0
     finally:
         conn.close()
+
+    if changed and req:
+        create_notification(
+            "Blood Request Rejected",
+            f"The request from {req['hospital_name']} for {req['units_requested']} unit(s) of {req['blood_group']} was rejected.",
+            target_role='hospital_staff'
+        )
 
     return redirect(url_for('blood_request'))
 
@@ -1131,6 +1192,31 @@ def fmt_date(value, fmt='%d %b %Y'):
     return value.strftime(fmt)
 
 
+def _save_announcement_image(image):
+    """Validate and save an uploaded image. Returns the new filename, or None if no image.
+    Raises ValueError for an invalid file type."""
+    if not image or not image.filename:
+        return None
+
+    if image.mimetype not in ('image/jpeg', 'image/png'):
+        raise ValueError('Please upload a JPG or PNG image.')
+
+    name, ext = os.path.splitext(secure_filename(image.filename))
+    filename = f"{name}_{os.urandom(4).hex()}{ext}"
+
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    image.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+    return filename
+
+
+def _delete_announcement_image(filename):
+    if not filename:
+        return
+    path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    if os.path.exists(path):
+        os.remove(path)
+
+
 @app.route('/make_announcement', methods=['GET', 'POST'])
 def make_announcement():
     if request.method == 'POST':
@@ -1138,33 +1224,18 @@ def make_announcement():
         category = request.form.get('category', '').strip()
         message = request.form.get('message', '').strip()
 
-        image = request.files.get('announcement_image')
-        image_filename = None
-
-        # Validate required fields
         if not title or not category or not message:
             flash('Please fill in all required fields.', 'error')
             return redirect(url_for('make_announcement'))
 
-        # Handle optional image upload
-        if image and image.filename:
-            if image.mimetype not in ('image/jpeg', 'image/png'):
-                flash('Please upload a JPG or PNG image.', 'error')
-                return redirect(url_for('make_announcement'))
-
-            image_filename = secure_filename(image.filename)
-
-            # Avoid overwriting an existing image with the same filename
-            name, extension = os.path.splitext(image_filename)
-            image_filename = f"{name}_{os.urandom(4).hex()}{extension}"
-
-            image.save(
-                os.path.join(app.config['UPLOAD_FOLDER'], image_filename)
-            )
+        try:
+            image_filename = _save_announcement_image(request.files.get('announcement_image'))
+        except ValueError as exc:
+            flash(str(exc), 'error')
+            return redirect(url_for('make_announcement'))
 
         staff_name = session.get('user_name') or 'Staff member'
 
-        # Save announcement to the existing SQLite database
         conn = get_db_connection()
         try:
             conn.execute(
@@ -1178,15 +1249,7 @@ def make_announcement():
             conn.commit()
         except Exception:
             conn.rollback()
-
-            # Remove uploaded image if saving the announcement fails
-            if image_filename:
-                image_path = os.path.join(
-                    app.config['UPLOAD_FOLDER'], image_filename
-                )
-                if os.path.exists(image_path):
-                    os.remove(image_path)
-
+            _delete_announcement_image(image_filename)
             flash('Unable to publish the announcement. Please try again.', 'error')
             return redirect(url_for('make_announcement'))
         finally:
@@ -1194,16 +1257,96 @@ def make_announcement():
 
         flash('Announcement published successfully!', 'success')
 
-        create_notification(
-            "New Announcement Posted",
-            f"{staff_name} posted a new announcement: '{title}'",
-            target_role='all'
-        )
+        for role in ('donor', 'admin'):
+            create_notification(
+                "New Announcement Posted",
+                f"{staff_name} posted a new announcement: '{title}'",
+                target_role=role
+            )
 
         return redirect(url_for('make_announcement'))
 
-    return render_template('blood_bank_staff/make_announcement.html')
+    # GET: form + list of all announcements
+    conn = get_db_connection()
+    try:
+        announcements = conn.execute("""
+            SELECT announcement_id AS id, title, category, message,
+                   image_filename, status, created_at
+            FROM announcements
+            ORDER BY announcement_id DESC
+        """).fetchall()
+    finally:
+        conn.close()
 
+    return render_template(
+        'blood_bank_staff/make_announcement.html',
+        announcements=announcements
+    )
+
+
+@app.route('/edit_announcement/<int:announcement_id>', methods=['GET', 'POST'])
+def edit_announcement(announcement_id):
+    if session.get('role') != 'blood_bank_staff':
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    try:
+        announcement = conn.execute("""
+            SELECT announcement_id AS id, title, category, message, image_filename
+            FROM announcements
+            WHERE announcement_id = ?
+        """, (announcement_id,)).fetchone()
+    finally:
+        conn.close()
+
+    if not announcement:
+        flash('Announcement not found.', 'error')
+        return redirect(url_for('make_announcement'))
+
+    if request.method == 'POST':
+        title = request.form.get('title', '').strip()
+        category = request.form.get('category', '').strip()
+        message = request.form.get('message', '').strip()
+
+        if not title or not category or not message:
+            flash('Please fill in all required fields.', 'error')
+            return redirect(url_for('edit_announcement', announcement_id=announcement_id))
+
+        try:
+            new_image = _save_announcement_image(request.files.get('announcement_image'))
+        except ValueError as exc:
+            flash(str(exc), 'error')
+            return redirect(url_for('edit_announcement', announcement_id=announcement_id))
+
+        final_image = new_image or announcement['image_filename']
+
+        conn = get_db_connection()
+        try:
+            conn.execute("""
+                UPDATE announcements
+                SET title = ?, category = ?, message = ?, image_filename = ?
+                WHERE announcement_id = ?
+            """, (title, category, message, final_image, announcement_id))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            _delete_announcement_image(new_image)
+            flash('Unable to update the announcement. Please try again.', 'error')
+            return redirect(url_for('edit_announcement', announcement_id=announcement_id))
+        finally:
+            conn.close()
+
+        # Remove the replaced image only after the update succeeded
+        if new_image:
+            _delete_announcement_image(announcement['image_filename'])
+
+        flash('Announcement updated successfully!', 'success')
+        return redirect(url_for('make_announcement'))
+
+    return render_template(
+        'blood_bank_staff/edit_announcement.html',
+        announcement=announcement
+    )
 
 @app.route("/donor_dashboard", methods=['GET', 'POST'])
 def donor_dashboard():
@@ -1564,9 +1707,13 @@ def manage_events():
                 return redirect(url_for('manage_events'))
 
             if action == 'add':
-                # Requires add_event() to support the image parameter.
                 add_event(*data, image=image_filename)
                 flash("Event added.", "success")
+                create_notification(
+                    "New Blood Donation Event",
+                    "A new donation event has been scheduled. Check the Appointment page to book a slot.",
+                    target_role='donor'
+                )
 
 
             elif event_id:
@@ -1761,6 +1908,7 @@ def add_reward():
 
     stock_val = int(stock) if stock and stock.strip() != '' else None
 
+    created = False
     conn = get_db_connection()
     try:
         conn.execute("""
@@ -1768,11 +1916,19 @@ def add_reward():
             VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
         """, (name, description, int(points_cost), stock_val, status, needs_phone))
         conn.commit()
+        created = True
         flash(f"Reward '{name}' added successfully!", "success")
     except Exception as e:
         flash(f"Error adding reward: {str(e)}", "error")
     finally:
         conn.close()
+
+    if created and status == 'Active':
+        create_notification(
+            "New Reward Available",
+            f"A new reward is available: {name} ({points_cost} points).",
+            target_role='donor'
+        )
 
     return redirect(url_for('add_rewards'))
 
@@ -2064,8 +2220,6 @@ def book_appointment():
     if response:
         return response
 
-    print("FORM DATA RECEIVED:", request.form)
-
     event_id = request.form.get('event_id', type=int)
     appointment_date = (request.form.get('appointment_date') or '').strip()
     appt_time = (request.form.get('appointment_time') or '').strip()
@@ -2076,6 +2230,21 @@ def book_appointment():
     else:
         ok, message = create_appointment(donor['donor_id'], event_id, appointment_date, appt_time, notes)
         flash(message, "success" if ok else "error")
+
+        if ok:
+            user = get_user_by_email(session.get('user_email'))
+            if user:
+                create_notification(
+                    "Appointment Confirmed",
+                    f"Your appointment on {appointment_date} at {appt_time} is booked.",
+                    specific_user_id=user['id']
+                )
+
+            create_notification(
+                "New Appointment Booked",
+                f"A donor booked an appointment on {appointment_date} at {appt_time}.",
+                target_role='blood_bank_staff'
+            )
 
     return redirect(url_for('make_appointment'))
 
@@ -2090,6 +2259,13 @@ def cancel_appointment():
 
     if appointment_id and cancel_donor_appointment(appointment_id, donor['donor_id']):
         flash("Appointment cancelled.", "success")
+
+        donor_name = donor['donor_name'] if 'donor_name' in donor.keys() else 'A donor'
+        create_notification(
+            "Appointment Cancelled",
+            f"{donor_name} cancelled their appointment.",
+            target_role='blood_bank_staff'
+        )
     else:
         flash("Appointment not found.", "error")
 
@@ -2812,7 +2988,6 @@ def admin_delete_user(user_id):
 
 @app.route("/blood_bank_staff_dashboard", methods=["GET", "POST"])
 def blood_bank_staff_dashboard():
-    flash("Log in successful! Welcome!", "success")
 
     return render_template("blood_bank_staff/blood_bank_staff_dashboard.html")
 
@@ -2841,24 +3016,33 @@ def hospital_staff_blood_request():
                 error="Quantity must be at least 1 unit."
             )
 
-        conn = get_db_connection()
+        # Who is making the request
+        staff_id = _get_user_id_from_session()
+        if not staff_id:
+            return redirect(url_for('login'))
 
+        conn = get_db_connection()
         try:
             conn.execute("""
                 INSERT INTO blood_requests (
+                    staff_id,
                     hospital_name,
                     blood_group,
                     units_requested,
                     reason,
                     status
                 )
-                VALUES (?, ?, ?, ?, 'Pending')
-            """, (hospital_name, blood_group, quantity, reason))
-
+                VALUES (?, ?, ?, ?, ?, 'Pending')
+            """, (staff_id, hospital_name, blood_group, quantity, reason))
             conn.commit()
-
         finally:
             conn.close()
+
+        create_notification(
+            "New Blood Request",
+            f"{hospital_name} requested {quantity} unit(s) of {blood_group}.",
+            target_role='blood_bank_staff'
+        )
 
         return redirect(url_for('view_blood_request'))
 

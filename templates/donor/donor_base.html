@@ -38,27 +38,23 @@
                     <li><hr class="dropdown-divider"></li>
 
                     {% if unread_notifications and unread_notifications|length > 0 %}
-                        {% for notif in unread_notifications %}
-                            <li>
-                                <form action="{{ url_for('mark_notification_read', notif_id=notif.id) }}" method="POST" style="margin: 0;">
-                                    <button type="submit" class="dropdown-item small py-2 text-wrap d-block text-start border-0 bg-transparent">
-                                        <strong>{{ notif.title }}</strong>
-                                        <div class="text-muted small">{{ notif.message }}</div>
-                                    </button>
-                                </form>
-                            </li>
-                        {% endfor %}
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <form action="{{ url_for('mark_all_notifications_read') }}" method="POST" style="margin: 0; text-align: center;">
-                                <button type="submit" class="dropdown-item small text-primary fw-bold text-center" style="background: none; border: none; width: 100%;">
-                                    Mark all as read
-                                </button>
-                            </form>
-                        </li>
-                    {% else %}
-                        <li><span class="dropdown-item small text-muted text-center py-2">No new notifications</span></li>
-                    {% endif %}
+    {% for notif in unread_notifications %}
+        <li class="px-2 py-2">
+            <div class="small">
+                <strong>{{ notif.title }}</strong>
+                <div class="text-muted small text-wrap">{{ notif.message }}</div>
+            </div>
+            <form action="{{ url_for('mark_notification_read', notif_id=notif.id) }}" method="POST" class="mt-1 mb-0">
+                <button type="submit" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 0.75rem;">
+                    <i class="fa-solid fa-check"></i> Mark as read
+                </button>
+            </form>
+        </li>
+        {% if not loop.last %}<li><hr class="dropdown-divider my-1"></li>{% endif %}
+    {% endfor %}
+{% else %}
+    <li><span class="dropdown-item small text-muted text-center py-2">No new notifications</span></li>
+{% endif %}
                 </ul>
             </div>
 

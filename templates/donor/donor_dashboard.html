@@ -31,8 +31,8 @@
         Book an Appointment
     </a>
 {% else %}
-    <a href="{{ url_for('registration') }}" class="btn btn-primary-custom">
-        Register now
+    <a href="{{ url_for('make_appointment') }}" class="btn btn-primary-custom">
+        Book an Appointment
     </a>
 {% endif %}
 
@@ -158,7 +158,7 @@
                 </p>
             </div>
 
-            <a href="{{ url_for('donor_announcements') }}"
+            <a href="{{ url_for('announcements') }}"
                class="view-more d-none d-md-inline">
                 View All
                 <i class="fas fa-arrow-right ms-1"></i>
@@ -166,54 +166,10 @@
         </div>
 
 
-        <div class="row g-3">
-
-            {% if announcements %}
-
-                {% for announcement in announcements %}
-
-                <div class="col-12">
-                    <div class="announcement-box shadow-sm">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <h5 class="announcement-title mb-2">
-                                    {{ announcement.title }}
-                                </h5>
-                                <p class="announcement-details mb-2">
-                                    {{ announcement.details|truncate(150) }}
-                                </p>
-                            </div>
-                            <span class="announcement-icon">
-                                <i class="fas fa-bullhorn"></i>
-                            </span>
-                        </div>
-                        <small class="announcement-date">
-                            <i class="far fa-calendar me-1"></i>
-                            {{ announcement.date }}
-                        </small>
-                    </div>
-                </div>
-
-                {% endfor %}
-
-            {% else %}
-
-                <div class="col-12">
-                    <div class="announcement-box shadow-sm text-center">
-                        <i class="fas fa-bell-slash empty-icon"></i>
-                        <p class="text-muted mb-0">
-                            No announcements at the moment.
-                        </p>
-                    </div>
-                </div>
-
-            {% endif %}
-
-        </div>
 
         <!-- Mobile View All -->
         <div class="text-center mt-3 d-md-none">
-            <a href="{{ url_for('donor_announcements') }}"
+            <a href="{{ url_for('announcements') }}"
                class="btn btn-outline-primary-custom">
                 View All Announcements
                 <i class="fas fa-arrow-right ms-2"></i>

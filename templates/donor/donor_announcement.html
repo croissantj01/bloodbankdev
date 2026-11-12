@@ -61,15 +61,11 @@
                         </div>
 
                         <div class="px-3 py-3 flex-grow-1">
-                            <div class="card-img-wrapper">
-                                {% if item.image_filename %}
+                            {% if item.image_filename %}
+                                <div class="card-img-wrapper">
                                     <img src="{{ url_for('static', filename='uploads/announcements/' ~ item.image_filename) }}" alt="{{ item.title }}">
-                                {% else %}
-                                    <div class="placeholder-img d-flex align-items-center justify-content-center h-100 bg-light text-muted">
-                                        <i class="fa-solid fa-bullhorn fa-2x" style="color: #cbd5e1;"></i>
-                                    </div>
-                                {% endif %}
-                            </div>
+                                </div>
+                            {% endif %}
                         </div>
 
                         <div class="card-footer-action px-3 pb-3 pt-0">

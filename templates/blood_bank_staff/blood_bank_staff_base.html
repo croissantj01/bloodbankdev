@@ -30,51 +30,40 @@
         <div style="position: absolute; right: 40px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; gap: 15px; z-index: 1010;">
 
             <!-- Notification Bell Dropdown -->
-            <div class="dropdown">
-                <a href="#" class="text-secondary text-decoration-none position-relative dropdown-toggle" id="notificationDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 20px; padding: 6px 10px;">
-                    <i class="fa-solid fa-bell"></i>
-                    {% if unread_notifications and unread_notifications|length > 0 %}
-                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger text-white" style="font-size: 0.6rem; padding: 3px 5px; color: white;">
-                        {{ unread_notifications|length }}
-                    </span>
-                    {% endif %}
-                </a>
-                <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2 notification-dropdown" aria-labelledby="notificationDropdown" style="min-width: 300px; padding: 10px; border-radius: 12px;">
-                    <li><h6 class="dropdown-header fw-bold">Notifications</h6></li>
-                    <li><hr class="dropdown-divider"></li>
+            <!-- Notification Bell Dropdown -->
+<div class="dropdown">
+    <a href="#" class="text-secondary text-decoration-none position-relative dropdown-toggle" id="notificationDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 20px; padding: 6px 10px;">
+        <i class="fa-solid fa-bell"></i>
+        {% if unread_notifications and unread_notifications|length > 0 %}
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger text-white" style="font-size: 0.6rem; padding: 3px 5px; color: #ffffff !important;">
+            {{ unread_notifications|length }}
+        </span>
+        {% endif %}
+    </a>
+    <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2 notification-dropdown" aria-labelledby="notificationDropdown" style="min-width: 280px; padding: 10px; border-radius: 12px;">
+        <li><h6 class="dropdown-header fw-bold">Notifications</h6></li>
+        <li><hr class="dropdown-divider"></li>
 
-                    {% if unread_notifications and unread_notifications|length > 0 %}
-                        {% for notif in unread_notifications %}
-                            <li class="d-flex align-items-center justify-content-between px-2 py-1 border-bottom">
-                                <!-- Click to mark as read / disappear -->
-                                <form action="{{ url_for('mark_notification_read', notif_id=notif.id) }}" method="POST" style="margin: 0; flex-grow: 1;">
-                                    <button type="submit" class="dropdown-item small py-1 text-wrap" style="background: none; border: none; width: 100%; text-align: left;">
-                                        <strong>{{ notif.title }}</strong><br>
-                                        {{ notif.message }}
-                                    </button>
-                                </form>
-
-                                <!-- X Button to hide notification from UI (Data remains safely in database) -->
-                                <form action="{{ url_for('hide_notification', notif_id=notif.id) }}" method="POST" style="margin: 0; margin-left: 5px;">
-                                    <button type="submit" class="btn btn-sm text-muted p-1" title="Hide notification" style="background: none; border: none;">
-                                        <i class="fa-solid fa-xmark"></i>
-                                    </button>
-                                </form>
-                            </li>
-                        {% endfor %}
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <form action="{{ url_for('mark_all_notifications_read') }}" method="POST" style="margin: 0;">
-                                <button type="submit" class="dropdown-item text-center small text-primary fw-bold" style="background: none; border: none; width: 100%;">
-                                    Mark all as read
-                                </button>
-                            </form>
-                        </li>
-                    {% else %}
-                        <li><span class="dropdown-item small text-muted text-center py-2">No new notifications</span></li>
-                    {% endif %}
-                </ul>
+        {% if unread_notifications and unread_notifications|length > 0 %}
+    {% for notif in unread_notifications %}
+        <li class="px-2 py-2">
+            <div class="small">
+                <strong>{{ notif.title }}</strong>
+                <div class="text-muted small text-wrap">{{ notif.message }}</div>
             </div>
+            <form action="{{ url_for('mark_notification_read', notif_id=notif.id) }}" method="POST" class="mt-1 mb-0">
+                <button type="submit" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 0.75rem;">
+                    <i class="fa-solid fa-check"></i> Mark as read
+                </button>
+            </form>
+        </li>
+        {% if not loop.last %}<li><hr class="dropdown-divider my-1"></li>{% endif %}
+    {% endfor %}
+{% else %}
+    <li><span class="dropdown-item small text-muted text-center py-2">No new notifications</span></li>
+{% endif %}
+    </ul>
+</div>
 
             <!-- Mobile Toggler -->
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse"

@@ -1,0 +1,106 @@
+{% extends "blood_bank_staff/blood_bank_staff_base.html" %}
+{% block title %}Edit Announcement{% endblock %}
+{% block content %}
+
+<div class="staff-page">
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+        <div class="announcement-popup-overlay" id="announcementPopup">
+            <div class="announcement-popup">
+                <div class="popup-icon error-icon">
+                    <i class="fa-solid fa-exclamation"></i>
+                </div>
+                <h3>Notice</h3>
+                <p>{{ message }}</p>
+                <button type="button" class="staff-btn"
+                        onclick="document.getElementById('announcementPopup').remove()">OK</button>
+            </div>
+        </div>
+    {% endfor %}
+{% endwith %}
+
+    <h1>Edit Announcement</h1>
+
+    <p class="staff-subtitle">Update the announcement and save the changes.</p>
+
+    <form method="POST" enctype="multipart/form-data" class="staff-form announcement-form">
+
+        <div class="announcement-layout">
+
+            <div class="staff-panel announcement-form-panel">
+
+                <h2>Announcement Details</h2>
+
+                <div class="staff-form-group">
+                    <label for="title">Announcement Title</label>
+                    <input type="text" id="title" name="title"
+                           value="{{ announcement.title }}" required>
+                </div>
+
+                <div class="staff-form-group">
+                    <label for="category">Announcement Category</label>
+                    <select id="category" name="category" required>
+                        {% for c in ['Blood Donation', 'Blood Stock', 'Event', 'Urgent Notice', 'General'] %}
+                        <option value="{{ c }}" {% if announcement.category == c %}selected{% endif %}>{{ c }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="staff-form-group">
+                    <label for="message">Announcement Message</label>
+                    <textarea id="message" name="message" rows="6" required>{{ announcement.message }}</textarea>
+                </div>
+
+                <button type="submit" class="staff-btn">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Changes
+                </button>
+
+                <a href="{{ url_for('make_announcement') }}" class="staff-btn staff-btn-outline">Cancel</a>
+
+            </div>
+
+            <div class="staff-panel announcement-image-panel">
+
+                <h2>Announcement Image</h2>
+
+                <input type="file" id="announcement_image" name="announcement_image"
+                       accept="image/png, image/jpeg">
+
+                <div class="image-preview">
+                    {% if announcement.image_filename %}
+                    <img id="image_preview"
+                         src="{{ url_for('static', filename='uploads/announcements/' ~ announcement.image_filename) }}"
+                         alt="Current image">
+                    {% else %}
+                    <img id="image_preview" src="" alt="" hidden>
+                    {% endif %}
+                </div>
+
+                <small class="text-muted">Leave empty to keep the current image.</small>
+
+            </div>
+
+        </div>
+
+    </form>
+</div>
+
+<script>
+    document.getElementById("announcement_image").addEventListener("change", function () {
+        const file = this.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith("image/")) {
+            alert("Please select an image file.");
+            this.value = "";
+            return;
+        }
+
+        const preview = document.getElementById("image_preview");
+        preview.src = URL.createObjectURL(file);
+        preview.hidden = false;
+    });
+</script>
+
+{% endblock %}
